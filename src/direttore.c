@@ -31,24 +31,42 @@ void CreateProcess(const char *path, char *const argv[]) {
     }
 }
 
-int main(int argc, char *argv[]) {
-    printf("[Direttore] Avvio della simulazione. PID: %d\n", getpid());
-
-    // Creiamo la memoria condivisa
-    int shmID = shmget(IPC_PRIVATE, sizeof(SharedData), IPC_CREAT | 0666);
-    if (shmID < 0) {
-        printf("[Direttore] Creazione della memoria condivisa fallita.\n");
-        exit(EXIT_FAILURE);
-    }
-
-    // Colleghiamoci alla memoria condivisa
+// Colleghiamo la memoria condivisa ??? procedure standard -> Direttore trasformarlo in variabile per messaggi di errore dinamici?
+SharedData* shmAttac(int shmID) {
     SharedData *shm_ptr = (SharedData *)shmat(shmID, NULL, 0);
     if (shm_ptr == (void *) -1) {
         printf("[Direttore] Collegamento alla memoria condivisa fallito.\n");
         exit(EXIT_FAILURE);
     }
 
-    // Inizializziamo i semafori nella memoria condivisa
+    return shm_ptr;
+}
+
+// Creiamo la memoria condivisa
+int shmCreate(int token) {
+    int shmID = shmget(IPC_PRIVATE, sizeof(SharedData), IPC_CREAT | token);
+    if (shmID < 0) {
+        printf("[Direttore] Creazione della memoria condivisa fallita.\n");
+        exit(EXIT_FAILURE);
+    }
+
+    return shmID;
+}
+
+// Pulizia i semafori
+void semCleanUp(SharedData *shm_ptr) {
+    sem_destroy(&shm_ptr->sem_ready);
+    sem_destroy(&shm_ptr->sem_start);
+}
+
+// Pulizia della memoria condivisa
+void shmCleanUp(SharedData *shm_ptr, int shmID) {
+    shmdt(shm_ptr);
+    shmctl(shmID, IPC_RMID, NULL);
+}
+
+// Inizializziamo i semafori nella memoria condivisa
+void semInitialize(SharedData *shm_ptr) {
     if (sem_init(&shm_ptr->sem_ready, 1, 0) == -1) {
         printf("[Direttore] Inizializzazione del semaforo (sem_ready) fallita.\n");
         exit(EXIT_FAILURE);
@@ -58,11 +76,9 @@ int main(int argc, char *argv[]) {
         printf("[Direttore] Inizializzazione del semaforo (sem_start) fallita.\n");
         exit(EXIT_FAILURE);
     }
+}
 
-    // Convertiamo id della memoria in stringa
-    char shmID_str[15];
-    sprintf(shmID_str, "%d", shmID);
-
+void createAllSubProcess(char *shmID_str) {
     // Creiamo l'erogatore dei ticket
     char *erogatore_ticket_args[] = {"Erogatore_ticket", shmID_str, NULL};
     CreateProcess("./bin/erogatore_ticket", erogatore_ticket_args);
@@ -84,7 +100,13 @@ int main(int argc, char *argv[]) {
         CreateProcess("./bin/utente", utente_args);
     }
 
-    // Aspettiamo che i processi avvisino che sono pronti
+
+}
+
+// Aspettiamo che i processi avvisino che sono pronti
+void waitReadyAllSubProcess(SharedData *shm_ptr) {
+    int i;
+
     printf("[Direttore] Aspetto che tutti i processi siano pronti...\n");
     for (i = 0; i < TOTAL_PROCESSES; i++) {
         sem_wait(&shm_ptr->sem_ready);
@@ -95,19 +117,39 @@ int main(int argc, char *argv[]) {
     for (i = 0; i < TOTAL_PROCESSES; i++) {
         sem_post(&shm_ptr->sem_start);
     }
+}
 
-    // Aspettiamo tutti i processi finiscano di lavorare
+// Aspettiamo tutti i processi finiscano di lavorare
+void waitFinishAllSubProcess() {
+    int i;
     for (i = 0; i < TOTAL_PROCESSES; i++) {
         wait(NULL);
     }
+}
+
+int main(int argc, char *argv[]) {
+    printf("[Direttore] Avvio della simulazione. PID: %d\n", getpid());
+
+    int shmID = shmCreate(0666);
+    SharedData *shm_ptr = shmAttac(shmID);
+
+    semInitialize(shm_ptr);
+    
+    // Convertiamo id della memoria in stringa
+    char shmID_str[15];
+    sprintf(shmID_str, "%d", shmID);
+
+    createAllSubProcess(shmID_str);
+
+    waitReadyAllSubProcess(shm_ptr);
+
+    waitFinishAllSubProcess();
 
     printf("[Direttore] Tutti i processi sono terminati, avvio la pulizia.\n");
     
     // Pulizia
-    sem_destroy(&shm_ptr->sem_ready);
-    sem_destroy(&shm_ptr->sem_start);
-    shmdt(shm_ptr);
-    shmctl(shmID, IPC_RMID, NULL);
+    semCleanUp(shm_ptr);
+    shmCleanUp(shm_ptr, shmID);
 
     printf("[Direttore] Fine della simulazione.\n");
 
