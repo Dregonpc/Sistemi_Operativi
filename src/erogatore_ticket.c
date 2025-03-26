@@ -42,6 +42,7 @@ typedef struct {
 //     return EXIT_SUCCESS;
 // }
 
+
 int main(int argc, char *argv[]) {
 
     struct sembuf sops;
@@ -59,7 +60,7 @@ int main(int argc, char *argv[]) {
 
     printf("[%s] Collegamento al semaforo riuscito.\n", erogatoreID);
 
-    // decremento il semaforo
+    // decremento il semaforo = sono nato e sono pronto
     sops.sem_num = 0; // numero del semaforo (nell'insieme)
     sops.sem_op = -1; // operazione da eseguire
     sops.sem_flg = 0; // flag
@@ -67,7 +68,12 @@ int main(int argc, char *argv[]) {
 
     printf("[%s] Decremento del semaforo riuscito.\n", erogatoreID);
     
-
+    // aspetto il direttore
+    sops.sem_num = 0;
+    sops.sem_op = 0;
+    sops.sem_flg = 0;
+    semop(idSem, &sops, 0);
+    
     // Avviso il direttore che sono pronto
     // printf("[%s] Avviso il direttore che sono pronto e mi metto in attesa.\n", erogatoreID);
     // sem_post(&shm_ptr->sem_ready);

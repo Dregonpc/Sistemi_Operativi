@@ -10,6 +10,7 @@
 #define NUM_OF_WORKERS 3
 #define NUM_OF_USERS 5
 #define TOTAL_PROCESSES (1 + NUM_OF_WORKERS + NUM_OF_USERS)
+#define TOTAL_PROCESSES_DIR (1 + TOTAL_PROCESSES)
 
 typedef struct {
     sem_t sem_ready;
@@ -188,13 +189,16 @@ int main(int argc, char *argv[]) {
 
     int semID = semCreate(0666);
 
-    semctl(semID, 0, SETVAL, TOTAL_PROCESSES);
+    semctl(semID, 0, SETVAL, TOTAL_PROCESSES_DIR);
 
     int valSem = semctl(semID, 0, GETVAL);
 
     printf("[Direttore] Valore del semaforo: %d\n", valSem);
 
     createAllSubProcessSEM(semID);
+
+    // avvio e aspetto l'attesa dei processi
+    
 
     //waitFinishAllSubProcess();
 
