@@ -4,37 +4,34 @@
 #include <sys/wait.h>
 #include <semaphore.h>
 #include <sys/shm.h>
+#include <sys/sem.h>
 
-typedef struct {
-    sem_t sem_ready;
-    sem_t sem_start;
-} SharedData;
+void notifyAndWait(int semID, struct sembuf sops) {
+    // decremento il semaforo = sono nato e sono pronto
+    sops.sem_num = 0;
+    sops.sem_op = -1;
+    semop(semID, &sops, 1);
+
+    // aspetto il direttore
+    sops.sem_num = 0;
+    sops.sem_op = 0;
+    semop(semID, &sops, 1);
+}
 
 int main(int argc, char *argv[]) {
+
+    struct sembuf sops;
+
     char *utenteID = argv[0];
-    int shmID = atoi(argv[1]);
+    int semID = atoi(argv[1]);
     printf("[%s] Avvio in corso. PID = %d\n", utenteID, getpid());
 
-    // Colleghiamoci alla memoria condivisa
-    SharedData *shm_ptr = (SharedData *)shmat(shmID, NULL, 0);
-    if (shm_ptr == (void *) -1) {
-        printf("[%s] Collegamento alla memoria condivisa fallito.\n", utenteID);
-        exit(EXIT_FAILURE);
-    }
-
-    // Avviso il direttore che sono pronto
-    printf("[%s] Avviso il direttore che sono pronto e mi metto in attesa.\n", utenteID);
-    sem_post(&shm_ptr->sem_ready);
-
-    // Mi metto in attesa
-    sem_wait(&shm_ptr->sem_start);
+    printf("[%s] Sono pronto, avviso il direttore e aspetto il via.\n", utenteID);
+    notifyAndWait(semID, sops);
 
     // Posso iniziare a lavorare
     printf("[%s] Inizio a lavorare.\n", utenteID);
     sleep(2);
-
-    // Pulizia
-    shmdt(shm_ptr);
 
     return EXIT_SUCCESS;
 }
