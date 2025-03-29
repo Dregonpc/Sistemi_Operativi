@@ -5,6 +5,7 @@
 #include <semaphore.h>
 #include <sys/shm.h>
 #include <sys/sem.h>
+#include "../headers/servizi.h"
 
 void notifyAndWait(int semID, struct sembuf sops) {
     // decremento il semaforo = sono nato e sono pronto
@@ -24,6 +25,8 @@ int main(int argc, char *argv[]) {
 
     char *operatoreID = argv[0];
     int semID = atoi(argv[1]);
+    int indexServizio = atoi(argv[2]);
+    Servizio specializzazione = servizi[indexServizio];
     printf("[%s] Avvio in corso. PID = %d\n", operatoreID, getpid());
 
     printf("[%s] Sono pronto, avviso il direttore e aspetto il via.\n", operatoreID);

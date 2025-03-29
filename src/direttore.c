@@ -6,6 +6,7 @@
 #include <sys/sem.h>
 #include <sys/types.h>
 #include <semaphore.h>
+#include "../headers/servizi.h"
 
 #define NUM_OF_WORKERS 3
 #define NUM_OF_USERS 5
@@ -19,8 +20,12 @@ int semCreate() {
         printf("[Direttore] Creazione del semaforo fallita.\n");
         exit(EXIT_FAILURE);
     }
-
+    
     return semID;
+}
+
+int RandomizeService() {
+    return rand() % NUM_SERVIZI;
 }
 
 void CreateProcess(const char *path, char *const argv[]) {
@@ -52,7 +57,7 @@ void createAllSubProcess(int semID) {
     // Creiamo tutti gli operatori
     for (i = 0; i < NUM_OF_WORKERS; i++) {
         sprintf(id_buffer, "Operator_%d", i);
-        char *operatore_args[] = {id_buffer, semID_str, NULL};
+        char *operatore_args[] = {id_buffer, semID_str, RandomizeService(), NULL};
         CreateProcess("./bin/operatore", operatore_args);
     }
 
@@ -101,7 +106,6 @@ int main(int argc, char *argv[]) {
     // creiamo il semaforo e inizializziamolo
     int semID = semCreate();
     semctl(semID, 0, SETVAL, TOTAL_PROCESSES_DIR);
-    //semctl(semID, 0, SETVAL, 2);
 
     // creiamo tutti i figli
     createAllSubProcess(semID);
