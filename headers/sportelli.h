@@ -3,6 +3,6 @@
 typedef struct {
     int idSportello;
     int indexServizioOfferto;
-    int idOperatore;
+    char* idOperatore;
     int disponibile;
 } Sportello;

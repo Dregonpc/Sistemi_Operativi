@@ -61,7 +61,7 @@ void ConfigurePostOffices(DailyConfig* config) {
     for (int i = 0; i < NUM_SPORTELLI; i++) {
         config->sportelli[i].idSportello = i;
         config->sportelli[i].indexServizioOfferto = RandomizeService();
-        config->sportelli[i].idOperatore = -1;
+        config->sportelli[i].idOperatore = "";
         config->sportelli[i].disponibile = 1;
 
         printf("[Direttore] Sportello %d è stato creato con il servizio %d.\n", config->sportelli[i].idSportello, config->sportelli[i].indexServizioOfferto);
@@ -83,7 +83,7 @@ void CreateProcess(const char *path, char *const argv[]) {
     }
 }
 
-void createAllSubProcess(int semID) {
+void createAllSubProcess(int shmID, int semID) {
     // Creiamo l'erogatore dei ticket
     char semID_str[15];
     sprintf(semID_str, "%d", semID);
@@ -93,11 +93,13 @@ void createAllSubProcess(int semID) {
 
     int i;
     char id_buffer[50];  // Buffer per gli ID dinamici
+    char shmID_str[15];
+    sprintf(shmID_str, "%d", shmID);
 
     // Creiamo tutti gli operatori
     for (i = 0; i < NUM_OF_WORKERS; i++) {
         sprintf(id_buffer, "Operator_%d", i);
-        char *operatore_args[] = {id_buffer, semID_str, RandomizeService(), NULL};
+        char *operatore_args[] = {id_buffer, shmID_str, semID_str, RandomizeService(), NULL};
         CreateProcess("./bin/operatore", operatore_args);
     }
 
@@ -160,7 +162,7 @@ int main(int argc, char *argv[]) {
     ConfigurePostOffices(config);
 
     // creiamo tutti i figli
-    createAllSubProcess(semID);
+    createAllSubProcess(shmID, semID);
 
     // aspettiamo che tutti i figli siano pronti e diamogli il via
     notifyAndWait(semID, sops);
