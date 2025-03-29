@@ -7,11 +7,40 @@
 #include <sys/types.h>
 #include <semaphore.h>
 #include "../headers/servizi.h"
+#include "../headers/SharedMemory.h"
 
 #define NUM_OF_WORKERS 3
 #define NUM_OF_USERS 5
 #define TOTAL_PROCESSES (1 + NUM_OF_WORKERS + NUM_OF_USERS)
 #define TOTAL_PROCESSES_DIR (1 + TOTAL_PROCESSES)
+
+// Creazione della memoria condivisa
+int SharedMemoryCreate() {
+    int shmID = shmget(IPC_PRIVATE, sizeof(DailyConfig), IPC_CREAT | 0666);
+    if (shmID < 0) {
+        printf("[Direttore] Creazione della memoria condivisa fallita.\n");
+        exit(EXIT_FAILURE);
+    }
+    
+    return shmID;
+}
+
+// Collegamento alla memoria condivisa
+DailyConfig* SharedMemoryAttach(int shmID) {
+    DailyConfig* config = (DailyConfig*)shmat(shmID, NULL, 0);
+    if (config == (void *) -1) {
+        printf("[Direttore] Collegamento alla memoria condivisa fallita.\n");
+        exit(EXIT_FAILURE);
+    }
+
+    return config;
+}
+
+// Pulizia della memoria condivisa
+void SharedMemoryClean(int shmID, DailyConfig* config) {
+    shmdt(config);
+    shmctl(shmID, IPC_RMID, NULL);
+}
 
 // Creazione di un semaforo
 int semCreate() {
@@ -26,6 +55,17 @@ int semCreate() {
 
 int RandomizeService() {
     return rand() % NUM_SERVIZI;
+}
+
+void ConfigurePostOffices(DailyConfig* config) {
+    for (int i = 0; i < NUM_SPORTELLI; i++) {
+        config->sportelli[i].idSportello = i;
+        config->sportelli[i].indexServizioOfferto = RandomizeService();
+        config->sportelli[i].idOperatore = -1;
+        config->sportelli[i].disponibile = 1;
+
+        printf("[Direttore] Sportello %d è stato creato con il servizio %d.\n", config->sportelli[i].idSportello, config->sportelli[i].indexServizioOfferto);
+    }
 }
 
 void CreateProcess(const char *path, char *const argv[]) {
@@ -98,14 +138,26 @@ void semCleanUp(int semid) {
     }
 }
 
+void Clean(int semID, int shmID, DailyConfig* config) {
+    semCleanUp(semID);
+    SharedMemoryClean(shmID, config);
+} 
+
 int main(int argc, char *argv[]) {
     struct sembuf sops;
 
     printf("[Direttore] Avvio della simulazione. PID: %d\n", getpid());
 
+    // creiamo la memoria condivisa e colleghiamoci
+    int shmID = SharedMemoryCreate();
+    DailyConfig* config = SharedMemoryAttach(shmID);
+
     // creiamo il semaforo e inizializziamolo
     int semID = semCreate();
     semctl(semID, 0, SETVAL, TOTAL_PROCESSES_DIR);
+
+    // configuriamo gli sportelli
+    ConfigurePostOffices(config);
 
     // creiamo tutti i figli
     createAllSubProcess(semID);
@@ -118,8 +170,8 @@ int main(int argc, char *argv[]) {
 
     printf("[Direttore] Tutti i processi sono terminati, avvio la pulizia.\n");
     
-    // Pulizia del semaforo
-    semCleanUp(semID);
+    // Pulizia
+    Clean(semID, shmID, config);
 
     printf("[Direttore] Fine della simulazione.\n");
 
