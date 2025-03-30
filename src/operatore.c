@@ -20,9 +20,17 @@ DailyConfig* SharedMemoryAttach(int shmID, char* operatoreId) {
     return config;
 }
 
-bool TakeUpPostOffice(DailyConfig* config, int indexServizioOperatore, char* operatoreId) {
+bool TakeUpPostOffice(DailyConfig* config, int semID, struct sembuf sops, int indexServizioOperatore, char* operatoreId) {
     bool check = false;
-    //semaforo
+
+    // acquisisco il lock per l'accesso coordinato agli sportelli
+    sops.sem_num = 2;
+    sops.sem_op = -1;
+    if (semop(semID, &sops, 1) == -1) {
+        printf("[%s] Errore durante l'acquisizione del lock per gli sportelli.\n", operatoreId);
+        exit(EXIT_FAILURE);
+    }
+
     for (int i = 0; i < NUM_SPORTELLI; i++) {
         if (config->sportelli[i].disponibile && config->sportelli[i].indexServizioOfferto == indexServizioOperatore) {
             config->sportelli[i].idOperatore = operatoreId;
@@ -32,8 +40,46 @@ bool TakeUpPostOffice(DailyConfig* config, int indexServizioOperatore, char* ope
             break;
         }
     }
-    //semaforo
+
+    // rilascio il lock
+    sops.sem_op = 1;
+    if (semop(semID, &sops, 1) == -1) {
+        printf("[%s] Errore durante il rilascio del lock per gli sportelli.\n", operatoreId);
+        exit(EXIT_FAILURE);
+    }
+
     return check;
+}
+
+void waitFreePostOffice(int semID, struct sembuf sops, char *operatoreId) {
+    // attendo il segnale che uno sportello si sia liberato
+    sops.sem_num = 1;
+    sops.sem_op = -1;
+    if (semop(semID, &sops, 1) == -1) { // con questo comando il processo si mette in wait
+        printf("[%s] Errore durante l'attesa di uno sportello.\n", operatoreId);
+        exit(EXIT_FAILURE);
+    }
+
+    printf("[%s] Ho ricevuto il segnale che uno sportello si è liberato. Riprovo ad occuparlo...\n", operatoreId);
+}
+
+void releasePostOffice(DailyConfig* config, int semID, struct sembuf sops, char* operatoreId) {
+    for (int i = 0; i < NUM_SPORTELLI; i++) {
+        if (config->sportelli[i].idOperatore = operatoreId) {
+            config->sportelli[i].idOperatore = "";
+            config->sportelli[i].disponibile = 1;
+            break;
+        }
+    }
+
+    sops.sem_num = 1;
+    sops.sem_op = 1;
+    if (semop(semID, &sops, 1) == -1) {
+        printf("[%s] Errore durante il rilascio di uno sportello.\n", operatoreId);
+        exit(EXIT_FAILURE);
+    }
+
+    printf("[%s] Ho rilasciato lo sportello e mandato la notifica ai miei colleghi.\n", operatoreId);
 }
 
 void notifyAndWait(int semID, struct sembuf sops) {
@@ -62,15 +108,21 @@ int main(int argc, char *argv[]) {
     // colleghiamoci alla memoria condivisa
     DailyConfig* config = SharedMemoryAttach(shmID, operatoreID);
 
-    // proviamo ad occupare uno sportello
-    TakeUpPostOffice(config, indexServizio, operatoreID);
-
     printf("[%s] Sono pronto, avviso il direttore e aspetto il via.\n", operatoreID);
     notifyAndWait(semID, sops);
-
+    
+    // proviamo ad occupare uno sportello
+    while (!TakeUpPostOffice(config, semID, sops, indexServizio, operatoreID)) {
+        printf("[%s] Nessuno sportello disponibile per il servizio %d, attendo...\n", operatoreID, indexServizio);
+        waitFreePostOffice(semID, sops, operatoreID);
+    }
+    
     // Posso iniziare a lavorare
     printf("[%s] Inizio a lavorare.\n", operatoreID);
     sleep(2);
+
+    // rilascio lo sportello
+    releasePostOffice(config, semID, sops, operatoreID);
 
     return EXIT_SUCCESS;
 }

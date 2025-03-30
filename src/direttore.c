@@ -42,15 +42,38 @@ void SharedMemoryClean(int shmID, DailyConfig* config) {
     shmctl(shmID, IPC_RMID, NULL);
 }
 
-// Creazione di un semaforo
+// Creazione dei semafori
 int semCreate() {
-    int semID = semget(IPC_PRIVATE, 2, IPC_CREAT | 0666);
+    int semID = semget(IPC_PRIVATE, 3, IPC_CREAT | 0666);
     if (semID < 0) {
         printf("[Direttore] Creazione del semaforo fallita.\n");
         exit(EXIT_FAILURE);
     }
     
     return semID;
+}
+
+void semInizialize(int semID) {
+    // semNum = 0 : semaforo per gestire la barriera di partenza dei processi
+    // all'inizio, contiene il numero di tutti i processi, quando arriverà a zero la simulazione partirà
+    if (semctl(semID, 0, SETVAL, TOTAL_PROCESSES_DIR) < 0) {
+        perror("[Direttore] Errore durante la semctl del semaforo dedicato alla barriera.\n");
+        exit(EXIT_FAILURE);
+    }
+
+    // semNum = 1 : semaforo per gestire se ci sono sportelli liberi
+    // all'inizio, tutti gli sportelli sono liberi
+    if (semctl(semID, 1, SETVAL, NUM_SPORTELLI) < 0) {
+        perror("[Direttore] Errore durante la semctl del semaforo dedicato agli sportelli.\n");
+        exit(EXIT_FAILURE);
+    }
+
+    // semNum = 2 : semaforo per coordinare l'accesso singolo agli operatori per provare ad occupare uno sportello, in modo che vada uno per volta
+    // all'inizio, il semaforo vale 1, quindi il primo operatore può provare ad occupare uno sportello
+    if (semctl(semID, 2, SETVAL, 1) < 0) {
+        perror("[Direttore] Errore durante la semctl del semaforo per l'accesso coordinato agli sportelli.\n");
+        exit(EXIT_FAILURE);
+    }
 }
 
 int RandomizeService() {
@@ -156,7 +179,7 @@ int main(int argc, char *argv[]) {
 
     // creiamo il semaforo e inizializziamolo
     int semID = semCreate();
-    semctl(semID, 0, SETVAL, TOTAL_PROCESSES_DIR);
+    semInizialize(semID);
 
     // configuriamo gli sportelli
     ConfigurePostOffices(config);
