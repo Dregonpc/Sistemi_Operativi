@@ -117,12 +117,14 @@ void createAllSubProcess(int shmID, int semID) {
     int i;
     char id_buffer[50];  // Buffer per gli ID dinamici
     char shmID_str[15];
+    char random_service[10];
     sprintf(shmID_str, "%d", shmID);
 
     // Creiamo tutti gli operatori
     for (i = 0; i < NUM_OF_WORKERS; i++) {
         sprintf(id_buffer, "Operator_%d", i);
-        char *operatore_args[] = {id_buffer, shmID_str, semID_str, RandomizeService(), NULL};
+        sprintf(random_service, "%d", RandomizeService());
+        char *operatore_args[] = {id_buffer, shmID_str, semID_str, random_service, NULL};
         CreateProcess("./bin/operatore", operatore_args);
     }
 
