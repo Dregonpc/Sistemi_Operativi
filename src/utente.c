@@ -24,6 +24,7 @@ int main(int argc, char *argv[]) {
 
     char *utenteID = argv[0];
     int semID = atoi(argv[1]);
+    int msgIdUser = atoi(argv[2]);
     printf("[%s] Avvio in corso. PID = %d\n", utenteID, getpid());
 
     printf("[%s] Sono pronto, avviso il direttore e aspetto il via.\n", utenteID);

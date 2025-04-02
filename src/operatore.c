@@ -112,7 +112,8 @@ int main(int argc, char *argv[]) {
     char *operatoreID = argv[0];
     int shmID = atoi(argv[1]);
     int semID = atoi(argv[2]);
-    int indexServizio = atoi(argv[3]);
+    int msgIdOperator = atoi(argv[3]);
+    int indexServizio = atoi(argv[4]);
     Servizio specializzazione = servizi[indexServizio];
     printf("[%s] Avvio in corso. PID = %d\n", operatoreID, getpid());
 
