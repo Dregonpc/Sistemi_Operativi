@@ -1,6 +1,9 @@
 #ifndef SPORTELLI_H
 #define SPORTELLI_H
+
 #include "servizi.h"
+
+#define NUM_SPORTELLI 2
 
 typedef struct {
     int idSportello;
