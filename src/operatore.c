@@ -6,6 +6,8 @@
 #include <semaphore.h>
 #include <sys/shm.h>
 #include <sys/sem.h>
+#include <sys/msg.h>
+#include "../headers/messaggi.h"
 #include "../headers/servizi.h"
 #include "../headers/SharedMemory.h"
 
@@ -105,6 +107,22 @@ void notifyAndWait(int semID, struct sembuf sops) {
     semop(semID, &sops, 1);
 }
 
+void ReceiveTicketAndExecute(int msgIdOperator, int IndexServizio, char *operatoreID) {
+    while (1) {
+        Messaggio msg;
+
+        if (msgrcv(msgIdOperator, &msg, sizeof(Messaggio) - sizeof(long), IndexServizio - 1, 0) < 0) {
+            perror("msgrcv");
+            exit(EXIT_FAILURE);
+        }
+
+        printf("[%s] Servo il ticket %d per l'utente %s (servizio %ld).\n", operatoreID, msg.ticket_id, msg.user_id, msg.mtype);
+
+        // Eseguo il servizio
+        sleep(2); // Simulazione, dovremmo mettere il tempo dedicato al servizio richiesto
+    }
+}
+
 int main(int argc, char *argv[]) {
 
     struct sembuf sops;
@@ -131,7 +149,9 @@ int main(int argc, char *argv[]) {
     
     // Posso iniziare a lavorare
     printf("[%s] Inizio a lavorare.\n", operatoreID);
-    sleep(2);
+
+    // Mi metto a ricevere i ticket e ad eseguirli
+    ReceiveTicketAndExecute(msgIdOperator, indexServizio, operatoreID);
 
     // rilascio lo sportello
     releasePostOffice(config, semID, sops, operatoreID);

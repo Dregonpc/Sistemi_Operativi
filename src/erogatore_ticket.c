@@ -5,6 +5,8 @@
 #include <semaphore.h>
 #include <sys/sem.h>
 #include <sys/shm.h>
+#include <sys/msg.h>
+#include "../headers/messaggi.h"
 
 void notifyAndWait(int semID, struct sembuf sops) {
     // decremento il semaforo = sono nato e sono pronto
@@ -16,6 +18,32 @@ void notifyAndWait(int semID, struct sembuf sops) {
     sops.sem_num = 0;
     sops.sem_op = 0;
     semop(semID, &sops, 1);
+}
+
+void ReceiveAndSendMessage(int msgIdUser, int msgIdOperator, char *erogatoreID) {
+    int ticket_number = 1;
+
+    while (1) {
+        Messaggio msg;
+
+        if (msgrcv(msgIdUser, &msg, sizeof(Messaggio) - sizeof(long), 2, 0) < 0) {
+            perror("msgrcv");
+            exit(EXIT_FAILURE);
+        }
+
+        msg.ticket_id = ticket_number++;
+
+        printf("[%s] Ticket %d assegnato all'utente '%s' per il servizio %ld.\n", erogatoreID, msg.ticket_id, msg.user_id, msg.mtype);
+
+        if (msgsnd(msgIdOperator, &msg, sizeof(Messaggio) - sizeof(long), 0) < 0) {
+            perror("msgsnd");
+            exit(EXIT_FAILURE);
+        }
+
+        printf("[%s] Ticket %d inviato all'operatore.\n", erogatoreID, msg.ticket_id);
+    }
+
+    exit(EXIT_SUCCESS);
 }
 
 int main(int argc, char *argv[]) {
@@ -31,8 +59,12 @@ int main(int argc, char *argv[]) {
     printf("[%s] Sono pronto, avviso il direttore e aspetto il via.\n", erogatoreID);
     notifyAndWait(semID, sops);
     
-    // // Posso iniziare a lavorare
+    // Posso iniziare a lavorare
     printf("[%s] Inizio a lavorare.\n", erogatoreID);
+
+    // Mi metto in ricezione
+    ReceiveAndSendMessage(msgIdUser, msgIdOperator, erogatoreID);
+
     sleep(2);
 
     return EXIT_SUCCESS;
