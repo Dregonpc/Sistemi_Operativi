@@ -14,6 +14,8 @@
 #define TOTAL_PROCESSES (1 + NUM_OF_WORKERS + NUM_OF_USERS)
 #define TOTAL_PROCESSES_DIR (1 + TOTAL_PROCESSES)
 
+#define NUM_OF_SEM 3
+
 // Creazione della memoria condivisa
 int SharedMemoryCreate() {
     int shmID = shmget(IPC_PRIVATE, sizeof(DailyConfig), IPC_CREAT | 0666);
@@ -77,7 +79,8 @@ void semInizialize(int semID) {
 }
 
 int RandomizeService() {
-    return rand() % NUM_SERVIZI;
+    //return rand() % NUM_SERVIZI;
+    return 1; // Per testare il servizio 1
 }
 
 void ConfigurePostOffices(DailyConfig* config) {

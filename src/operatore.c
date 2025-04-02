@@ -135,5 +135,7 @@ int main(int argc, char *argv[]) {
     // rilascio lo sportello
     releasePostOffice(config, semID, sops, operatoreID);
 
+    shmdt(config);
+
     return EXIT_SUCCESS;
 }
