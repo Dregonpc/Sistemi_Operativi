@@ -37,11 +37,21 @@ bool TakeUpPostOffice(DailyConfig* config, int semID, struct sembuf sops, int in
             config->sportelli[i].disponibile = 0;
             printf("[%s] Sono stato assegnato allo sportello %d per il servizio %d.\n", operatoreId, config->sportelli[i].idSportello, indexServizioOperatore);
             check = true;
+
+            // invio il segnale che uno sportello è stato occupato
+            sops.sem_num = 1;
+            sops.sem_op = -1;
+            if (semop(semID, &sops, 1) == -1) {
+                printf("[%s] Errore durante l'invio del segnale che uno sportello è stato occupato.\n", operatoreId);
+                exit(EXIT_FAILURE);
+            }
+
             break;
         }
     }
 
     // rilascio il lock
+    sops.sem_num = 2;
     sops.sem_op = 1;
     if (semop(semID, &sops, 1) == -1) {
         printf("[%s] Errore durante il rilascio del lock per gli sportelli.\n", operatoreId);
@@ -74,6 +84,7 @@ void releasePostOffice(DailyConfig* config, int semID, struct sembuf sops, char*
 
     sops.sem_num = 1;
     sops.sem_op = 1;
+    sops.sem_flg = 0;
     if (semop(semID, &sops, 1) == -1) {
         printf("[%s] Errore durante il rilascio di uno sportello.\n", operatoreId);
         exit(EXIT_FAILURE);

@@ -1,5 +1,6 @@
+#ifndef SERVIZI_H
+#define SERVIZI_H
 #define NUM_SERVIZI 6
-
 typedef struct {
     char nome[50];
     int durata; // in minuti
@@ -14,3 +15,5 @@ Servizio servizi[NUM_SERVIZI] = {
     {"Acquisto prodotti finanziari", 20},
     {"Acquisto orologi e braccialetti", 20}
 };
+
+#endif
