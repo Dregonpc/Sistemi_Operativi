@@ -33,6 +33,11 @@ void notifyAndWait(int semID, struct sembuf sops) {
     semop(semID, &sops, 1);
 }
 
+int RandomizeService() {
+    //return rand() % NUM_SERVIZI;
+    return 1; // Per testare il servizio 1
+}
+
 bool CheckPresenceRequiredService(DailyConfig* config, int IndexServizioRichiesto, char* utenteID) {
     for (int i = 0; i < NUM_SPORTELLI; i++) {
         if (!config->sportelli[i].disponibile && config->sportelli[i].indexServizioOfferto == IndexServizioRichiesto) { // Se lo sportello non è disponibile significa che qualche operatore l'ha occupato, si potrebbe sostituire con config->sportelli[i].idOperatore != ""
@@ -81,7 +86,7 @@ int main(int argc, char *argv[]) {
     // Posso iniziare a lavorare
     printf("[%s] Inizio a lavorare.\n", utenteID);
 
-    int IndexServizioRichiesto = 1; // PER I TEST: simuliamo di richiedere sempre il servizio 1, da sostituire con un random
+    int IndexServizioRichiesto = RandomizeService(); // PER I TEST: simuliamo di richiedere sempre il servizio 1, da sostituire con un random
     
     sleep(5);
 
