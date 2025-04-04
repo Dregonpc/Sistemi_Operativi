@@ -111,12 +111,14 @@ void ReceiveTicketAndExecute(int msgIdOperator, int IndexServizio, char *operato
     while (1) {
         Messaggio msg;
 
-        if (msgrcv(msgIdOperator, &msg, sizeof(Messaggio) - sizeof(long), IndexServizio - 1, 0) < 0) {
+        if (msgrcv(msgIdOperator, &msg, sizeof(Messaggio) - sizeof(long), IndexServizio + 1, 0) < 0) { // Dobbiamo incrementarlo di 1 perchè il tipo del messaggio deve essere > 0, e quindi non potremmo passare il servizio 0.
             perror("msgrcv");
             exit(EXIT_FAILURE);
         }
 
-        printf("[%s] Servo il ticket %d per l'utente %s (servizio %ld).\n", operatoreID, msg.ticket_id, msg.user_id, msg.mtype);
+        msg.mtype--;
+
+        printf("[%s] Servo il ticket %d per l'utente '%s' (servizio %ld).\n", operatoreID, msg.ticket_id, msg.text, msg.mtype);
 
         // Eseguo il servizio
         sleep(2); // Simulazione, dovremmo mettere il tempo dedicato al servizio richiesto

@@ -162,7 +162,7 @@ void createAllSubProcess(int shmID, int semID, int msgIdUser, int msgIdOperator)
     // Creiamo tutti gli utenti
     for (i = 0; i < NUM_OF_USERS; i++) {
         sprintf(id_buffer, "User_%d", i);
-        char *utente_args[] = {id_buffer, semID_str, msgIdUser_str, NULL};
+        char *utente_args[] = {id_buffer, shmID_str, semID_str, msgIdUser_str, NULL};
         CreateProcess("./bin/utente", utente_args);
     }
 }

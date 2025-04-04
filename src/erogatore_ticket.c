@@ -26,14 +26,14 @@ void ReceiveAndSendMessage(int msgIdUser, int msgIdOperator, char *erogatoreID) 
     while (1) {
         Messaggio msg;
 
-        if (msgrcv(msgIdUser, &msg, sizeof(Messaggio) - sizeof(long), 2, 0) < 0) {
+        if (msgrcv(msgIdUser, &msg, sizeof(Messaggio) - sizeof(long), 0, 0) < 0) {
             perror("msgrcv");
             exit(EXIT_FAILURE);
         }
 
         msg.ticket_id = ticket_number++;
 
-        printf("[%s] Ticket %d assegnato all'utente '%s' per il servizio %ld.\n", erogatoreID, msg.ticket_id, msg.user_id, msg.mtype);
+        printf("[%s] Ticket %d assegnato all'utente '%s' per il servizio %ld.\n", erogatoreID, msg.ticket_id, msg.text, msg.mtype);
 
         if (msgsnd(msgIdOperator, &msg, sizeof(Messaggio) - sizeof(long), 0) < 0) {
             perror("msgsnd");
