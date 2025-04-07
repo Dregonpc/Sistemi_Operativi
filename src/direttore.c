@@ -79,7 +79,8 @@ void semInizialize(int semID) {
     }
 }
 
-int messageQueueUserCreate() {
+// UNIRE LE TRE FUNZIONI IN UN'UNICA FUNZIONE
+int messageQueueDispenserCreate() {
     int msgID = msgget(IPC_PRIVATE, IPC_CREAT | 0666);
     if (msgID < 0) {
         perror("[Direttore] Errore durante la creazione della coda dei messaggi per utente-erogatore.\n");
@@ -93,6 +94,16 @@ int messageQueueOperatorCreate() {
     int msgID = msgget(IPC_PRIVATE, IPC_CREAT | 0666);
     if (msgID < 0) {
         perror("[Direttore] Errore durante la creazione della coda dei messaggi per erogatore-operatore.\n");
+        exit(EXIT_FAILURE);
+    }
+
+    return msgID;
+}
+
+int messageQueueUserCreate() {
+    int msgID = msgget(IPC_PRIVATE, IPC_CREAT | 0666);
+    if (msgID < 0) {
+        perror("[Direttore] Errore durante la creazione della coda dei messaggi per operatore-utente.\n");
         exit(EXIT_FAILURE);
     }
 
@@ -130,19 +141,22 @@ void CreateProcess(const char *path, char *const argv[]) {
     }
 }
 
-void createAllSubProcess(int shmID, int semID, int msgIdUser, int msgIdOperator) {
+void createAllSubProcess(int shmID, int semID, int msgIdDispenser, int msgIdOperator, int msgIdUser) {
     // Creiamo l'erogatore dei ticket
     char semID_str[15];
     sprintf(semID_str, "%d", semID);
 
-    char msgIdUser_str[15];
-    sprintf(msgIdUser_str, "%d", msgIdUser);
+    char msgIdDispenser_str[15];
+    sprintf(msgIdDispenser_str, "%d", msgIdDispenser);
 
     char msgIdOperator_str[15];
     sprintf(msgIdOperator_str, "%d", msgIdOperator);
 
+    char msgIdUser_str[15];
+    sprintf(msgIdUser_str, "%d", msgIdUser);
+
     // Creiamo l'erogatore per i ticket
-    char *erogatore_ticket_args[] = {"Erogatore_ticket", semID_str, msgIdUser_str, msgIdOperator_str, NULL};
+    char *erogatore_ticket_args[] = {"Erogatore_ticket", semID_str, msgIdDispenser_str, msgIdOperator_str, NULL};
     CreateProcess("./bin/erogatore_ticket", erogatore_ticket_args);
 
     int i;
@@ -155,14 +169,14 @@ void createAllSubProcess(int shmID, int semID, int msgIdUser, int msgIdOperator)
     for (i = 0; i < NUM_OF_WORKERS; i++) {
         sprintf(id_buffer, "Operator_%d", i);
         sprintf(random_service, "%d", RandomizeService());
-        char *operatore_args[] = {id_buffer, shmID_str, semID_str, msgIdOperator_str, random_service, NULL};
+        char *operatore_args[] = {id_buffer, shmID_str, semID_str, msgIdOperator_str, msgIdUser_str, random_service, NULL};
         CreateProcess("./bin/operatore", operatore_args);
     }
 
     // Creiamo tutti gli utenti
     for (i = 0; i < NUM_OF_USERS; i++) {
         sprintf(id_buffer, "User_%d", i);
-        char *utente_args[] = {id_buffer, shmID_str, semID_str, msgIdUser_str, NULL};
+        char *utente_args[] = {id_buffer, shmID_str, semID_str, msgIdDispenser_str, msgIdUser_str, NULL};
         CreateProcess("./bin/utente", utente_args);
     }
 }
@@ -196,13 +210,14 @@ void semCleanUp(int semid) {
     }
 }
 
-void messageQueueClean(int msgIdUser, int msgIdOperator) {
-    msgctl(msgIdUser, IPC_RMID, NULL);
+void messageQueueClean(int msgIdDispenser, int msgIdOperator, int msgIdUser) {
+    msgctl(msgIdDispenser, IPC_RMID, NULL);
     msgctl(msgIdOperator, IPC_RMID, NULL);
+    msgctl(msgIdUser, IPC_RMID, NULL);
 }
 
-void Clean(int msgIdUser, int msgIdOperator, int semID, int shmID, DailyConfig* config) {
-    messageQueueClean(msgIdUser, msgIdOperator);
+void Clean(int msgIdDispenser, int msgIdOperator, int msgIdUser, int semID, int shmID, DailyConfig* config) {
+    messageQueueClean(msgIdDispenser, msgIdOperator, msgIdUser);
     semCleanUp(semID);
     SharedMemoryClean(shmID, config);
 } 
@@ -221,14 +236,20 @@ int main(int argc, char *argv[]) {
     semInizialize(semID);
 
     // creiamo le due code per i messaggi per la comunicazione tra utente-erogatore e erogatore-operatore
-    int msgIdUser = messageQueueUserCreate();
+    // Coda utente <--> erogatore
+    int msgIdDispenser = messageQueueDispenserCreate();
+
+    // Coda erogatore --> operatore
     int msgIdOperator = messageQueueOperatorCreate();
+
+    // Coda operatore --> utente
+    int msgIdUser = messageQueueUserCreate();
     
     // configuriamo gli sportelli
     ConfigurePostOffices(config);
 
     // creiamo tutti i figli
-    createAllSubProcess(shmID, semID, msgIdUser, msgIdOperator);
+    createAllSubProcess(shmID, semID, msgIdDispenser, msgIdOperator, msgIdUser);
 
     // aspettiamo che tutti i figli siano pronti e diamogli il via
     notifyAndWait(semID, sops);
@@ -239,7 +260,7 @@ int main(int argc, char *argv[]) {
     printf("[Direttore] Tutti i processi sono terminati, avvio la pulizia.\n");
     
     // Pulizia
-    Clean(msgIdUser, msgIdOperator, semID, shmID, config);
+    Clean(msgIdDispenser, msgIdOperator, msgIdUser, semID, shmID, config);
 
     printf("[Direttore] Fine della simulazione.\n");
 

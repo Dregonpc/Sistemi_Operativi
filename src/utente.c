@@ -74,7 +74,8 @@ int main(int argc, char *argv[]) {
     char *utenteID = argv[0];
     int shmID = atoi(argv[1]);
     int semID = atoi(argv[2]);
-    int msgIdUser = atoi(argv[3]);
+    int msgIdDispenser = atoi(argv[3]);
+    int msgIdUser = atoi(argv[4]);
     printf("[%s] Avvio in corso. PID = %d\n", utenteID, getpid());
 
     // colleghiamoci alla memoria condivisa
@@ -92,7 +93,7 @@ int main(int argc, char *argv[]) {
 
     // Richiedo un ticket
     if (CheckPresenceRequiredService(config, IndexServizioRichiesto, utenteID)) {
-        SendMessageToErogatore(msgIdUser, utenteID, IndexServizioRichiesto);
+        SendMessageToErogatore(msgIdDispenser, utenteID, IndexServizioRichiesto);
     }
 
     sleep(2);

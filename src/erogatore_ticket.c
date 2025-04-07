@@ -20,13 +20,13 @@ void notifyAndWait(int semID, struct sembuf sops) {
     semop(semID, &sops, 1);
 }
 
-void ReceiveAndSendMessage(int msgIdUser, int msgIdOperator, char *erogatoreID) {
+void ReceiveAndSendMessage(int msgIdDispenser, int msgIdOperator, char *erogatoreID) {
     int ticket_number = 1;
 
     while (1) {
         Messaggio msg;
 
-        if (msgrcv(msgIdUser, &msg, sizeof(Messaggio) - sizeof(long), 0, 0) < 0) {
+        if (msgrcv(msgIdDispenser, &msg, sizeof(Messaggio) - sizeof(long), 0, 0) < 0) {
             perror("msgrcv");
             exit(EXIT_FAILURE);
         }
@@ -52,7 +52,7 @@ int main(int argc, char *argv[]) {
 
     char *erogatoreID = argv[0];
     int semID = atoi(argv[1]);
-    int msgIdUser = atoi(argv[2]);
+    int msgIdDispenser = atoi(argv[2]);
     int msgIdOperator = atoi(argv[3]);
     printf("[%s] Avvio in corso. PID = %d\n", erogatoreID, getpid());
 
@@ -63,7 +63,7 @@ int main(int argc, char *argv[]) {
     printf("[%s] Inizio a lavorare.\n", erogatoreID);
 
     // Mi metto in ricezione
-    ReceiveAndSendMessage(msgIdUser, msgIdOperator, erogatoreID);
+    ReceiveAndSendMessage(msgIdDispenser, msgIdOperator, erogatoreID);
 
     sleep(2);
 
