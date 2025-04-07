@@ -64,7 +64,6 @@ void SendMessageToErogatore(int msgID, char* utenteID, int IndexServizioRichiest
     }
 
     printf("[%s] Ho richiesto un ticket per il servizio %d.\n", utenteID, IndexServizioRichiesto);
-    exit(EXIT_SUCCESS);
 }
 
 void ReceiveMessageFromOperator(int msgID, int myPID) {
@@ -104,8 +103,9 @@ int main(int argc, char *argv[]) {
     // Richiedo un ticket
     if (CheckPresenceRequiredService(config, IndexServizioRichiesto, utenteID)) {
         SendMessageToErogatore(msgIdDispenser, utenteID, IndexServizioRichiesto, myPID);
+        printf("[%s] In attesa di ricevere il messaggio dall'operatore...\n", utenteID);
         ReceiveMessageFromOperator(msgIdUser, myPID);
-        printf("[%s] Sono stato sbocchinato.\n", utenteID);
+        printf("[%s] Sono stato servito.\n", utenteID);
     }
 
     sleep(2);
