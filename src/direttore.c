@@ -14,6 +14,7 @@
 #define NUM_OF_USERS 5
 #define TOTAL_PROCESSES (1 + NUM_OF_WORKERS + NUM_OF_USERS)
 #define TOTAL_PROCESSES_DIR (1 + TOTAL_PROCESSES)
+#define NOF_PAUSE 3
 
 #define NUM_OF_SEM 3
 
@@ -165,11 +166,14 @@ void createAllSubProcess(int shmID, int semID, int msgIdDispenser, int msgIdOper
     sprintf(shmID_str, "%d", shmID);
     char random_service[10];
 
+    char nof_pause_str[3];
+    sprintf(nof_pause_str, "%d", NOF_PAUSE);
+
     // Creiamo tutti gli operatori
     for (i = 0; i < NUM_OF_WORKERS; i++) {
         sprintf(id_buffer, "Operator_%d", i);
         sprintf(random_service, "%d", RandomizeService());
-        char *operatore_args[] = {id_buffer, shmID_str, semID_str, msgIdOperator_str, msgIdUser_str, random_service, NULL};
+        char *operatore_args[] = {id_buffer, shmID_str, semID_str, msgIdOperator_str, msgIdUser_str, random_service, nof_pause_str, NULL};
         CreateProcess("./bin/operatore", operatore_args);
     }
 

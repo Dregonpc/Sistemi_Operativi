@@ -7,6 +7,7 @@
 #include <sys/shm.h>
 #include <sys/sem.h>
 #include <sys/msg.h>
+#include <stdbool.h>
 #include "../headers/messaggi.h"
 #include "../headers/servizi.h"
 #include "../headers/SharedMemory.h"
@@ -107,7 +108,12 @@ void notifyAndWait(int semID, struct sembuf sops) {
     semop(semID, &sops, 1);
 }
 
-void ReceiveTicketAndExecute(int msgIdOperator, int msgIdUser, int IndexServizio, char *operatoreID) {
+bool breakCondition() {
+    // Da decidere una vera condizione (ad esempio che abbia servito almeno due clienti)
+    return (rand() % 100) < 20; // 20% di possibilità di andare in pausa
+}
+
+void ReceiveTicketAndExecute(int msgIdOperator, int msgIdUser, int IndexServizio, char *operatoreID, int NOF_PAUSE, int* pause_effettuate) {
     while (1) {
         Messaggio msg;
 
@@ -131,6 +137,12 @@ void ReceiveTicketAndExecute(int msgIdOperator, int msgIdUser, int IndexServizio
         }
 
         printf("[%s] Ho finito di servire %ld.\n", operatoreID, msg.mtype);
+
+        if ((*pause_effettuate) < NOF_PAUSE && breakCondition()) {
+            (*pause_effettuate)++;
+            printf("[%s] Posso andare in pausa, termino la mia giornata.\n", operatoreID);
+            break;
+        }
     }
 }
 
@@ -144,29 +156,43 @@ int main(int argc, char *argv[]) {
     int msgIdOperator = atoi(argv[3]);
     int msgIdUser = atoi(argv[4]);
     int indexServizio = atoi(argv[5]);
+    int NOF_PAUSE = atoi(argv[6]);
+
+    int pause_effettuate = 0;
+    bool alreadyNotifiedStart = false;
     Servizio specializzazione = servizi[indexServizio];
+
     printf("[%s] Avvio in corso. PID = %d\n", operatoreID, getpid());
 
     // colleghiamoci alla memoria condivisa
     DailyConfig* config = SharedMemoryAttach(shmID, operatoreID);
 
-    printf("[%s] Sono pronto, avviso il direttore e aspetto il via.\n", operatoreID);
-    notifyAndWait(semID, sops);
-    
     // proviamo ad occupare uno sportello
     while (!TakeUpPostOffice(config, semID, sops, indexServizio, operatoreID)) {
         printf("[%s] Nessuno sportello disponibile per il servizio %d, attendo...\n", operatoreID, indexServizio);
+        if (!alreadyNotifiedStart) {
+            notifyAndWait(semID, sops);
+            alreadyNotifiedStart = true;
+        }
         waitFreePostOffice(semID, sops, operatoreID);
+    }
+
+    if (!alreadyNotifiedStart) {
+        printf("[%s] Sono pronto, avviso il direttore e aspetto il via.\n", operatoreID);
+        notifyAndWait(semID, sops);
+        alreadyNotifiedStart = true;
     }
     
     // Posso iniziare a lavorare
     printf("[%s] Inizio a lavorare.\n", operatoreID);
 
     // Mi metto a ricevere i ticket e ad eseguirli
-    ReceiveTicketAndExecute(msgIdOperator, msgIdUser, indexServizio, operatoreID);
+    ReceiveTicketAndExecute(msgIdOperator, msgIdUser, indexServizio, operatoreID, NOF_PAUSE, &pause_effettuate);
 
     // rilascio lo sportello
     releasePostOffice(config, semID, sops, operatoreID);
+    
+    // Aggiorna le statistiche
 
     shmdt(config);
 
