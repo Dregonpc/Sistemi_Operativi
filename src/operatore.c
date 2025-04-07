@@ -107,7 +107,7 @@ void notifyAndWait(int semID, struct sembuf sops) {
     semop(semID, &sops, 1);
 }
 
-void ReceiveTicketAndExecute(int msgIdOperator, int IndexServizio, char *operatoreID) {
+void ReceiveTicketAndExecute(int msgIdOperator, int msgIdUser, int IndexServizio, char *operatoreID) {
     while (1) {
         Messaggio msg;
 
@@ -122,6 +122,15 @@ void ReceiveTicketAndExecute(int msgIdOperator, int IndexServizio, char *operato
 
         // Eseguo il servizio
         sleep(2); // Simulazione, dovremmo mettere il tempo dedicato al servizio richiesto
+
+        // Manda risposta all'utente usando il suo PID come "destinatario"
+        msg.mtype = msg.user_id;
+        if (msgsnd(msgIdUser, &msg, sizeof(Messaggio) - sizeof(long), 0) < 0) {
+            perror("msgsnd");
+            exit(EXIT_FAILURE);
+        }
+
+        printf("[%s] Ho finito di servire %ld.\n", operatoreID, msg.mtype);
     }
 }
 
@@ -154,7 +163,7 @@ int main(int argc, char *argv[]) {
     printf("[%s] Inizio a lavorare.\n", operatoreID);
 
     // Mi metto a ricevere i ticket e ad eseguirli
-    ReceiveTicketAndExecute(msgIdOperator, indexServizio, operatoreID);
+    ReceiveTicketAndExecute(msgIdOperator, msgIdUser, indexServizio, operatoreID);
 
     // rilascio lo sportello
     releasePostOffice(config, semID, sops, operatoreID);

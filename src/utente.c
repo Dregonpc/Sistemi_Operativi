@@ -50,12 +50,12 @@ bool CheckPresenceRequiredService(DailyConfig* config, int IndexServizioRichiest
     return false;
 }
 
-void SendMessageToErogatore(int msgID, char* utenteID, int IndexServizioRichiesto) {
+void SendMessageToErogatore(int msgID, char* utenteID, int IndexServizioRichiesto, int myPID) {
     Messaggio msg;
     
     msg.mtype = IndexServizioRichiesto + 1; // Dobbiamo incrementarlo di 1 perchè il tipo del messaggio deve essere > 0, e quindi non potremmo passare il servizio 0.
     msg.ticket_id = -1;
-    msg.user_id = getpid();
+    msg.user_id = myPID;
     snprintf(msg.text, MAX_TEXT, "%s", utenteID);
 
     if (msgsnd(msgID, &msg, sizeof(Messaggio) - sizeof(long), 0) < 0) {
@@ -67,6 +67,15 @@ void SendMessageToErogatore(int msgID, char* utenteID, int IndexServizioRichiest
     exit(EXIT_SUCCESS);
 }
 
+void ReceiveMessageFromOperator(int msgID, int myPID) {
+    Messaggio msg;
+
+    if (msgrcv(msgID, &msg, sizeof(Messaggio) - sizeof(long), myPID, 0) < 0) {
+        perror("msgrcv");
+        exit(EXIT_FAILURE);
+    }
+}
+
 int main(int argc, char *argv[]) {
 
     struct sembuf sops;
@@ -76,7 +85,8 @@ int main(int argc, char *argv[]) {
     int semID = atoi(argv[2]);
     int msgIdDispenser = atoi(argv[3]);
     int msgIdUser = atoi(argv[4]);
-    printf("[%s] Avvio in corso. PID = %d\n", utenteID, getpid());
+    int myPID = getpid();
+    printf("[%s] Avvio in corso. PID = %d\n", utenteID, myPID);
 
     // colleghiamoci alla memoria condivisa
     DailyConfig* config = SharedMemoryAttach(shmID, utenteID);
@@ -93,7 +103,9 @@ int main(int argc, char *argv[]) {
 
     // Richiedo un ticket
     if (CheckPresenceRequiredService(config, IndexServizioRichiesto, utenteID)) {
-        SendMessageToErogatore(msgIdDispenser, utenteID, IndexServizioRichiesto);
+        SendMessageToErogatore(msgIdDispenser, utenteID, IndexServizioRichiesto, myPID);
+        ReceiveMessageFromOperator(msgIdUser, myPID);
+        printf("[%s] Sono stato sbocchinato.\n", utenteID);
     }
 
     sleep(2);

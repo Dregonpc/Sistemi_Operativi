@@ -33,7 +33,8 @@ void ReceiveAndSendMessage(int msgIdDispenser, int msgIdOperator, char *erogator
 
         msg.ticket_id = ticket_number++;
 
-        printf("[%s] Ticket %d assegnato all'utente '%s' per il servizio %ld.\n", erogatoreID, msg.ticket_id, msg.text, msg.mtype);
+        long temp = msg.mtype - 1;
+        printf("[%s] Ticket %d assegnato all'utente '%s' per il servizio %ld.\n", erogatoreID, msg.ticket_id, msg.text, temp);
 
         if (msgsnd(msgIdOperator, &msg, sizeof(Messaggio) - sizeof(long), 0) < 0) {
             perror("msgsnd");
