@@ -8,6 +8,7 @@
 #include <sys/sem.h>
 #include <sys/msg.h>
 #include <stdbool.h>
+#include <time.h>
 #include "../headers/messaggi.h"
 #include "../headers/servizi.h"
 #include "../headers/SharedMemory.h"
@@ -113,6 +114,16 @@ bool breakCondition() {
     return (rand() % 100) < 20; // 20% di possibilità di andare in pausa
 }
 
+int CalculateTimeExecution(int IndexServizio) {
+    srand(time(NULL));
+    int durata = servizi[IndexServizio].durata;
+    int variazione = durata / 2;
+    int delta = (rand() % (2 * variazione + 1)) - variazione;
+    int durataCasuale = durata + delta;
+    
+    return durataCasuale;
+}
+
 void ReceiveTicketAndExecute(int msgIdOperator, int msgIdUser, int IndexServizio, char *operatoreID, int NOF_PAUSE, int* pause_effettuate) {
     while (1) {
         Messaggio msg;
@@ -127,7 +138,8 @@ void ReceiveTicketAndExecute(int msgIdOperator, int msgIdUser, int IndexServizio
         printf("[%s] Servo il ticket %d per l'utente '%s' (servizio %ld).\n", operatoreID, msg.ticket_id, msg.text, msg.mtype);
 
         // Eseguo il servizio
-        sleep(2); // Simulazione, dovremmo mettere il tempo dedicato al servizio richiesto
+        int tempo = CalculateTimeExecution(IndexServizio);
+        sleep(2); // Da modificare con il valore calcolato * unità di misura scelta da noi
 
         // Manda risposta all'utente usando il suo PID come "destinatario"
         msg.mtype = msg.user_id;
@@ -136,7 +148,7 @@ void ReceiveTicketAndExecute(int msgIdOperator, int msgIdUser, int IndexServizio
             exit(EXIT_FAILURE);
         }
 
-        printf("[%s] Ho finito di servire %ld.\n", operatoreID, msg.mtype);
+        printf("[%s] Ho finito di servire %ld. Ci ho impiegato %d secondi.\n", operatoreID, msg.mtype, tempo);
 
         if ((*pause_effettuate) < NOF_PAUSE && breakCondition()) {
             (*pause_effettuate)++;
@@ -160,7 +172,6 @@ int main(int argc, char *argv[]) {
 
     int pause_effettuate = 0;
     bool alreadyNotifiedStart = false;
-    Servizio specializzazione = servizi[indexServizio];
 
     printf("[%s] Avvio in corso. PID = %d\n", operatoreID, getpid());
 

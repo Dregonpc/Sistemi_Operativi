@@ -240,7 +240,7 @@ int main(int argc, char *argv[]) {
     semInizialize(semID);
 
     // creiamo le due code per i messaggi per la comunicazione tra utente-erogatore e erogatore-operatore
-    // Coda utente <--> erogatore
+    // Coda utente --> erogatore
     int msgIdDispenser = messageQueueDispenserCreate();
 
     // Coda erogatore --> operatore
