@@ -7,6 +7,7 @@
 #include <sys/sem.h>
 #include <sys/msg.h>
 #include <stdbool.h>
+#include <time.h>
 #include "../headers/messaggi.h"
 #include "../headers/SharedMemory.h"
 
@@ -34,7 +35,8 @@ void notifyAndWait(int semID, struct sembuf sops) {
 }
 
 int RandomizeService() {
-    //return rand() % NUM_SERVIZI;
+    // srand(time(NULL) + getpid());
+    // return rand() % NUM_SERVIZI;
     return 1; // Per testare il servizio 1
 }
 

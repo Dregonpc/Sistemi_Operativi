@@ -7,6 +7,7 @@
 #include <sys/types.h>
 #include <sys/msg.h>
 #include <semaphore.h>
+#include <time.h>
 #include "../headers/servizi.h"
 #include "../headers/SharedMemory.h"
 
@@ -80,31 +81,10 @@ void semInizialize(int semID) {
     }
 }
 
-// UNIRE LE TRE FUNZIONI IN UN'UNICA FUNZIONE
-int messageQueueDispenserCreate() {
+int messageQueueCreate() {
     int msgID = msgget(IPC_PRIVATE, IPC_CREAT | 0666);
     if (msgID < 0) {
-        perror("[Direttore] Errore durante la creazione della coda dei messaggi per utente-erogatore.\n");
-        exit(EXIT_FAILURE);
-    }
-
-    return msgID;
-}
-
-int messageQueueOperatorCreate() {
-    int msgID = msgget(IPC_PRIVATE, IPC_CREAT | 0666);
-    if (msgID < 0) {
-        perror("[Direttore] Errore durante la creazione della coda dei messaggi per erogatore-operatore.\n");
-        exit(EXIT_FAILURE);
-    }
-
-    return msgID;
-}
-
-int messageQueueUserCreate() {
-    int msgID = msgget(IPC_PRIVATE, IPC_CREAT | 0666);
-    if (msgID < 0) {
-        perror("[Direttore] Errore durante la creazione della coda dei messaggi per operatore-utente.\n");
+        perror("[Direttore] Errore durante la creazione della coda dei messaggi.\n");
         exit(EXIT_FAILURE);
     }
 
@@ -229,6 +209,9 @@ void Clean(int msgIdDispenser, int msgIdOperator, int msgIdUser, int semID, int 
 int main(int argc, char *argv[]) {
     struct sembuf sops;
 
+    // Inizializza il generatore di numeri casuali
+    srand(time(NULL));
+
     printf("[Direttore] Avvio della simulazione. PID: %d\n", getpid());
 
     // creiamo la memoria condivisa e colleghiamoci
@@ -241,13 +224,13 @@ int main(int argc, char *argv[]) {
 
     // creiamo le due code per i messaggi per la comunicazione tra utente-erogatore e erogatore-operatore
     // Coda utente --> erogatore
-    int msgIdDispenser = messageQueueDispenserCreate();
+    int msgIdDispenser = messageQueueCreate();
 
     // Coda erogatore --> operatore
-    int msgIdOperator = messageQueueOperatorCreate();
+    int msgIdOperator = messageQueueCreate();
 
     // Coda operatore --> utente
-    int msgIdUser = messageQueueUserCreate();
+    int msgIdUser = messageQueueCreate();
     
     // configuriamo gli sportelli
     ConfigurePostOffices(config);
