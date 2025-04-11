@@ -7,6 +7,7 @@
 #include <sys/types.h>
 #include <sys/msg.h>
 #include <semaphore.h>
+#include <signal.h>
 #include <time.h>
 #include "../headers/servizi.h"
 #include "../headers/SharedMemory.h"
@@ -18,6 +19,10 @@
 #define NOF_PAUSE 3
 
 #define NUM_OF_SEM 3
+
+#define SIM_DURATION 3
+#define MINUTES_FOR_DAY 480 // 480 minuti = 8 ore
+#define SIMULATED_MINUTE 100000000 // 100 milioni di nanosecondi = 100ms
 
 // Creazione della memoria condivisa
 int SharedMemoryCreate() {
@@ -206,6 +211,16 @@ void Clean(int msgIdDispenser, int msgIdOperator, int msgIdUser, int semID, int 
     SharedMemoryClean(shmID, config);
 } 
 
+// Mandiamo ai figli il segnale per avvisarli che è iniziato il giorno lavorativo
+void SendStartOfDaySignal() {
+    kill(0, SIGUSR1);
+}
+
+// Mandiamo ai figli il segnale per avvisarli che è finito il giorno lavorativo
+void SendEndOfDaySignal() {
+    kill(0, SIGUSR2);
+}
+
 int main(int argc, char *argv[]) {
     struct sembuf sops;
 
@@ -240,6 +255,19 @@ int main(int argc, char *argv[]) {
 
     // aspettiamo che tutti i figli siano pronti e diamogli il via
     notifyAndWait(semID, sops);
+
+    // Scorriamo i giorni e avvisiamo ogni volta i figli quando finisce un giorno
+    for (int giorni = 1; giorni <= SIM_DURATION; giorni++) {
+        printf("[Direttore] Inizio del giorno %d...\n", giorni);
+        SendStartOfDaySignal();
+        sleep(10);
+        printf("[Direttore] Avviso i figli che è terminato il giorno %d...\n", giorni);
+        SendEndOfDaySignal();
+    }
+
+    // Fermiamo la simulazione
+    printf("[Direttore] Simulazione finita, mando il segnale di terminazione a tutti i figli...\n");
+    kill(0, SIGTERM);
 
     // aspettiamo che tutti i processi finiscano la loro esecuzione
     waitFinishAllSubProcess();
