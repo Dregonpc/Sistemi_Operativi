@@ -1,15 +1,26 @@
 #include <stdio.h>
 #include <stdlib.h>
 #include <unistd.h>
-#include <sys/wait.h>
 #include <semaphore.h>
+#include <signal.h>
+#include <stdbool.h>
+#include <sys/wait.h>
 #include <sys/shm.h>
 #include <sys/sem.h>
 #include <sys/msg.h>
-#include <stdbool.h>
 #include <time.h>
+#include <errno.h>
 #include "../headers/messaggi.h"
 #include "../headers/SharedMemory.h"
+
+volatile sig_atomic_t startDay = false;
+volatile sig_atomic_t endDay = false;
+
+// Signal handler per l'inizio giornata (SIGUSR1)
+void handle_day_start(int signo) {
+    printf("[PID %d] Ricevuto SIGUSR1: inizio del giorno.\n", getpid());
+    startDay = true;
+}
 
 // Collegamento alla memoria condivisa
 DailyConfig* SharedMemoryAttach(int shmID, char* utenteId) {
@@ -71,7 +82,34 @@ void SendMessageToErogatore(int msgID, char* utenteID, int IndexServizioRichiest
 void ReceiveMessageFromOperator(int msgID, int myPID) {
     Messaggio msg;
 
-    if (msgrcv(msgID, &msg, sizeof(Messaggio) - sizeof(long), myPID, 0) < 0) {
+    // if (msgrcv(msgID, &msg, sizeof(Messaggio) - sizeof(long), myPID, 0) < 0) {
+    //     perror("msgrcv");
+    //     exit(EXIT_FAILURE);
+    // }
+
+    // ssize_t n;
+    // do {
+    //     n = msgrcv(msgID, &msg, sizeof(Messaggio) - sizeof(long), myPID, 0) < 0;
+    // } while (n < 0 && errno == EINTR);
+
+    sigset_t mask, oldmask;
+    sigemptyset(&mask);
+    sigaddset(&mask, SIGUSR1);  // Blocca SIGUSR1
+    if (sigprocmask(SIG_BLOCK, &mask, &oldmask) == -1) {
+        perror("sigprocmask");
+        exit(EXIT_FAILURE);
+    }
+
+    // Ora chiamata bloccante a msgrcv
+    ssize_t n = msgrcv(msgID, &msg, sizeof(Messaggio) - sizeof(long), myPID, 0);
+
+    // Ripristina la maschera dei segnali
+    if (sigprocmask(SIG_SETMASK, &oldmask, NULL) == -1) {
+        perror("sigprocmask");
+        exit(EXIT_FAILURE);
+    }
+
+    if (n < 0) {
         perror("msgrcv");
         exit(EXIT_FAILURE);
     }
@@ -88,6 +126,18 @@ int main(int argc, char *argv[]) {
     int msgIdUser = atoi(argv[4]);
     int myPID = getpid();
     printf("[%s] Avvio in corso. PID = %d\n", utenteID, myPID);
+
+    // Configuriamo i segnali
+    struct sigaction sa_start;//, sa_reset, sa_term;
+
+    // Installa il signal handler per SIGUSR1
+    sa_start.sa_handler = handle_day_start;
+    sigemptyset(&sa_start.sa_mask);
+    sa_start.sa_flags = SA_RESTART;
+    if (sigaction(SIGUSR1, &sa_start, NULL) < 0) {
+        perror("sigaction SIGUSR1");
+        exit(EXIT_FAILURE);
+    }
 
     // colleghiamoci alla memoria condivisa
     DailyConfig* config = SharedMemoryAttach(shmID, utenteID);

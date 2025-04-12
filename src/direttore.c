@@ -16,13 +16,18 @@
 #define NUM_OF_USERS 5
 #define TOTAL_PROCESSES (1 + NUM_OF_WORKERS + NUM_OF_USERS)
 #define TOTAL_PROCESSES_DIR (1 + TOTAL_PROCESSES)
-#define NOF_PAUSE 3
+#define NOF_PAUSE 0 //3 temporaneo, per non far andare in pausa l'operatore
 
 #define NUM_OF_SEM 3
 
 #define SIM_DURATION 3
 #define MINUTES_FOR_DAY 480 // 480 minuti = 8 ore
 #define SIMULATED_MINUTE 100000000 // 100 milioni di nanosecondi = 100ms
+
+// Signal handler per l'inizio giornata (SIGUSR1)
+void handle_day_start(int signo) {
+    printf("[Direttore] Ricevuto SIGUSR1: non faccio niente perchè sono il direttore.\n");
+}
 
 // Creazione della memoria condivisa
 int SharedMemoryCreate() {
@@ -221,6 +226,11 @@ void SendEndOfDaySignal() {
     kill(0, SIGUSR2);
 }
 
+// Mandiamo ai figli il segnale per avvisarli che è terminata la simulazione
+void SendEndOfSimulationSignal() {
+    kill(0, SIGTERM);
+}
+
 int main(int argc, char *argv[]) {
     struct sembuf sops;
 
@@ -228,6 +238,18 @@ int main(int argc, char *argv[]) {
     srand(time(NULL));
 
     printf("[Direttore] Avvio della simulazione. PID: %d\n", getpid());
+
+    // Configuriamo i segnali
+    struct sigaction sa_start;//, sa_reset, sa_term;
+
+    // Installa il signal handler per SIGUSR1
+    sa_start.sa_handler = handle_day_start;
+    sigemptyset(&sa_start.sa_mask);
+    sa_start.sa_flags = SA_RESTART;
+    if (sigaction(SIGUSR1, &sa_start, NULL) < 0) {
+        perror("sigaction SIGUSR1");
+        exit(EXIT_FAILURE);
+    }
 
     // creiamo la memoria condivisa e colleghiamoci
     int shmID = SharedMemoryCreate();
@@ -260,14 +282,14 @@ int main(int argc, char *argv[]) {
     for (int giorni = 1; giorni <= SIM_DURATION; giorni++) {
         printf("[Direttore] Inizio del giorno %d...\n", giorni);
         SendStartOfDaySignal();
-        sleep(10);
+        sleep(20);
         printf("[Direttore] Avviso i figli che è terminato il giorno %d...\n", giorni);
-        SendEndOfDaySignal();
+        //SendEndOfDaySignal();
     }
 
     // Fermiamo la simulazione
     printf("[Direttore] Simulazione finita, mando il segnale di terminazione a tutti i figli...\n");
-    kill(0, SIGTERM);
+    //SendEndOfSimulationSignal();
 
     // aspettiamo che tutti i processi finiscano la loro esecuzione
     waitFinishAllSubProcess();

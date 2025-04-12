@@ -3,7 +3,6 @@
 #include <unistd.h>
 #include <stdbool.h>
 #include <signal.h>
-#include <sys/signal.h>
 #include <errno.h>
 #include <sys/wait.h>
 #include <semaphore.h>
@@ -68,16 +67,42 @@ void ReceiveAndSendMessage(int msgIdDispenser, int msgIdOperator, char *erogator
 
         Messaggio msg;
 
-        if (msgrcv(msgIdDispenser, &msg, sizeof(Messaggio) - sizeof(long), 0, 0) < 0) {
-            perror("msgrcv");
-            exit(EXIT_FAILURE);
-        }
+        // if (msgrcv(msgIdDispenser, &msg, sizeof(Messaggio) - sizeof(long), 0, 0) < 0) {
+        //     perror("msgrcv");
+        //     // exit(EXIT_FAILURE);
+        // }
 
         // ssize_t n;
         // do {
         //     n = msgrcv(msgIdDispenser, &msg, sizeof(Messaggio) - sizeof(long), 0, 0);
         // } while (n < 0 && errno == EINTR);
 
+        // if (n < 0) {
+        //     perror("msgrcv");
+        //     exit(EXIT_FAILURE);
+        // }
+
+        sigset_t mask, oldmask;
+        sigemptyset(&mask);
+        sigaddset(&mask, SIGUSR1);  // Blocca SIGUSR1
+        if (sigprocmask(SIG_BLOCK, &mask, &oldmask) == -1) {
+            perror("sigprocmask");
+            exit(EXIT_FAILURE);
+        }
+
+        // Ora chiamata bloccante a msgrcv
+        ssize_t n = msgrcv(msgIdDispenser, &msg, sizeof(Messaggio) - sizeof(long), 0, 0);
+
+        // Ripristina la maschera dei segnali
+        if (sigprocmask(SIG_SETMASK, &oldmask, NULL) == -1) {
+            perror("sigprocmask");
+            exit(EXIT_FAILURE);
+        }
+
+        if (n < 0) {
+            perror("msgrcv");
+            exit(EXIT_FAILURE);
+        }
 
         msg.ticket_id = ticket_number++;
 
@@ -104,7 +129,7 @@ int main(int argc, char *argv[]) {
     printf("[%s] Avvio in corso. PID = %d\n", erogatoreID, getpid());
     
     // Configuriamo i segnali
-    struct sigaction sa_start, sa_reset, sa_term;
+    struct sigaction sa_start;//, sa_reset, sa_term;
 
     // Installa il signal handler per SIGUSR1
     sa_start.sa_handler = handle_day_start;
@@ -116,22 +141,22 @@ int main(int argc, char *argv[]) {
     }
 
     // Installa il signal handler per SIGUSR2
-    sa_reset.sa_handler = handle_day_end;
-    sigemptyset(&sa_reset.sa_mask);
-    sa_reset.sa_flags = 0;
-    if (sigaction(SIGUSR2, &sa_reset, NULL) < 0) {
-        perror("sigaction SIGUSR2");
-        exit(EXIT_FAILURE);
-    }
+    // sa_reset.sa_handler = handle_day_end;
+    // sigemptyset(&sa_reset.sa_mask);
+    // sa_reset.sa_flags = 0;
+    // if (sigaction(SIGUSR2, &sa_reset, NULL) < 0) {
+    //     perror("sigaction SIGUSR2");
+    //     exit(EXIT_FAILURE);
+    // }
 
-    // Installa il signal handler per SIGTERM
-    sa_term.sa_handler = handle_termination;
-    sigemptyset(&sa_term.sa_mask);
-    sa_term.sa_flags = 0;
-    if (sigaction(SIGTERM, &sa_term, NULL) < 0) {
-        perror("sigaction SIGTERM");
-        exit(EXIT_FAILURE);
-    }
+    // // Installa il signal handler per SIGTERM
+    // sa_term.sa_handler = handle_termination;
+    // sigemptyset(&sa_term.sa_mask);
+    // sa_term.sa_flags = 0;
+    // if (sigaction(SIGTERM, &sa_term, NULL) < 0) {
+    //     perror("sigaction SIGTERM");
+    //     exit(EXIT_FAILURE);
+    // }
 
     printf("[%s] Sono pronto, avviso il direttore e aspetto il via.\n", erogatoreID);
     notifyAndWait(semID, sops);
