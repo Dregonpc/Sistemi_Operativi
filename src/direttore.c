@@ -29,6 +29,11 @@ void handle_day_start(int signo) {
     printf("[Direttore] Ricevuto SIGUSR1: non faccio niente perchè sono il direttore.\n");
 }
 
+// Signal handler per il reset (SIGUSR2)
+void handle_day_end(int signo) {
+    printf("[Direttore] Ricevuto SIGUSR1: non faccio niente perchè sono il direttore.\n");
+}
+
 // Creazione della memoria condivisa
 int SharedMemoryCreate() {
     int shmID = shmget(IPC_PRIVATE, sizeof(DailyConfig), IPC_CREAT | 0666);
@@ -240,7 +245,7 @@ int main(int argc, char *argv[]) {
     printf("[Direttore] Avvio della simulazione. PID: %d\n", getpid());
 
     // Configuriamo i segnali
-    struct sigaction sa_start;//, sa_reset, sa_term;
+    struct sigaction sa_start, sa_reset; //, sa_term;
 
     // Installa il signal handler per SIGUSR1
     sa_start.sa_handler = handle_day_start;
@@ -248,6 +253,15 @@ int main(int argc, char *argv[]) {
     sa_start.sa_flags = SA_RESTART;
     if (sigaction(SIGUSR1, &sa_start, NULL) < 0) {
         perror("sigaction SIGUSR1");
+        exit(EXIT_FAILURE);
+    }
+
+    // Installa il signal handler per SIGUSR2
+    sa_reset.sa_handler = handle_day_end;
+    sigemptyset(&sa_reset.sa_mask);
+    sa_reset.sa_flags = 0;
+    if (sigaction(SIGUSR2, &sa_reset, NULL) < 0) {
+        perror("sigaction SIGUSR2");
         exit(EXIT_FAILURE);
     }
 
@@ -284,7 +298,8 @@ int main(int argc, char *argv[]) {
         SendStartOfDaySignal();
         sleep(20);
         printf("[Direttore] Avviso i figli che è terminato il giorno %d...\n", giorni);
-        //SendEndOfDaySignal();
+        SendEndOfDaySignal();
+        sleep(20);
     }
 
     // Fermiamo la simulazione

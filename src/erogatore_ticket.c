@@ -14,17 +14,39 @@
 volatile sig_atomic_t startDay = false;
 volatile sig_atomic_t endDay = false;
 
+void CheckStatusDay(char *erogatoreID) {
+    if (endDay) {
+        printf("[%s] Giorno terminato, attento il giorno nuovo\n", erogatoreID);
+        endDay = false;
+        startDay = false;
+
+        // tolgo la maschera sul SIGUSR1 per aspettare il giorno nuovo
+        sigset_t oldmask;
+        if (sigprocmask(SIG_SETMASK, &oldmask, NULL) == -1) {
+            perror("sigprocmask");
+            exit(EXIT_FAILURE);
+        }
+
+        while(!startDay) {
+            printf("[%s] Giorno terminato, attendo il giorno nuovo\n", erogatoreID);
+            pause();
+        }
+
+        printf("[%s] Giorno iniziato, mi metto a lavorare\n", erogatoreID);
+    }
+}
+
 // Signal handler per l'inizio giornata (SIGUSR1)
 void handle_day_start(int signo) {
-    printf("[PID %d] Ricevuto SIGUSR1: inizio del giorno.\n", getpid());
+    printf("[Erogatore = %d] Ricevuto SIGUSR1: inizio del giorno.\n", getpid());
     startDay = true;
 }
 
 // Signal handler per il reset (SIGUSR2)
 void handle_day_end(int signo) {
-    printf("[PID %d] Ricevuto SIGUSR2: fine del giorno. Reset in corso...\n", getpid());
+    printf("[Erogatore = %d] Ricevuto SIGUSR2: fine del giorno. Reset in corso...\n", getpid());
     endDay = true;
-    // Reset:
+    CheckStatusDay("Erogatore");
 }
 
 // Signal handler per terminazione (SIGTERM)
@@ -33,19 +55,6 @@ void handle_termination(int signo) {
     exit(EXIT_SUCCESS);
 }
 
-void CheckStatusDay(char *erogatoreID) {
-    if (endDay) {
-        printf("[%s] Giorno terminato, attento il giorno nuovo\n", erogatoreID);
-        endDay = false;
-        startDay = false;
-
-        while(!startDay) {
-            pause();
-        }
-
-        printf("[%s] Giorno iniziato, mi metto a lavorare\n", erogatoreID);
-    }
-}
 
 void notifyAndWait(int semID, struct sembuf sops) {
     // decremento il semaforo = sono nato e sono pronto
@@ -129,7 +138,7 @@ int main(int argc, char *argv[]) {
     printf("[%s] Avvio in corso. PID = %d\n", erogatoreID, getpid());
     
     // Configuriamo i segnali
-    struct sigaction sa_start;//, sa_reset, sa_term;
+    struct sigaction sa_start, sa_reset; //, sa_term;
 
     // Installa il signal handler per SIGUSR1
     sa_start.sa_handler = handle_day_start;
@@ -141,15 +150,15 @@ int main(int argc, char *argv[]) {
     }
 
     // Installa il signal handler per SIGUSR2
-    // sa_reset.sa_handler = handle_day_end;
-    // sigemptyset(&sa_reset.sa_mask);
-    // sa_reset.sa_flags = 0;
-    // if (sigaction(SIGUSR2, &sa_reset, NULL) < 0) {
-    //     perror("sigaction SIGUSR2");
-    //     exit(EXIT_FAILURE);
-    // }
+    sa_reset.sa_handler = handle_day_end;
+    sigemptyset(&sa_reset.sa_mask);
+    sa_reset.sa_flags = 0;
+    if (sigaction(SIGUSR2, &sa_reset, NULL) < 0) {
+        perror("sigaction SIGUSR2");
+        exit(EXIT_FAILURE);
+    }
 
-    // // Installa il signal handler per SIGTERM
+    // Installa il signal handler per SIGTERM
     // sa_term.sa_handler = handle_termination;
     // sigemptyset(&sa_term.sa_mask);
     // sa_term.sa_flags = 0;

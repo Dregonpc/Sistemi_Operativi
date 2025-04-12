@@ -18,8 +18,15 @@ volatile sig_atomic_t endDay = false;
 
 // Signal handler per l'inizio giornata (SIGUSR1)
 void handle_day_start(int signo) {
-    printf("[PID %d] Ricevuto SIGUSR1: inizio del giorno.\n", getpid());
+    printf("[Utente = %d] Ricevuto SIGUSR1: inizio del giorno.\n", getpid());
     startDay = true;
+}
+
+// Signal handler per il reset (SIGUSR2)
+void handle_day_end(int signo) {
+    printf("[Utente = %d] Ricevuto SIGUSR2: fine del giorno. Reset in corso...\n", getpid());
+    endDay = true;
+    // Reset:
 }
 
 // Collegamento alla memoria condivisa
@@ -128,7 +135,7 @@ int main(int argc, char *argv[]) {
     printf("[%s] Avvio in corso. PID = %d\n", utenteID, myPID);
 
     // Configuriamo i segnali
-    struct sigaction sa_start;//, sa_reset, sa_term;
+    struct sigaction sa_start, sa_reset;    //, sa_term;
 
     // Installa il signal handler per SIGUSR1
     sa_start.sa_handler = handle_day_start;
@@ -136,6 +143,15 @@ int main(int argc, char *argv[]) {
     sa_start.sa_flags = SA_RESTART;
     if (sigaction(SIGUSR1, &sa_start, NULL) < 0) {
         perror("sigaction SIGUSR1");
+        exit(EXIT_FAILURE);
+    }
+
+    // Installa il signal handler per SIGUSR2
+    sa_reset.sa_handler = handle_day_end;
+    sigemptyset(&sa_reset.sa_mask);
+    sa_reset.sa_flags = 0;
+    if (sigaction(SIGUSR2, &sa_reset, NULL) < 0) {
+        perror("sigaction SIGUSR2");
         exit(EXIT_FAILURE);
     }
 
