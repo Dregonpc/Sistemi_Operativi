@@ -126,6 +126,18 @@ void notifyAndWait(int semID, struct sembuf sops) {
     semop(semID, &sops, 1);
 }
 
+void NewNotifyAndWait(int semID, struct sembuf sops) {
+    // avviso il direttore che sono pronto
+    sops.sem_num = 0;
+    sops.sem_op = -1;
+    semop(semID, &sops, 1);
+    
+    // aspetto che arrivi a 0 (ovvero il direttore mi da il via)
+    sops.sem_num = 3;
+    sops.sem_op = 0;
+    semop(semID, &sops, 1);
+}
+
 bool breakCondition() {
     // Da decidere una vera condizione (ad esempio che abbia servito almeno due clienti)
     return (rand() % 100) < 20; // 20% di possibilità di andare in pausa
@@ -141,41 +153,48 @@ int CalculateTimeExecution(int IndexServizio) {
     return durataCasuale;
 }
 
-void ReceiveTicketAndExecute(int msgIdOperator, int msgIdUser, int IndexServizio, char *operatoreID, int NOF_PAUSE, int* pause_effettuate) {
+void ReceiveTicketAndExecute(int msgIdOperator, int msgIdUser, int IndexServizio, char *operatoreID, int NOF_PAUSE, int* pause_effettuate, bool* interrupt) {
     while (1) {
         Messaggio msg;
 
-        // if (msgrcv(msgIdOperator, &msg, sizeof(Messaggio) - sizeof(long), IndexServizio + 1, 0) < 0) { // Dobbiamo incrementarlo di 1 perchè il tipo del messaggio deve essere > 0, e quindi non potremmo passare il servizio 0.
-        //     perror("msgrcv");
-        //     //exit(EXIT_FAILURE);
-        // }
+        if (msgrcv(msgIdOperator, &msg, sizeof(Messaggio) - sizeof(long), IndexServizio + 1, 0) < 0) { // Dobbiamo incrementarlo di 1 perchè il tipo del messaggio deve essere > 0, e quindi non potremmo passare il servizio 0.
+            if (errno == EINTR) {
+                // Usciamo dalla funzione
+                *interrupt = true;
+                return;
+            }
+            else {
+                perror("msgrcv");
+                // exit(EXIT_FAILURE);
+            }
+        }
 
         // ssize_t n;
         // do {
         //     n = msgrcv(msgIdOperator, &msg, sizeof(Messaggio) - sizeof(long), IndexServizio + 1, 0) < 0; // Dobbiamo incrementarlo di 1 perchè il tipo del messaggio deve essere > 0, e quindi non potremmo passare il servizio 0.
         // } while (n < 0 && errno == EINTR);
 
-        sigset_t mask, oldmask;
-        sigemptyset(&mask);
-        sigaddset(&mask, SIGUSR1);  // Blocca SIGUSR1
-        if (sigprocmask(SIG_BLOCK, &mask, &oldmask) == -1) {
-            perror("sigprocmask");
-            exit(EXIT_FAILURE);
-        }
+        // sigset_t mask, oldmask;
+        // sigemptyset(&mask);
+        // sigaddset(&mask, SIGUSR1);  // Blocca SIGUSR1
+        // if (sigprocmask(SIG_BLOCK, &mask, &oldmask) == -1) {
+        //     perror("sigprocmask");
+        //     exit(EXIT_FAILURE);
+        // }
 
-        // Ora chiamata bloccante a msgrcv
-        ssize_t n = msgrcv(msgIdOperator, &msg, sizeof(Messaggio) - sizeof(long), IndexServizio + 1, 0);
+        // // Ora chiamata bloccante a msgrcv
+        // ssize_t n = msgrcv(msgIdOperator, &msg, sizeof(Messaggio) - sizeof(long), IndexServizio + 1, 0);
 
-        // Ripristina la maschera dei segnali
-        if (sigprocmask(SIG_SETMASK, &oldmask, NULL) == -1) {
-            perror("sigprocmask");
-            exit(EXIT_FAILURE);
-        }
+        // // Ripristina la maschera dei segnali
+        // if (sigprocmask(SIG_SETMASK, &oldmask, NULL) == -1) {
+        //     perror("sigprocmask");
+        //     exit(EXIT_FAILURE);
+        // }
 
-        if (n < 0) {
-            perror("msgrcv");
-            exit(EXIT_FAILURE);
-        }
+        // if (n < 0) {
+        //     perror("msgrcv");
+        //     exit(EXIT_FAILURE);
+        // }
 
         msg.mtype--;
 
@@ -243,32 +262,40 @@ int main(int argc, char *argv[]) {
     // colleghiamoci alla memoria condivisa
     DailyConfig* config = SharedMemoryAttach(shmID, operatoreID);
 
-    // proviamo ad occupare uno sportello
-    while (!TakeUpPostOffice(config, semID, sops, indexServizio, operatoreID)) {
-        printf("[%s] Nessuno sportello disponibile per il servizio %d, attendo...\n", operatoreID, indexServizio);
+    bool interrupt = false;
+    do {
+        interrupt = false;
+
+        // proviamo ad occupare uno sportello
+        while (!TakeUpPostOffice(config, semID, sops, indexServizio, operatoreID)) {
+            printf("[%s] Nessuno sportello disponibile per il servizio %d, attendo...\n", operatoreID, indexServizio);
+            if (!alreadyNotifiedStart) {
+                //notifyAndWait(semID, sops);
+                NewNotifyAndWait(semID, sops);
+                alreadyNotifiedStart = true;
+            }
+            waitFreePostOffice(semID, sops, operatoreID);
+        }
+
         if (!alreadyNotifiedStart) {
-            notifyAndWait(semID, sops);
+            printf("[%s] Sono pronto, avviso il direttore e aspetto il via.\n", operatoreID);
+            //notifyAndWait(semID, sops);
+            NewNotifyAndWait(semID, sops);
             alreadyNotifiedStart = true;
         }
-        waitFreePostOffice(semID, sops, operatoreID);
-    }
+        
+        // Posso iniziare a lavorare
+        printf("[%s] Inizio a lavorare.\n", operatoreID);
 
-    if (!alreadyNotifiedStart) {
-        printf("[%s] Sono pronto, avviso il direttore e aspetto il via.\n", operatoreID);
-        notifyAndWait(semID, sops);
-        alreadyNotifiedStart = true;
-    }
+        // Mi metto a ricevere i ticket e ad eseguirli
+        ReceiveTicketAndExecute(msgIdOperator, msgIdUser, indexServizio, operatoreID, NOF_PAUSE, &pause_effettuate, &interrupt);
+
+        // rilascio lo sportello
+        releasePostOffice(config, semID, sops, operatoreID);
+
+        // Aggiorna le statistiche
     
-    // Posso iniziare a lavorare
-    printf("[%s] Inizio a lavorare.\n", operatoreID);
-
-    // Mi metto a ricevere i ticket e ad eseguirli
-    ReceiveTicketAndExecute(msgIdOperator, msgIdUser, indexServizio, operatoreID, NOF_PAUSE, &pause_effettuate);
-
-    // rilascio lo sportello
-    releasePostOffice(config, semID, sops, operatoreID);
-    
-    // Aggiorna le statistiche
+    } while (interrupt);
 
     shmdt(config);
 

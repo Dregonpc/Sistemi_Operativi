@@ -46,7 +46,7 @@ void handle_day_start(int signo) {
 void handle_day_end(int signo) {
     printf("[Erogatore = %d] Ricevuto SIGUSR2: fine del giorno. Reset in corso...\n", getpid());
     endDay = true;
-    CheckStatusDay("Erogatore");
+    // CheckStatusDay("Erogatore");
 }
 
 // Signal handler per terminazione (SIGTERM)
@@ -68,50 +68,85 @@ void notifyAndWait(int semID, struct sembuf sops) {
     semop(semID, &sops, 1);
 }
 
-void ReceiveAndSendMessage(int msgIdDispenser, int msgIdOperator, char *erogatoreID) {
+void NewNotifyAndWait(int semID, struct sembuf sops) {
+    // avviso il direttore che sono pronto
+    sops.sem_num = 0;
+    sops.sem_op = -1;
+    semop(semID, &sops, 1);
+    
+    // aspetto che arrivi a 0 (ovvero il direttore mi da il via)
+    sops.sem_num = 3;
+    sops.sem_op = 0;
+    semop(semID, &sops, 1);
+}
+
+void ReceiveAndSendMessage(int msgIdDispenser, int msgIdOperator, char *erogatoreID, int semID, struct sembuf sops) {
     int ticket_number = 1;
 
     while (1) {
-        CheckStatusDay(erogatoreID);
+        // CheckStatusDay(erogatoreID);
 
         Messaggio msg;
+        bool interrupt = false;
+        do {
+            interrupt = false;
+            errno = 0;
+
+            if (msgrcv(msgIdDispenser, &msg, sizeof(Messaggio) - sizeof(long), 0, 0) < 0) {
+                if (errno == EINTR) {
+                    // Mi pulisco il buco del culo e mi metto in wait
+                    // puliamo code
+                    NewNotifyAndWait(semID, sops);
+                    interrupt = true;                    
+                }
+                else {
+                    perror("msgrcv");
+                    // exit(EXIT_FAILURE);
+                }
+            }
+        } while (interrupt);
 
         // if (msgrcv(msgIdDispenser, &msg, sizeof(Messaggio) - sizeof(long), 0, 0) < 0) {
-        //     perror("msgrcv");
-        //     // exit(EXIT_FAILURE);
+        //     if (errno == EINTR) {
+        //         break;
+        //     }
+        //     else {
+        //         perror("msgrcv");
+        //         // exit(EXIT_FAILURE);
+        //     }
         // }
 
         // ssize_t n;
         // do {
         //     n = msgrcv(msgIdDispenser, &msg, sizeof(Messaggio) - sizeof(long), 0, 0);
-        // } while (n < 0 && errno == EINTR);
+        // } while (n < 0 && errno == EINTR)
 
         // if (n < 0) {
         //     perror("msgrcv");
         //     exit(EXIT_FAILURE);
         // }
 
-        sigset_t mask, oldmask;
-        sigemptyset(&mask);
-        sigaddset(&mask, SIGUSR1);  // Blocca SIGUSR1
-        if (sigprocmask(SIG_BLOCK, &mask, &oldmask) == -1) {
-            perror("sigprocmask");
-            exit(EXIT_FAILURE);
-        }
+        // sigset_t mask, oldmask;
+        // sigemptyset(&mask);
+        // sigaddset(&mask, SIGUSR1);  // Blocca SIGUSR1
+        // if (sigprocmask(SIG_BLOCK, &mask, &oldmask) == -1) {
+        //     perror("sigprocmask");
+        //     exit(EXIT_FAILURE);
+        // }
 
-        // Ora chiamata bloccante a msgrcv
-        ssize_t n = msgrcv(msgIdDispenser, &msg, sizeof(Messaggio) - sizeof(long), 0, 0);
+        // // Ora chiamata bloccante a msgrcv
+        // ssize_t n = msgrcv(msgIdDispenser, &msg, sizeof(Messaggio) - sizeof(long), 0, 0);
 
-        // Ripristina la maschera dei segnali
-        if (sigprocmask(SIG_SETMASK, &oldmask, NULL) == -1) {
-            perror("sigprocmask");
-            exit(EXIT_FAILURE);
-        }
+        // // Ripristina la maschera dei segnali
+        // if (sigprocmask(SIG_SETMASK, &oldmask, NULL) == -1) {
+        //     perror("sigprocmask");
+        //     exit(EXIT_FAILURE);
+        // }
 
-        if (n < 0) {
-            perror("msgrcv");
-            exit(EXIT_FAILURE);
-        }
+        // if (n < 0) {
+        //     perror("msgrcv");
+        //     exit(EXIT_FAILURE);
+        // }
 
         msg.ticket_id = ticket_number++;
 
@@ -168,13 +203,16 @@ int main(int argc, char *argv[]) {
     // }
 
     printf("[%s] Sono pronto, avviso il direttore e aspetto il via.\n", erogatoreID);
-    notifyAndWait(semID, sops);
+    //notifyAndWait(semID, sops);
+    NewNotifyAndWait(semID, sops);
     
     // Posso iniziare a lavorare
     printf("[%s] Inizio a lavorare.\n", erogatoreID);
 
     // Mi metto in ricezione
-    ReceiveAndSendMessage(msgIdDispenser, msgIdOperator, erogatoreID);
+    ReceiveAndSendMessage(msgIdDispenser, msgIdOperator, erogatoreID, semID, sops);
+
+    // Siamo usciti dal while quindi la giornata è finita
 
     sleep(2);
 
