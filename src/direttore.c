@@ -73,24 +73,24 @@ void semInizialize(int semID) {
         exit(EXIT_FAILURE);
     }
 
-    // semNum = 1 : semaforo per gestire se ci sono sportelli liberi
+    // semNum = 1 : semaforo per gestire lo start (ovvero i figli possono partire)
+    // all'inizio, vale 1, tutti i figli aspettano che diventi 0
+    if (semctl(semID, 1, SETVAL, 1) < 0) {
+        perror("[Direttore] Errore durante la semctl del semaforo dedicato allo start.\n");
+        exit(EXIT_FAILURE);
+    }
+
+    // semNum = 2 : semaforo per gestire se ci sono sportelli liberi
     // all'inizio, tutti gli sportelli sono liberi
-    if (semctl(semID, 1, SETVAL, NUM_SPORTELLI) < 0) {
+    if (semctl(semID, 2, SETVAL, NUM_SPORTELLI) < 0) {
         perror("[Direttore] Errore durante la semctl del semaforo dedicato agli sportelli.\n");
         exit(EXIT_FAILURE);
     }
 
-    // semNum = 2 : semaforo per coordinare l'accesso singolo agli operatori per provare ad occupare uno sportello, in modo che vada uno per volta
+    // semNum = 3 : semaforo per coordinare l'accesso singolo agli operatori per provare ad occupare uno sportello, in modo che vada uno per volta
     // all'inizio, il semaforo vale 1, quindi il primo operatore può provare ad occupare uno sportello
-    if (semctl(semID, 2, SETVAL, 1) < 0) {
-        perror("[Direttore] Errore durante la semctl del semaforo per l'accesso coordinato agli sportelli.\n");
-        exit(EXIT_FAILURE);
-    }
-
-    // semNum = 3 : semaforo per gestire lo start (ovvero i figli possono partire)
-    // all'inizio, vale 1, tutti i figli aspettano che diventi 0
     if (semctl(semID, 3, SETVAL, 1) < 0) {
-        perror("[Direttore] Errore durante la semctl del semaforo dedicato allo start.\n");
+        perror("[Direttore] Errore durante la semctl del semaforo per l'accesso coordinato agli sportelli.\n");
         exit(EXIT_FAILURE);
     }
 }
@@ -104,9 +104,9 @@ void semRestart(int semID) {
         exit(EXIT_FAILURE);
     }
 
-    // semNum = 3 : semaforo per gestire lo start (ovvero i figli possono partire)
+    // semNum = 1 : semaforo per gestire lo start (ovvero i figli possono partire)
     // all'inizio, vale 1, tutti i figli aspettano che diventi 0
-    if (semctl(semID, 3, SETVAL, 1) < 0) {
+    if (semctl(semID, 1, SETVAL, 1) < 0) {
         perror("[Direttore] Errore durante la semctl del semaforo dedicato allo start.\n");
         exit(EXIT_FAILURE);
     }
@@ -196,19 +196,7 @@ void createAllSubProcess(int shmID, int semID, int msgIdDispenser, int msgIdOper
     }
 }
 
-void notifyAndWait(int semID, struct sembuf sops) {
-    // decremento il semaforo di 1 per farlo arrivare a 0
-    sops.sem_num = 0;
-    sops.sem_op = -1;
-    semop(semID, &sops, 1);
-
-    // aspettiamo che arrivi a 0
-    sops.sem_num = 0;
-    sops.sem_op = 0;
-    semop(semID, &sops, 1);
-}
-
-void NewNotifyAndWait(int semID, struct sembuf sops, bool endSim) {
+void MasterNotifyAndWait(int semID, struct sembuf sops, bool endSim) {
     // aspettiamo che arrivi a 0 (ovvero tutti i figli sono pronti e hanno decrementato il semaforo)
     sops.sem_num = 0;
     sops.sem_op = 0;
@@ -218,7 +206,7 @@ void NewNotifyAndWait(int semID, struct sembuf sops, bool endSim) {
 
     if (!endSim) {
         // avvisiamo i figli che possono partire
-        sops.sem_num = 3;
+        sops.sem_num = 1;
         sops.sem_op = -1;
         semop(semID, &sops, 1);
     }
@@ -286,12 +274,11 @@ int main(int argc, char *argv[]) {
     createAllSubProcess(shmID, semID, msgIdDispenser, msgIdOperator, msgIdUser);
 
     // aspettiamo che tutti i figli siano pronti e diamogli il via
-    //notifyAndWait(semID, sops);
-    NewNotifyAndWait(semID, sops, false);
+    MasterNotifyAndWait(semID, sops, false);
 
     // Scorriamo i giorni e avvisiamo ogni volta i figli quando finisce un giorno
     // for (int giorni = 1; giorni <= SIM_DURATION; giorni++) {
-    //     NewNotifyAndWait(semID, sops, false);
+    //     MasterNotifyAndWait(semID, sops, false);
     //     printf("[Direttore] Inizio del giorno %d...\n", giorni);
     //     //SendStartOfDaySignal();
     //     sleep(20);
@@ -299,7 +286,7 @@ int main(int argc, char *argv[]) {
     // }
 
     // Aspettiamo che tutti i figli finiscano di scrivere le statistiche
-    // NewNotifyAndWait(semID, sops, true);
+    // MasterNotifyAndWait(semID, sops, true);
     // Fermiamo la simulazione
     // printf("[Direttore] Simulazione finita, mando il segnale di terminazione a tutti i figli...\n");
 

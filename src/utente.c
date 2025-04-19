@@ -24,26 +24,14 @@ DailyConfig* SharedMemoryAttach(int shmID, char* utenteId) {
     return config;
 }
 
-void notifyAndWait(int semID, struct sembuf sops) {
-    // decremento il semaforo = sono nato e sono pronto
-    sops.sem_num = 0;
-    sops.sem_op = -1;
-    semop(semID, &sops, 1);
-
-    // aspetto il direttore
-    sops.sem_num = 0;
-    sops.sem_op = 0;
-    semop(semID, &sops, 1);
-}
-
-void NewNotifyAndWait(int semID, struct sembuf sops) {
+void SlaveNotifyAndWait(int semID, struct sembuf sops) {
     // avviso il direttore che sono pronto
     sops.sem_num = 0;
     sops.sem_op = -1;
     semop(semID, &sops, 1);
     
     // aspetto che arrivi a 0 (ovvero il direttore mi da il via)
-    sops.sem_num = 3;
+    sops.sem_num = 1;
     sops.sem_op = 0;
     semop(semID, &sops, 1);
 }
@@ -107,8 +95,7 @@ int main(int argc, char *argv[]) {
     DailyConfig* config = SharedMemoryAttach(shmID, utenteID);
 
     printf("[%s] Sono pronto, avviso il direttore e aspetto il via.\n", utenteID);
-    //notifyAndWait(semID, sops);
-    NewNotifyAndWait(semID, sops);
+    SlaveNotifyAndWait(semID, sops);
 
     // Posso iniziare a lavorare
     printf("[%s] Inizio a lavorare.\n", utenteID);

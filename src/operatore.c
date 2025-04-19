@@ -29,7 +29,7 @@ bool TakeUpPostOffice(DailyConfig* config, int semID, struct sembuf sops, int in
     bool check = false;
 
     // acquisisco il lock per l'accesso coordinato agli sportelli
-    sops.sem_num = 2;
+    sops.sem_num = 3;
     sops.sem_op = -1;
     if (semop(semID, &sops, 1) == -1) {
         printf("[%s] Errore durante l'acquisizione del lock per gli sportelli.\n", operatoreId);
@@ -44,7 +44,7 @@ bool TakeUpPostOffice(DailyConfig* config, int semID, struct sembuf sops, int in
             check = true;
 
             // invio il segnale che uno sportello è stato occupato
-            sops.sem_num = 1;
+            sops.sem_num = 2;
             sops.sem_op = -1;
             if (semop(semID, &sops, 1) == -1) {
                 printf("[%s] Errore durante l'invio del segnale che uno sportello è stato occupato.\n", operatoreId);
@@ -56,7 +56,7 @@ bool TakeUpPostOffice(DailyConfig* config, int semID, struct sembuf sops, int in
     }
 
     // rilascio il lock
-    sops.sem_num = 2;
+    sops.sem_num = 3;
     sops.sem_op = 1;
     if (semop(semID, &sops, 1) == -1) {
         printf("[%s] Errore durante il rilascio del lock per gli sportelli.\n", operatoreId);
@@ -68,7 +68,7 @@ bool TakeUpPostOffice(DailyConfig* config, int semID, struct sembuf sops, int in
 
 void waitFreePostOffice(int semID, struct sembuf sops, char *operatoreId) {
     // attendo il segnale che uno sportello si sia liberato
-    sops.sem_num = 1;
+    sops.sem_num = 2;
     sops.sem_op = -1;
     if (semop(semID, &sops, 1) == -1) { // con questo comando il processo si mette in wait
         printf("[%s] Errore durante l'attesa di uno sportello.\n", operatoreId);
@@ -87,7 +87,7 @@ void releasePostOffice(DailyConfig* config, int semID, struct sembuf sops, char*
         }
     }
 
-    sops.sem_num = 1;
+    sops.sem_num = 2;
     sops.sem_op = 1;
     sops.sem_flg = 0;
     if (semop(semID, &sops, 1) == -1) {
@@ -98,26 +98,14 @@ void releasePostOffice(DailyConfig* config, int semID, struct sembuf sops, char*
     printf("[%s] Ho rilasciato lo sportello e mandato la notifica ai miei colleghi.\n", operatoreId);
 }
 
-void notifyAndWait(int semID, struct sembuf sops) {
-    // decremento il semaforo = sono nato e sono pronto
-    sops.sem_num = 0;
-    sops.sem_op = -1;
-    semop(semID, &sops, 1);
-
-    // aspetto il direttore
-    sops.sem_num = 0;
-    sops.sem_op = 0;
-    semop(semID, &sops, 1);
-}
-
-void NewNotifyAndWait(int semID, struct sembuf sops) {
+void SlaveNotifyAndWait(int semID, struct sembuf sops) {
     // avviso il direttore che sono pronto
     sops.sem_num = 0;
     sops.sem_op = -1;
     semop(semID, &sops, 1);
     
     // aspetto che arrivi a 0 (ovvero il direttore mi da il via)
-    sops.sem_num = 3;
+    sops.sem_num = 1;
     sops.sem_op = 0;
     semop(semID, &sops, 1);
 }
@@ -195,8 +183,7 @@ int main(int argc, char *argv[]) {
     while (!TakeUpPostOffice(config, semID, sops, indexServizio, operatoreID)) {
         printf("[%s] Nessuno sportello disponibile per il servizio %d, attendo...\n", operatoreID, indexServizio);
         if (!alreadyNotifiedStart) {
-            //notifyAndWait(semID, sops);
-            NewNotifyAndWait(semID, sops);
+            SlaveNotifyAndWait(semID, sops);
             alreadyNotifiedStart = true;
         }
         waitFreePostOffice(semID, sops, operatoreID);
@@ -204,8 +191,7 @@ int main(int argc, char *argv[]) {
 
     if (!alreadyNotifiedStart) {
         printf("[%s] Sono pronto, avviso il direttore e aspetto il via.\n", operatoreID);
-        //notifyAndWait(semID, sops);
-        NewNotifyAndWait(semID, sops);
+        SlaveNotifyAndWait(semID, sops);
         alreadyNotifiedStart = true;
     }
     
