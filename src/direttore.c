@@ -25,16 +25,6 @@
 #define MINUTES_FOR_DAY 480 // 480 minuti = 8 ore
 #define SIMULATED_MINUTE 100000000 // 100 milioni di nanosecondi = 100ms
 
-// Signal handler per l'inizio giornata (SIGUSR1)
-void handle_day_start(int signo) {
-    printf("[Direttore] Ricevuto SIGUSR1: non faccio niente perchè sono il direttore.\n");
-}
-
-// Signal handler per il reset (SIGUSR2)
-void handle_day_end(int signo) {
-    printf("[Direttore] Ricevuto SIGUSR1: non faccio niente perchè sono il direttore.\n");
-}
-
 // Creazione della memoria condivisa
 int SharedMemoryCreate() {
     int shmID = shmget(IPC_PRIVATE, sizeof(DailyConfig), IPC_CREAT | 0666);
@@ -261,22 +251,6 @@ void Clean(int msgIdDispenser, int msgIdOperator, int msgIdUser, int semID, int 
     messageQueueClean(msgIdDispenser, msgIdOperator, msgIdUser);
     semCleanUp(semID);
     SharedMemoryClean(shmID, config);
-} 
-
-// Mandiamo ai figli il segnale per avvisarli che è iniziato il giorno lavorativo
-void SendStartOfDaySignal() {
-    kill(0, SIGUSR1);
-}
-
-// Mandiamo ai figli il segnale per avvisarli che è finito il giorno lavorativo
-void SendEndOfDaySignal(int semID) {
-    semRestart(semID);
-    kill(0, SIGUSR2);
-}
-
-// Mandiamo ai figli il segnale per avvisarli che è terminata la simulazione
-void SendEndOfSimulationSignal() {
-    kill(0, SIGTERM);
 }
 
 int main(int argc, char *argv[]) {
@@ -286,27 +260,6 @@ int main(int argc, char *argv[]) {
     srand(time(NULL));
 
     printf("[Direttore] Avvio della simulazione. PID: %d\n", getpid());
-
-    // Configuriamo i segnali
-    struct sigaction sa_start, sa_reset; //, sa_term;
-
-    // Installa il signal handler per SIGUSR1
-    sa_start.sa_handler = handle_day_start;
-    sigemptyset(&sa_start.sa_mask);
-    sa_start.sa_flags = SA_RESTART;
-    if (sigaction(SIGUSR1, &sa_start, NULL) < 0) {
-        perror("sigaction SIGUSR1");
-        exit(EXIT_FAILURE);
-    }
-
-    // Installa il signal handler per SIGUSR2
-    sa_reset.sa_handler = handle_day_end;
-    sigemptyset(&sa_reset.sa_mask);
-    sa_reset.sa_flags = 0;
-    if (sigaction(SIGUSR2, &sa_reset, NULL) < 0) {
-        perror("sigaction SIGUSR2");
-        exit(EXIT_FAILURE);
-    }
 
     // creiamo la memoria condivisa e colleghiamoci
     int shmID = SharedMemoryCreate();
@@ -334,23 +287,21 @@ int main(int argc, char *argv[]) {
 
     // aspettiamo che tutti i figli siano pronti e diamogli il via
     //notifyAndWait(semID, sops);
-    // NewNotifyAndWait(semID, sops);
+    NewNotifyAndWait(semID, sops, false);
 
     // Scorriamo i giorni e avvisiamo ogni volta i figli quando finisce un giorno
-    for (int giorni = 1; giorni <= SIM_DURATION; giorni++) {
-        NewNotifyAndWait(semID, sops, false);
-        printf("[Direttore] Inizio del giorno %d...\n", giorni);
-        //SendStartOfDaySignal();
-        sleep(20);
-        printf("[Direttore] Avviso i figli che è terminato il giorno %d...\n", giorni);
-        SendEndOfDaySignal(semID);
-    }
+    // for (int giorni = 1; giorni <= SIM_DURATION; giorni++) {
+    //     NewNotifyAndWait(semID, sops, false);
+    //     printf("[Direttore] Inizio del giorno %d...\n", giorni);
+    //     //SendStartOfDaySignal();
+    //     sleep(20);
+    //     printf("[Direttore] Avviso i figli che è terminato il giorno %d...\n", giorni);
+    // }
 
     // Aspettiamo che tutti i figli finiscano di scrivere le statistiche
-    NewNotifyAndWait(semID, sops, true);
+    // NewNotifyAndWait(semID, sops, true);
     // Fermiamo la simulazione
-    printf("[Direttore] Simulazione finita, mando il segnale di terminazione a tutti i figli...\n");
-    //SendEndOfSimulationSignal();
+    // printf("[Direttore] Simulazione finita, mando il segnale di terminazione a tutti i figli...\n");
 
     // aspettiamo che tutti i processi finiscano la loro esecuzione
     waitFinishAllSubProcess();

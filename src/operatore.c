@@ -14,22 +14,6 @@
 #include "../headers/servizi.h"
 #include "../headers/SharedMemory.h"
 
-volatile sig_atomic_t startDay = false;
-volatile sig_atomic_t endDay = false;
-
-// Signal handler per l'inizio giornata (SIGUSR1)
-void handle_day_start(int signo) {
-    printf("[Operatore =  %d] Ricevuto SIGUSR1: inizio del giorno.\n", getpid());
-    startDay = true;
-}
-
-// Signal handler per il reset (SIGUSR2)
-void handle_day_end(int signo) {
-    printf("[Operatore = %d] Ricevuto SIGUSR2: fine del giorno. Reset in corso...\n", getpid());
-    endDay = true;
-    // Reset:
-}
-
 // Collegamento alla memoria condivisa
 DailyConfig* SharedMemoryAttach(int shmID, char* operatoreId) {
     DailyConfig* config = (DailyConfig*)shmat(shmID, NULL, 0);
@@ -153,48 +137,14 @@ int CalculateTimeExecution(int IndexServizio) {
     return durataCasuale;
 }
 
-void ReceiveTicketAndExecute(int msgIdOperator, int msgIdUser, int IndexServizio, char *operatoreID, int NOF_PAUSE, int* pause_effettuate, bool* interrupt) {
+void ReceiveTicketAndExecute(int msgIdOperator, int msgIdUser, int IndexServizio, char *operatoreID, int NOF_PAUSE, int* pause_effettuate) {
     while (1) {
         Messaggio msg;
 
         if (msgrcv(msgIdOperator, &msg, sizeof(Messaggio) - sizeof(long), IndexServizio + 1, 0) < 0) { // Dobbiamo incrementarlo di 1 perchè il tipo del messaggio deve essere > 0, e quindi non potremmo passare il servizio 0.
-            if (errno == EINTR) {
-                // Usciamo dalla funzione
-                *interrupt = true;
-                return;
-            }
-            else {
-                perror("msgrcv");
-                // exit(EXIT_FAILURE);
-            }
+            perror("msgrcv");
+            // exit(EXIT_FAILURE);
         }
-
-        // ssize_t n;
-        // do {
-        //     n = msgrcv(msgIdOperator, &msg, sizeof(Messaggio) - sizeof(long), IndexServizio + 1, 0) < 0; // Dobbiamo incrementarlo di 1 perchè il tipo del messaggio deve essere > 0, e quindi non potremmo passare il servizio 0.
-        // } while (n < 0 && errno == EINTR);
-
-        // sigset_t mask, oldmask;
-        // sigemptyset(&mask);
-        // sigaddset(&mask, SIGUSR1);  // Blocca SIGUSR1
-        // if (sigprocmask(SIG_BLOCK, &mask, &oldmask) == -1) {
-        //     perror("sigprocmask");
-        //     exit(EXIT_FAILURE);
-        // }
-
-        // // Ora chiamata bloccante a msgrcv
-        // ssize_t n = msgrcv(msgIdOperator, &msg, sizeof(Messaggio) - sizeof(long), IndexServizio + 1, 0);
-
-        // // Ripristina la maschera dei segnali
-        // if (sigprocmask(SIG_SETMASK, &oldmask, NULL) == -1) {
-        //     perror("sigprocmask");
-        //     exit(EXIT_FAILURE);
-        // }
-
-        // if (n < 0) {
-        //     perror("msgrcv");
-        //     exit(EXIT_FAILURE);
-        // }
 
         msg.mtype--;
 
@@ -238,64 +188,37 @@ int main(int argc, char *argv[]) {
 
     printf("[%s] Avvio in corso. PID = %d\n", operatoreID, getpid());
 
-    // Configuriamo i segnali
-    struct sigaction sa_start, sa_reset; //, sa_term;
-
-    // Installa il signal handler per SIGUSR1
-    sa_start.sa_handler = handle_day_start;
-    sigemptyset(&sa_start.sa_mask);
-    sa_start.sa_flags = SA_RESTART;
-    if (sigaction(SIGUSR1, &sa_start, NULL) < 0) {
-        perror("sigaction SIGUSR1");
-        exit(EXIT_FAILURE);
-    }
-
-    // Installa il signal handler per SIGUSR2
-    sa_reset.sa_handler = handle_day_end;
-    sigemptyset(&sa_reset.sa_mask);
-    sa_reset.sa_flags = 0;
-    if (sigaction(SIGUSR2, &sa_reset, NULL) < 0) {
-        perror("sigaction SIGUSR2");
-        exit(EXIT_FAILURE);
-    }
-
     // colleghiamoci alla memoria condivisa
     DailyConfig* config = SharedMemoryAttach(shmID, operatoreID);
 
-    bool interrupt = false;
-    do {
-        interrupt = false;
-
-        // proviamo ad occupare uno sportello
-        while (!TakeUpPostOffice(config, semID, sops, indexServizio, operatoreID)) {
-            printf("[%s] Nessuno sportello disponibile per il servizio %d, attendo...\n", operatoreID, indexServizio);
-            if (!alreadyNotifiedStart) {
-                //notifyAndWait(semID, sops);
-                NewNotifyAndWait(semID, sops);
-                alreadyNotifiedStart = true;
-            }
-            waitFreePostOffice(semID, sops, operatoreID);
-        }
-
+    // proviamo ad occupare uno sportello
+    while (!TakeUpPostOffice(config, semID, sops, indexServizio, operatoreID)) {
+        printf("[%s] Nessuno sportello disponibile per il servizio %d, attendo...\n", operatoreID, indexServizio);
         if (!alreadyNotifiedStart) {
-            printf("[%s] Sono pronto, avviso il direttore e aspetto il via.\n", operatoreID);
             //notifyAndWait(semID, sops);
             NewNotifyAndWait(semID, sops);
             alreadyNotifiedStart = true;
         }
-        
-        // Posso iniziare a lavorare
-        printf("[%s] Inizio a lavorare.\n", operatoreID);
+        waitFreePostOffice(semID, sops, operatoreID);
+    }
 
-        // Mi metto a ricevere i ticket e ad eseguirli
-        ReceiveTicketAndExecute(msgIdOperator, msgIdUser, indexServizio, operatoreID, NOF_PAUSE, &pause_effettuate, &interrupt);
-
-        // rilascio lo sportello
-        releasePostOffice(config, semID, sops, operatoreID);
-
-        // Aggiorna le statistiche
+    if (!alreadyNotifiedStart) {
+        printf("[%s] Sono pronto, avviso il direttore e aspetto il via.\n", operatoreID);
+        //notifyAndWait(semID, sops);
+        NewNotifyAndWait(semID, sops);
+        alreadyNotifiedStart = true;
+    }
     
-    } while (interrupt);
+    // Posso iniziare a lavorare
+    printf("[%s] Inizio a lavorare.\n", operatoreID);
+
+    // Mi metto a ricevere i ticket e ad eseguirli
+    ReceiveTicketAndExecute(msgIdOperator, msgIdUser, indexServizio, operatoreID, NOF_PAUSE, &pause_effettuate);
+
+    // rilascio lo sportello
+    releasePostOffice(config, semID, sops, operatoreID);
+
+    // Aggiorna le statistiche
 
     shmdt(config);
 
