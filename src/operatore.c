@@ -14,6 +14,19 @@
 #include "../headers/servizi.h"
 #include "../headers/SharedMemory.h"
 
+static volatile sig_atomic_t endDay = 0;
+static volatile sig_atomic_t startDay = 0;
+
+// Handler SIGUSR2 -> fine giornata
+static void handle_day_end(int signo) {
+    endDay = 1;
+}
+
+// Handler SIGUSR1 -> inizio nuovo giorno
+static void handle_day_start(int signo) {
+    startDay = 1;
+}
+
 // Collegamento alla memoria condivisa
 DailyConfig* SharedMemoryAttach(int shmID, char* operatoreId) {
     DailyConfig* config = (DailyConfig*)shmat(shmID, NULL, 0);
@@ -116,7 +129,7 @@ bool breakCondition() {
 }
 
 int CalculateTimeExecution(int IndexServizio) {
-    srand(time(NULL));
+    //srand(time(NULL));
     int durata = servizi[IndexServizio].durata;
     int variazione = durata / 2;
     int delta = (rand() % (2 * variazione + 1)) - variazione;
@@ -126,12 +139,28 @@ int CalculateTimeExecution(int IndexServizio) {
 }
 
 void ReceiveTicketAndExecute(int msgIdOperator, int msgIdUser, int IndexServizio, char *operatoreID, int NOF_PAUSE, int* pause_effettuate) {
-    while (1) {
+    while (!endDay) {
         Messaggio msg;
 
-        if (msgrcv(msgIdOperator, &msg, sizeof(Messaggio) - sizeof(long), IndexServizio + 1, 0) < 0) { // Dobbiamo incrementarlo di 1 perchè il tipo del messaggio deve essere > 0, e quindi non potremmo passare il servizio 0.
+        // if (msgrcv(msgIdOperator, &msg, sizeof(Messaggio) - sizeof(long), IndexServizio + 1, 0) < 0) { // Dobbiamo incrementarlo di 1 perchè il tipo del messaggio deve essere > 0, e quindi non potremmo passare il servizio 0.
+        //     perror("msgrcv");
+        //     // exit(EXIT_FAILURE);
+        // }
+
+        ssize_t n;
+
+        // ricevo finché non ottengo un messaggio valido o endDay
+        do {
+            n = msgrcv(msgIdOperator, &msg, sizeof(Messaggio) - sizeof(long), IndexServizio + 1, 0);
+        } while (n < 0 && errno == EINTR && !endDay);
+
+        if (endDay) {
+            printf("[%s] Fine giornata rilevata, interrompo ricezione.\n", operatoreID);
+            break;
+        }
+        if (n < 0) {
             perror("msgrcv");
-            // exit(EXIT_FAILURE);
+            //exit(EXIT_FAILURE);
         }
 
         msg.mtype--;
@@ -176,35 +205,77 @@ int main(int argc, char *argv[]) {
 
     printf("[%s] Avvio in corso. PID = %d\n", operatoreID, getpid());
 
+    // Installa i signal handler
+    struct sigaction sa_end = {0}, sa_start = {0};
+    sa_end.sa_handler = handle_day_end;
+    sigemptyset(&sa_end.sa_mask);
+    sa_end.sa_flags = 0;                // senza SA_RESTART
+    sigaction(SIGUSR2, &sa_end, NULL);
+
+    sa_start.sa_handler = handle_day_start;
+    sigemptyset(&sa_start.sa_mask);
+    sa_start.sa_flags = 0;//SA_RESTART;       // opzionale
+    sigaction(SIGUSR1, &sa_start, NULL);
+
     // colleghiamoci alla memoria condivisa
     DailyConfig* config = SharedMemoryAttach(shmID, operatoreID);
 
     // proviamo ad occupare uno sportello
-    while (!TakeUpPostOffice(config, semID, sops, indexServizio, operatoreID)) {
-        printf("[%s] Nessuno sportello disponibile per il servizio %d, attendo...\n", operatoreID, indexServizio);
-        if (!alreadyNotifiedStart) {
-            SlaveNotifyAndWait(semID, sops);
-            alreadyNotifiedStart = true;
+    // while (!TakeUpPostOffice(config, semID, sops, indexServizio, operatoreID)) {
+    //     printf("[%s] Nessuno sportello disponibile per il servizio %d, attendo...\n", operatoreID, indexServizio);
+    //     if (!alreadyNotifiedStart) {
+    //         SlaveNotifyAndWait(semID, sops);
+    //         alreadyNotifiedStart = true;
+    //     }
+    //     waitFreePostOffice(semID, sops, operatoreID);
+    // }
+
+    // if (!alreadyNotifiedStart) {
+    //     printf("[%s] Sono pronto, avviso il direttore e aspetto il via.\n", operatoreID);
+    //     SlaveNotifyAndWait(semID, sops);
+    //     alreadyNotifiedStart = true;
+    // }
+
+    // barrier iniziale
+    printf("[%s] Ready, aspetto il via.\n", operatoreID);
+    SlaveNotifyAndWait(semID, sops);
+
+    srand(getpid());
+    while (1) {
+        // Posso iniziare a lavorare
+        printf("[%s] Inizio giornata.\n", operatoreID);
+        endDay = 0;
+        startDay = 0;
+
+        // ATTENDO inizio GIORNATA
+        printf("[%s] In attesa SIGUSR1 (nuovo giorno)...\n", operatoreID);
+        while (!startDay) pause();
+
+        // PROVA A OCCUPARE uno sportello
+        while (!TakeUpPostOffice(config, semID, sops, indexServizio, operatoreID)) {
+            waitFreePostOffice(semID, sops, operatoreID);
         }
-        waitFreePostOffice(semID, sops, operatoreID);
+
+        // LAVORO finché non finisce il giorno o vado in pausa
+        printf("[%s] Inizio turno (servizio %d)\n", operatoreID, indexServizio);
+
+        // Mi metto a ricevere i ticket e ad eseguirli
+        ReceiveTicketAndExecute(msgIdOperator, msgIdUser, indexServizio, operatoreID, NOF_PAUSE, &pause_effettuate);
+
+        // rilascio lo sportello
+        releasePostOffice(config, semID, sops, operatoreID);
+
+        // Aspetto fine giornata se non già arrivata
+        if (!endDay) {
+            printf("[%s] Attendo SIGUSR2 (fine giornata)...\n", operatoreID);
+            while (!endDay) pause();
+        }
+
+        // Aggiorna le statistiche
+        
+        // loop riparte per il giorno successivo
+        printf("[%s] Fine giornata elaborata.\n", operatoreID);
     }
-
-    if (!alreadyNotifiedStart) {
-        printf("[%s] Sono pronto, avviso il direttore e aspetto il via.\n", operatoreID);
-        SlaveNotifyAndWait(semID, sops);
-        alreadyNotifiedStart = true;
-    }
-    
-    // Posso iniziare a lavorare
-    printf("[%s] Inizio a lavorare.\n", operatoreID);
-
-    // Mi metto a ricevere i ticket e ad eseguirli
-    ReceiveTicketAndExecute(msgIdOperator, msgIdUser, indexServizio, operatoreID, NOF_PAUSE, &pause_effettuate);
-
-    // rilascio lo sportello
-    releasePostOffice(config, semID, sops, operatoreID);
-
-    // Aggiorna le statistiche
 
     shmdt(config);
 

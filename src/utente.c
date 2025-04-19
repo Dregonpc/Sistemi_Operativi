@@ -13,6 +13,19 @@
 #include "../headers/messaggi.h"
 #include "../headers/SharedMemory.h"
 
+static volatile sig_atomic_t endDay = 0;
+static volatile sig_atomic_t startDay = 0;
+
+// SIGUSR2 -> fine giornata
+static void handle_day_end(int signo) {
+    endDay = 1;
+}
+
+// SIGUSR1 -> inizio giornata
+static void handle_day_start(int signo) {
+    startDay = 1;
+}
+
 // Collegamento alla memoria condivisa
 DailyConfig* SharedMemoryAttach(int shmID, char* utenteId) {
     DailyConfig* config = (DailyConfig*)shmat(shmID, NULL, 0);
@@ -70,13 +83,31 @@ void SendMessageToErogatore(int msgID, char* utenteID, int IndexServizioRichiest
     printf("[%s] Ho richiesto un ticket per il servizio %d.\n", utenteID, IndexServizioRichiesto);
 }
 
-void ReceiveMessageFromOperator(int msgID, int myPID) {
+bool ReceiveMessageFromOperator(int msgID, int myPID, char* utenteID) {
     Messaggio msg;
 
-    if (msgrcv(msgID, &msg, sizeof(Messaggio) - sizeof(long), myPID, 0) < 0) {
-        perror("msgrcv");
-        exit(EXIT_FAILURE);
+    // if (msgrcv(msgID, &msg, sizeof(Messaggio) - sizeof(long), myPID, 0) < 0) {
+    //     perror("msgrcv");
+    //     exit(EXIT_FAILURE);
+    // }
+
+    ssize_t n;
+
+    do {
+        n = msgrcv(msgID, &msg, sizeof(Messaggio) - sizeof(long), myPID, 0);
+    } while(n < 0 && errno == EINTR && !endDay);
+
+    if (endDay) {
+        printf("[%s] Fine giornata prima di essere servito: rinuncio\n", utenteID);
+        return false;
     }
+    if (n < 0) {
+        perror("msgrcv");
+        //exit(EXIT_FAILURE);
+    }
+
+    printf("[%s] Ricevuto ticket %d, servito!\n", utenteID, msg.ticket_id);
+    return true;
 }
 
 int main(int argc, char *argv[]) {
@@ -91,6 +122,18 @@ int main(int argc, char *argv[]) {
     int myPID = getpid();
     printf("[%s] Avvio in corso. PID = %d\n", utenteID, myPID);
 
+    // Installa i signal handler
+    struct sigaction sa_end = {0}, sa_start = {0};
+    sa_end.sa_handler = handle_day_end;
+    sigemptyset(&sa_end.sa_mask);
+    sa_end.sa_flags = 0;                // senza SA_RESTART
+    sigaction(SIGUSR2, &sa_end, NULL);
+
+    sa_start.sa_handler = handle_day_start;
+    sigemptyset(&sa_start.sa_mask);
+    sa_start.sa_flags = 0;//SA_RESTART;       // opzionale
+    sigaction(SIGUSR1, &sa_start, NULL);
+
     // colleghiamoci alla memoria condivisa
     DailyConfig* config = SharedMemoryAttach(shmID, utenteID);
 
@@ -100,19 +143,62 @@ int main(int argc, char *argv[]) {
     // Posso iniziare a lavorare
     printf("[%s] Inizio a lavorare.\n", utenteID);
 
-    int IndexServizioRichiesto = RandomizeService(); // PER I TEST: simuliamo di richiedere sempre il servizio 1, da sostituire con un random
-    
-    sleep(5);
+    srand(time(NULL) + getpid());
 
-    // Richiedo un ticket
-    if (CheckPresenceRequiredService(config, IndexServizioRichiesto, utenteID)) {
+    while (1) {
+        // reset flag
+        startDay = 0;
+        endDay = 0;
+
+        // aspetto nuovo giorno
+        printf("[%s] In attesa SIGUSR1 (inizio giorno)...\n", utenteID);
+        while (!startDay) {
+            pause();
+        }
+
+        // scelgo il servizio
+        int IndexServizioRichiesto = RandomizeService(); // PER I TEST: simuliamo di richiedere sempre il servizio 1, da sostituire con un random
+
+        // temporaneamente aspettiamo che gli sportelli vengano occupati, dovremmo inserire qualche sistema di sincronizzazione
+        //sleep(2);
+
+        // verifico presenza
+        if (!CheckPresenceRequiredService(config, IndexServizioRichiesto, utenteID)) {
+            // non vado, aspetto fine giornata
+            printf("[%s] Non vado oggi, aspetto fine giornata...\n", utenteID);
+            while (!endDay) {
+                pause();
+            }
+
+            continue;
+        }
+
+        // invio richiesta e aspetto
         SendMessageToErogatore(msgIdDispenser, utenteID, IndexServizioRichiesto, myPID);
-        printf("[%s] In attesa di ricevere il messaggio dall'operatore...\n", utenteID);
-        ReceiveMessageFromOperator(msgIdUser, myPID);
-        printf("[%s] Sono stato servito.\n", utenteID);
+        bool served = ReceiveMessageFromOperator(msgIdUser, myPID, utenteID);
+
+        // se servito o giornata finita, torno a casa
+        // poi aspetto fine giornata per i prossimi giorni
+        printf("[%s] %s, aspetto fine giornata.\n", utenteID, served ? "Servito" : "Non servito");
+        while (!endDay) {
+            pause();
+        }
+
+        // loop riparte per il giorno successivo
+        printf("[%s] Fine giornata, ci vediamo domani!\n", utenteID);
     }
 
-    sleep(2);
+    // sleep(5);
+
+    // // Richiedo un ticket
+    // if (CheckPresenceRequiredService(config, IndexServizioRichiesto, utenteID)) {
+    //     SendMessageToErogatore(msgIdDispenser, utenteID, IndexServizioRichiesto, myPID);
+    //     printf("[%s] In attesa di ricevere il messaggio dall'operatore...\n", utenteID);
+    //     ReceiveMessageFromOperator(msgIdUser, myPID);
+    //     printf("[%s] Sono stato servito.\n", utenteID);
+    // }
+
+    // sleep(2);
 
     return EXIT_SUCCESS;
 }

@@ -9,7 +9,9 @@
 #include <semaphore.h>
 #include <signal.h>
 #include <time.h>
+#include <sys/time.h>
 #include <stdbool.h>
+#include <errno.h>
 #include "../headers/servizi.h"
 #include "../headers/SharedMemory.h"
 
@@ -24,6 +26,16 @@
 #define SIM_DURATION 3
 #define MINUTES_FOR_DAY 480 // 480 minuti = 8 ore
 #define SIMULATED_MINUTE 100000000 // 100 milioni di nanosecondi = 100ms
+
+// SIGUSR2 -> fine giornata
+static void handle_day_end(int signo) {
+    // Do nothing
+}
+
+// SIGUSR1 -> inizio giornata
+static void handle_day_start(int signo) {
+    // Do nothing
+}
 
 // Creazione della memoria condivisa
 int SharedMemoryCreate() {
@@ -245,9 +257,21 @@ int main(int argc, char *argv[]) {
     struct sembuf sops;
 
     // Inizializza il generatore di numeri casuali
-    srand(time(NULL));
+    srand(time(NULL) + getpid());
 
     printf("[Direttore] Avvio della simulazione. PID: %d\n", getpid());
+
+    // Installa i signal handler
+    struct sigaction sa_end = {0}, sa_start = {0};
+    sa_end.sa_handler = handle_day_end;
+    sigemptyset(&sa_end.sa_mask);
+    sa_end.sa_flags = 0;                // senza SA_RESTART
+    sigaction(SIGUSR2, &sa_end, NULL);
+
+    sa_start.sa_handler = handle_day_start;
+    sigemptyset(&sa_start.sa_mask);
+    sa_start.sa_flags = 0;//SA_RESTART;       // opzionale
+    sigaction(SIGUSR1, &sa_start, NULL);
 
     // creiamo la memoria condivisa e colleghiamoci
     int shmID = SharedMemoryCreate();
@@ -284,6 +308,28 @@ int main(int argc, char *argv[]) {
     //     sleep(20);
     //     printf("[Direttore] Avviso i figli che è terminato il giorno %d...\n", giorni);
     // }
+
+    // Scorriamo i giorni e avvisiamo ogni volta i figli quando finisce un giorno
+    for (int giorni = 1; giorni <= SIM_DURATION; giorni++) {
+        printf("[Direttore] Inizio del giorno %d...\n", giorni);
+        kill(0, SIGUSR1); // Inizio giornata
+
+        // simulo il passare dei minuti
+        printf("[Direttore] Giorno %d in corso (480 minuti)...\n", giorni);
+        struct timespec req, rem;
+        req.tv_sec  = 0;
+        req.tv_nsec = SIMULATED_MINUTE;
+        for (int minuti = 0; minuti < MINUTES_FOR_DAY; minuti++) {
+            rem = req;
+            // la syscall nanosleep può essere interrotta da un segnale (EINTR)
+            while (nanosleep(&rem, &rem) == -1 && errno == EINTR) {
+                // rimane in rem il tempo residuo da dormire
+            }
+        }
+
+        printf("[Direttore] Avviso i figli che è terminato il giorno %d...\n", giorni);
+        kill(0, SIGUSR2);
+    }
 
     // Aspettiamo che tutti i figli finiscano di scrivere le statistiche
     // MasterNotifyAndWait(semID, sops, true);
