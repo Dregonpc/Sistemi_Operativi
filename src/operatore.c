@@ -249,7 +249,10 @@ int main(int argc, char *argv[]) {
 
         // ATTENDO inizio GIORNATA
         printf("[%s] In attesa SIGUSR1 (nuovo giorno)...\n", operatoreID);
-        while (!startDay) pause();
+        while (!startDay) {
+            pause();
+        }
+        //SlaveNotifyAndWait(semID, sops);
 
         // PROVA A OCCUPARE uno sportello
         while (!TakeUpPostOffice(config, semID, sops, indexServizio, operatoreID)) {

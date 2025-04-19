@@ -105,9 +105,14 @@ int main(int argc, char *argv[]) {
     
     while (1) {
         // Posso iniziare a lavorare
-        printf("[%s] Inizio giornata.\n", erogatoreID);
         endDay = 0;
         startDay = 0;
+
+        printf("[%s] Inizio giornata.\n", erogatoreID);
+        // while (!startDay) {
+        //     pause();
+        // }
+        //SlaveNotifyAndWait(semID, sops);
 
         // Mi metto in ricezione
         ReceiveAndSendMessage(msgIdDispenser, msgIdOperator, erogatoreID, semID, sops);
@@ -118,6 +123,8 @@ int main(int argc, char *argv[]) {
         while (!startDay) {
             pause();
         }
+
+        //printf("[%s] Giorno terminato.\n", erogatoreID);
         // riparte il loop per il prossimo giorno
     }
 

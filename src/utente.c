@@ -155,6 +155,7 @@ int main(int argc, char *argv[]) {
         while (!startDay) {
             pause();
         }
+        //SlaveNotifyAndWait(semID, sops);
 
         // scelgo il servizio
         int IndexServizioRichiesto = RandomizeService(); // PER I TEST: simuliamo di richiedere sempre il servizio 1, da sostituire con un random

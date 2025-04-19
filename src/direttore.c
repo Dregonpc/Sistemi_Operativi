@@ -311,7 +311,9 @@ int main(int argc, char *argv[]) {
 
     // Scorriamo i giorni e avvisiamo ogni volta i figli quando finisce un giorno
     for (int giorni = 1; giorni <= SIM_DURATION; giorni++) {
+        //semRestart(semID);
         printf("[Direttore] Inizio del giorno %d...\n", giorni);
+        //MasterNotifyAndWait(semID, sops, false);
         kill(0, SIGUSR1); // Inizio giornata
 
         // simulo il passare dei minuti
