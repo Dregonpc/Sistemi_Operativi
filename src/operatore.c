@@ -68,6 +68,14 @@ bool TakeUpPostOffice(DailyConfig* config, int semID, struct sembuf sops, int in
         }
     }
 
+    // avviso gli utenti che ho provato ad occupare uno sportello (indipendentemente da se ci sono riuscito oppure no)
+    sops.sem_num = 4;
+    sops.sem_op = -1;
+    if (semop(semID, &sops, 1) == -1) {
+        printf("[%s] Errore durante l'avviso agli utenti.\n", operatoreId);
+        exit(EXIT_FAILURE);
+    }
+
     // rilascio il lock
     sops.sem_num = 3;
     sops.sem_op = 1;

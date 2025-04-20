@@ -25,7 +25,8 @@
 
 #define SIM_DURATION 3
 #define MINUTES_FOR_DAY 480 // 480 minuti = 8 ore
-#define SIMULATED_MINUTE 100000000 // 100 milioni di nanosecondi = 100ms
+//#define SIMULATED_MINUTE 100000000 // 100 milioni di nanosecondi = 100ms
+#define SIMULATED_MINUTE 50000000 // 50 milioni di nanosecondi = 50ms
 
 // SIGUSR2 -> fine giornata
 static void handle_day_end(int signo) {
@@ -67,7 +68,7 @@ void SharedMemoryClean(int shmID, DailyConfig* config) {
 
 // Creazione dei semafori
 int semCreate() {
-    int semID = semget(IPC_PRIVATE, 4, IPC_CREAT | 0666);
+    int semID = semget(IPC_PRIVATE, 5, IPC_CREAT | 0666);
     if (semID < 0) {
         printf("[Direttore] Creazione del semaforo fallita.\n");
         exit(EXIT_FAILURE);
@@ -105,9 +106,16 @@ void semInizialize(int semID) {
         perror("[Direttore] Errore durante la semctl del semaforo per l'accesso coordinato agli sportelli.\n");
         exit(EXIT_FAILURE);
     }
+
+    // semNum = 4 : semaforo per avvisare gli utenti che possono chiedere un servizio perchè tutti gli operatori hanno provato a occupare uno sportello
+    // all'inizio, il semaforo vale come il numero di operatori, che andranno a decrementarlo in modo che quando arriva a 0 gli utenti possano iniziare a chiedere i servizi (si resetta ogni giornata)
+    if (semctl(semID, 4, SETVAL, NUM_OF_WORKERS) < 0) {
+        perror("[Direttore] Errore durante la semctl del semaforo per la sincronizzazione tra operatori e utenti.\n");
+        exit(EXIT_FAILURE);
+    }
 }
 
-void semRestart(int semID) {
+void SemBarrierRestart(int semID) {
     // semNum = 0 : semaforo per gestire la barriera di partenza dei processi
     // all'inizio, contiene il numero di tutti i processi, quando arriverà a zero la simulazione partirà
     //if (semctl(semID, 0, SETVAL, TOTAL_PROCESSES_DIR) < 0) {
@@ -120,6 +128,13 @@ void semRestart(int semID) {
     // all'inizio, vale 1, tutti i figli aspettano che diventi 0
     if (semctl(semID, 1, SETVAL, 1) < 0) {
         perror("[Direttore] Errore durante la semctl del semaforo dedicato allo start.\n");
+        exit(EXIT_FAILURE);
+    }
+}
+
+void SemOperatorsUsersRestart(int semID) {
+    if (semctl(semID, 4, SETVAL, NUM_OF_WORKERS) < 0) {
+        perror("[Direttore] Errore durante la semctl del semaforo per la sincronizzazione tra operatori e utenti.\n");
         exit(EXIT_FAILURE);
     }
 }
@@ -311,7 +326,7 @@ int main(int argc, char *argv[]) {
 
     // Scorriamo i giorni e avvisiamo ogni volta i figli quando finisce un giorno
     for (int giorni = 1; giorni <= SIM_DURATION; giorni++) {
-        //semRestart(semID);
+        //SemBarrierRestart(semID);
         printf("[Direttore] Inizio del giorno %d...\n", giorni);
         //MasterNotifyAndWait(semID, sops, false);
         kill(0, SIGUSR1); // Inizio giornata
@@ -330,7 +345,10 @@ int main(int argc, char *argv[]) {
         }
 
         printf("[Direttore] Avviso i figli che è terminato il giorno %d...\n", giorni);
-        kill(0, SIGUSR2);
+        kill(0, SIGUSR2); // Fine giornata
+
+        // Facciamo ripartire il semaforo per la sincronizzazione tra operatori e utenti
+        SemOperatorsUsersRestart(semID);
     }
 
     // Aspettiamo che tutti i figli finiscano di scrivere le statistiche

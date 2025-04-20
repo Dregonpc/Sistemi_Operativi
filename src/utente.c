@@ -49,6 +49,13 @@ void SlaveNotifyAndWait(int semID, struct sembuf sops) {
     semop(semID, &sops, 1);
 }
 
+void WaitStartFromOperator(int semID, struct sembuf sops) {
+    // aspetto che arrivi a 0 (ovvero gli operatori ci danno il via)
+    sops.sem_num = 4;
+    sops.sem_op = 0;
+    semop(semID, &sops, 1);
+}
+
 int RandomizeService() {
     // srand(time(NULL) + getpid());
     // return rand() % NUM_SERVIZI;
@@ -156,6 +163,9 @@ int main(int argc, char *argv[]) {
             pause();
         }
         //SlaveNotifyAndWait(semID, sops);
+
+        // Aspettiamo che gli operatori "ci diano il via"
+        WaitStartFromOperator(semID, sops);
 
         // scelgo il servizio
         int IndexServizioRichiesto = RandomizeService(); // PER I TEST: simuliamo di richiedere sempre il servizio 1, da sostituire con un random
