@@ -109,34 +109,50 @@ void semInizialize(int semID) {
 
     // semNum = 4 : semaforo per avvisare gli utenti che possono chiedere un servizio perchè tutti gli operatori hanno provato a occupare uno sportello
     // all'inizio, il semaforo vale come il numero di operatori, che andranno a decrementarlo in modo che quando arriva a 0 gli utenti possano iniziare a chiedere i servizi (si resetta ogni giornata)
-    if (semctl(semID, 4, SETVAL, NUM_OF_WORKERS) < 0) {
+    //if (semctl(semID, 4, SETVAL, NUM_OF_WORKERS) < 0) {
+    if (semctl(semID, 4, SETVAL, 0) < 0) {
         perror("[Direttore] Errore durante la semctl del semaforo per la sincronizzazione tra operatori e utenti.\n");
         exit(EXIT_FAILURE);
     }
 }
 
 void SemBarrierRestart(int semID) {
+    struct sembuf sops;
     // semNum = 0 : semaforo per gestire la barriera di partenza dei processi
     // all'inizio, contiene il numero di tutti i processi, quando arriverà a zero la simulazione partirà
     //if (semctl(semID, 0, SETVAL, TOTAL_PROCESSES_DIR) < 0) {
-    if (semctl(semID, 0, SETVAL, TOTAL_PROCESSES) < 0) {
-        perror("[Direttore] Errore durante la semctl del semaforo dedicato alla barriera.\n");
-        exit(EXIT_FAILURE);
-    }
+    // if (semctl(semID, 0, SETVAL, TOTAL_PROCESSES) < 0) {
+    //     perror("[Direttore] Errore durante la semctl del semaforo dedicato alla barriera.\n");
+    //     exit(EXIT_FAILURE);
+    // }
+
+    sops.sem_num = 0;
+    sops.sem_op = TOTAL_PROCESSES;
+    semop(semID, &sops, 1);
 
     // semNum = 1 : semaforo per gestire lo start (ovvero i figli possono partire)
     // all'inizio, vale 1, tutti i figli aspettano che diventi 0
-    if (semctl(semID, 1, SETVAL, 1) < 0) {
-        perror("[Direttore] Errore durante la semctl del semaforo dedicato allo start.\n");
-        exit(EXIT_FAILURE);
-    }
+    // if (semctl(semID, 1, SETVAL, 1) < 0) {
+    //     perror("[Direttore] Errore durante la semctl del semaforo dedicato allo start.\n");
+    //     exit(EXIT_FAILURE);
+    // }
+
+    sops.sem_num = 1;
+    sops.sem_op = 1;
+    semop(semID, &sops, 1);
 }
 
 void SemOperatorsUsersRestart(int semID) {
-    if (semctl(semID, 4, SETVAL, NUM_OF_WORKERS) < 0) {
-        perror("[Direttore] Errore durante la semctl del semaforo per la sincronizzazione tra operatori e utenti.\n");
-        exit(EXIT_FAILURE);
-    }
+    struct sembuf sops;
+
+    // if (semctl(semID, 4, SETVAL, NUM_OF_WORKERS) < 0) {
+    //     perror("[Direttore] Errore durante la semctl del semaforo per la sincronizzazione tra operatori e utenti.\n");
+    //     exit(EXIT_FAILURE);
+    // }
+
+    sops.sem_num = 4;
+    sops.sem_op = NUM_OF_WORKERS;
+    semop(semID, &sops, 1);
 }
 
 int messageQueueCreate() {
@@ -231,12 +247,18 @@ void MasterNotifyAndWait(int semID, struct sembuf sops, bool endSim) {
 
     // Possibile lettura delle statistiche qui
 
+    // Resettiamo il semaforo tra operatori e utenti
+    SemOperatorsUsersRestart(semID);
+
     if (!endSim) {
         // avvisiamo i figli che possono partire
         sops.sem_num = 1;
         sops.sem_op = -1;
         semop(semID, &sops, 1);
     }
+
+    // Resettiamo il semaforo della barriera
+    SemBarrierRestart(semID);
 }
 
 // Aspettiamo tutti i processi finiscano di lavorare
@@ -324,12 +346,13 @@ int main(int argc, char *argv[]) {
     //     printf("[Direttore] Avviso i figli che è terminato il giorno %d...\n", giorni);
     // }
 
+    bool endSim = false;
+
     // Scorriamo i giorni e avvisiamo ogni volta i figli quando finisce un giorno
     for (int giorni = 1; giorni <= SIM_DURATION; giorni++) {
-        //SemBarrierRestart(semID);
         printf("[Direttore] Inizio del giorno %d...\n", giorni);
-        //MasterNotifyAndWait(semID, sops, false);
-        kill(0, SIGUSR1); // Inizio giornata
+        //kill(0, SIGUSR1); // Inizio giornata
+        //SemBarrierRestart(semID);
 
         // simulo il passare dei minuti
         printf("[Direttore] Giorno %d in corso (480 minuti)...\n", giorni);
@@ -348,7 +371,11 @@ int main(int argc, char *argv[]) {
         kill(0, SIGUSR2); // Fine giornata
 
         // Facciamo ripartire il semaforo per la sincronizzazione tra operatori e utenti
-        SemOperatorsUsersRestart(semID);
+        //SemOperatorsUsersRestart(semID);
+        
+        // Facciamo ripartire i figli per il nuovo giorno
+        endSim = (giorni == SIM_DURATION);
+        MasterNotifyAndWait(semID, sops, endSim);
     }
 
     // Aspettiamo che tutti i figli finiscano di scrivere le statistiche

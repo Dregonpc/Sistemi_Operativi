@@ -71,7 +71,7 @@ void ReceiveAndSendMessage(int msgIdDispenser, int msgIdOperator, char *erogator
 
         if (msgsnd(msgIdOperator, &msg, sizeof(Messaggio) - sizeof(long), 0) < 0) {
             perror("msgsnd");
-            exit(EXIT_FAILURE);
+            //exit(EXIT_FAILURE);
         }
 
         printf("[%s] Ticket %d inviato all'operatore.\n", erogatoreID, msg.ticket_id);
@@ -117,12 +117,15 @@ int main(int argc, char *argv[]) {
         // Mi metto in ricezione
         ReceiveAndSendMessage(msgIdDispenser, msgIdOperator, erogatoreID, semID, sops);
 
+        // Scrivo statistiche
+
         // Siamo usciti dal while quindi la giornata è finita
         printf("[%s] Giorno terminato, attendo SIGUSR1 per il giorno successivo...\n", erogatoreID);
         // aspetto SIGUSR1
-        while (!startDay) {
-            pause();
-        }
+        // while (!startDay) {
+        //     pause();
+        // }
+        SlaveNotifyAndWait(semID, sops);
 
         //printf("[%s] Giorno terminato.\n", erogatoreID);
         // riparte il loop per il prossimo giorno

@@ -84,7 +84,7 @@ void SendMessageToErogatore(int msgID, char* utenteID, int IndexServizioRichiest
 
     if (msgsnd(msgID, &msg, sizeof(Messaggio) - sizeof(long), 0) < 0) {
         printf("[%s] Errore durante l'invio del messaggio all'erogatore.\n", utenteID);
-        exit(EXIT_FAILURE);
+        //exit(EXIT_FAILURE);
     }
 
     printf("[%s] Ho richiesto un ticket per il servizio %d.\n", utenteID, IndexServizioRichiesto);
@@ -158,10 +158,10 @@ int main(int argc, char *argv[]) {
         endDay = 0;
 
         // aspetto nuovo giorno
-        printf("[%s] In attesa SIGUSR1 (inizio giorno)...\n", utenteID);
-        while (!startDay) {
-            pause();
-        }
+        // printf("[%s] In attesa SIGUSR1 (inizio giorno)...\n", utenteID);
+        // while (!startDay) {
+        //     pause();
+        // }
         //SlaveNotifyAndWait(semID, sops);
 
         // Aspettiamo che gli operatori "ci diano il via"
@@ -197,6 +197,8 @@ int main(int argc, char *argv[]) {
 
         // loop riparte per il giorno successivo
         printf("[%s] Fine giornata, ci vediamo domani!\n", utenteID);
+
+        SlaveNotifyAndWait(semID, sops);
     }
 
     // sleep(5);
