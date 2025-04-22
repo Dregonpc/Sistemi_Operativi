@@ -116,8 +116,7 @@ void semInizialize(int semID) {
     }
 }
 
-void SemBarrierRestart(int semID) {
-    struct sembuf sops;
+void SemBarrierRestart(int semID, struct sembuf sops) {
     // semNum = 0 : semaforo per gestire la barriera di partenza dei processi
     // all'inizio, contiene il numero di tutti i processi, quando arriverà a zero la simulazione partirà
     //if (semctl(semID, 0, SETVAL, TOTAL_PROCESSES_DIR) < 0) {
@@ -142,9 +141,7 @@ void SemBarrierRestart(int semID) {
     semop(semID, &sops, 1);
 }
 
-void SemOperatorsUsersRestart(int semID) {
-    struct sembuf sops;
-
+void SemOperatorsUsersRestart(int semID, struct sembuf sops) {
     // if (semctl(semID, 4, SETVAL, NUM_OF_WORKERS) < 0) {
     //     perror("[Direttore] Errore durante la semctl del semaforo per la sincronizzazione tra operatori e utenti.\n");
     //     exit(EXIT_FAILURE);
@@ -248,7 +245,7 @@ void MasterNotifyAndWait(int semID, struct sembuf sops, bool endSim) {
     // Possibile lettura delle statistiche qui
 
     // Resettiamo il semaforo tra operatori e utenti
-    SemOperatorsUsersRestart(semID);
+    SemOperatorsUsersRestart(semID, sops);
 
     if (!endSim) {
         // avvisiamo i figli che possono partire
@@ -258,7 +255,7 @@ void MasterNotifyAndWait(int semID, struct sembuf sops, bool endSim) {
     }
 
     // Resettiamo il semaforo della barriera
-    SemBarrierRestart(semID);
+    SemBarrierRestart(semID, sops);
 }
 
 // Aspettiamo tutti i processi finiscano di lavorare

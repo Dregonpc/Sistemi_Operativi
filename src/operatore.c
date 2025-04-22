@@ -39,6 +39,10 @@ DailyConfig* SharedMemoryAttach(int shmID, char* operatoreId) {
 }
 
 bool TakeUpPostOffice(DailyConfig* config, int semID, struct sembuf sops, int indexServizioOperatore, char* operatoreId) {
+    if (endDay) {
+        return false;
+    }
+    
     bool check = false;
 
     // acquisisco il lock per l'accesso coordinato agli sportelli
@@ -270,16 +274,18 @@ int main(int argc, char *argv[]) {
             waitFreePostOffice(semID, sops, operatoreID);
         }
 
-        // LAVORO finché non finisce il giorno o vado in pausa
-        printf("[%s] Inizio turno (servizio %d)\n", operatoreID, indexServizio);
+        if (!endDay) {
+            // LAVORO finché non finisce il giorno o vado in pausa
+            printf("[%s] Inizio turno (servizio %d)\n", operatoreID, indexServizio);
+    
+            // Mi metto a ricevere i ticket e ad eseguirli
+            ReceiveTicketAndExecute(msgIdOperator, msgIdUser, indexServizio, operatoreID, NOF_PAUSE, &pause_effettuate);
+    
+            // rilascio lo sportello
+            releasePostOffice(config, semID, sops, operatoreID);
+        }
 
-        // Mi metto a ricevere i ticket e ad eseguirli
-        ReceiveTicketAndExecute(msgIdOperator, msgIdUser, indexServizio, operatoreID, NOF_PAUSE, &pause_effettuate);
-
-        // rilascio lo sportello
-        releasePostOffice(config, semID, sops, operatoreID);
-
-        // Aspetto fine giornata se non già arrivata
+        // Aspetto fine giornata se non già arrivata (per gli operatori che vanno in pausa)
         if (!endDay) {
             printf("[%s] Attendo SIGUSR2 (fine giornata)...\n", operatoreID);
             while (!endDay) pause();
