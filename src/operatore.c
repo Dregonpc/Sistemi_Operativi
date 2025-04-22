@@ -38,6 +38,18 @@ DailyConfig* SharedMemoryAttach(int shmID, char* operatoreId) {
     return config;
 }
 
+bool CheckDailyService(DailyConfig* config, int indexServizioOperatore, char* operatoreId) {
+    for (int i = 0; i < NUM_SPORTELLI; i++) {
+        if (config->sportelli[i].indexServizioOfferto == indexServizioOperatore) {
+            printf("[%s] Ho controllato gli sportelli è c'è il servizio che offro io (%d).\n", operatoreId, indexServizioOperatore);
+            return true;
+        }
+    }
+
+    printf("[%s] Ho controllato gli sportelli è NON c'è il servizio che offro io (%d)... Attendo la fine giornata.\n", operatoreId, indexServizioOperatore);
+    return false;
+}
+
 bool TakeUpPostOffice(DailyConfig* config, int semID, struct sembuf sops, int indexServizioOperatore, char* operatoreId) {
     if (endDay) {
         return false;
@@ -256,6 +268,7 @@ int main(int argc, char *argv[]) {
     SlaveNotifyAndWait(semID, sops);
 
     srand(getpid());
+    bool CheckService = false;
     while (1) {
         // Posso iniziare a lavorare
         printf("[%s] Inizio giornata.\n", operatoreID);
@@ -269,26 +282,33 @@ int main(int argc, char *argv[]) {
         // }
         //SlaveNotifyAndWait(semID, sops);
 
-        // PROVA A OCCUPARE uno sportello
-        while (!TakeUpPostOffice(config, semID, sops, indexServizio, operatoreID) && !endDay) {
-            waitFreePostOffice(semID, sops, operatoreID);
-        }
+        // Controllo che il servizio di cui mi occupo è presente negli sportelli
+        CheckService = CheckDailyService(config, indexServizio, operatoreID);
 
-        if (!endDay) {
-            // LAVORO finché non finisce il giorno o vado in pausa
-            printf("[%s] Inizio turno (servizio %d)\n", operatoreID, indexServizio);
+        if (CheckService) {
+            // PROVA A OCCUPARE uno sportello
+            while (!TakeUpPostOffice(config, semID, sops, indexServizio, operatoreID) && !endDay) {
+                waitFreePostOffice(semID, sops, operatoreID);
+            }
     
-            // Mi metto a ricevere i ticket e ad eseguirli
-            ReceiveTicketAndExecute(msgIdOperator, msgIdUser, indexServizio, operatoreID, NOF_PAUSE, &pause_effettuate);
-    
-            // rilascio lo sportello
-            releasePostOffice(config, semID, sops, operatoreID);
+            if (!endDay) {
+                // LAVORO finché non finisce il giorno o vado in pausa
+                printf("[%s] Inizio turno (servizio %d)\n", operatoreID, indexServizio);
+        
+                // Mi metto a ricevere i ticket e ad eseguirli
+                ReceiveTicketAndExecute(msgIdOperator, msgIdUser, indexServizio, operatoreID, NOF_PAUSE, &pause_effettuate);
+        
+                // rilascio lo sportello
+                releasePostOffice(config, semID, sops, operatoreID);
+            }
         }
 
         // Aspetto fine giornata se non già arrivata (per gli operatori che vanno in pausa)
-        if (!endDay) {
+        if (!endDay || CheckService) {
             printf("[%s] Attendo SIGUSR2 (fine giornata)...\n", operatoreID);
-            while (!endDay) pause();
+            while (!endDay) {
+                pause();
+            }
         }
 
         // Aggiorna le statistiche
