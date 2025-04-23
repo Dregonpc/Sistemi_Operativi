@@ -111,27 +111,15 @@ void semInizialize(int semID) {
 }
 
 void SemBarrierRestart(int semID, struct sembuf sops) {
-    // semNum = 0 : semaforo per gestire la barriera di partenza dei processi
-    // all'inizio, contiene il numero di tutti i processi, quando arriverà a zero la simulazione partirà
-    // if (semctl(semID, 0, SETVAL, TOTAL_PROCESSES) < 0) {
-    //     perror("[Direttore] Errore durante la semctl del semaforo dedicato alla barriera.\n");
-    //     exit(EXIT_FAILURE);
-    // }
+    if (semctl(semID, 0, SETVAL, TOTAL_PROCESSES) < 0) {
+        perror("[Direttore] Errore durante la semctl del semaforo dedicato alla barriera.\n");
+        exit(EXIT_FAILURE);
+    }
 
-    sops.sem_num = 0;
-    sops.sem_op = TOTAL_PROCESSES;
-    semop(semID, &sops, 1);
-
-    // semNum = 1 : semaforo per gestire lo start (ovvero i figli possono partire)
-    // all'inizio, vale 1, tutti i figli aspettano che diventi 0
-    // if (semctl(semID, 1, SETVAL, 1) < 0) {
-    //     perror("[Direttore] Errore durante la semctl del semaforo dedicato allo start.\n");
-    //     exit(EXIT_FAILURE);
-    // }
-
-    sops.sem_num = 1;
-    sops.sem_op = 1;
-    semop(semID, &sops, 1);
+    if (semctl(semID, 1, SETVAL, 1) < 0) {
+        perror("[Direttore] Errore durante la semctl del semaforo dedicato allo start.\n");
+        exit(EXIT_FAILURE);
+    }
 }
 
 void SemOperatorsUsersRestart(int semID, struct sembuf sops) {
