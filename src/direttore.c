@@ -33,11 +33,6 @@ static void handle_day_end(int signo) {
     // Do nothing
 }
 
-// SIGUSR1 -> inizio giornata
-static void handle_day_start(int signo) {
-    // Do nothing
-}
-
 // Creazione della memoria condivisa
 int SharedMemoryCreate() {
     int shmID = shmget(IPC_PRIVATE, sizeof(DailyConfig), IPC_CREAT | 0666);
@@ -80,7 +75,6 @@ int semCreate() {
 void semInizialize(int semID) {
     // semNum = 0 : semaforo per gestire la barriera di partenza dei processi
     // all'inizio, contiene il numero di tutti i processi, quando arriverà a zero la simulazione partirà
-    //if (semctl(semID, 0, SETVAL, TOTAL_PROCESSES_DIR) < 0) {
     if (semctl(semID, 0, SETVAL, TOTAL_PROCESSES) < 0) {
         perror("[Direttore] Errore durante la semctl del semaforo dedicato alla barriera.\n");
         exit(EXIT_FAILURE);
@@ -119,7 +113,6 @@ void semInizialize(int semID) {
 void SemBarrierRestart(int semID, struct sembuf sops) {
     // semNum = 0 : semaforo per gestire la barriera di partenza dei processi
     // all'inizio, contiene il numero di tutti i processi, quando arriverà a zero la simulazione partirà
-    //if (semctl(semID, 0, SETVAL, TOTAL_PROCESSES_DIR) < 0) {
     // if (semctl(semID, 0, SETVAL, TOTAL_PROCESSES) < 0) {
     //     perror("[Direttore] Errore durante la semctl del semaforo dedicato alla barriera.\n");
     //     exit(EXIT_FAILURE);
@@ -142,14 +135,20 @@ void SemBarrierRestart(int semID, struct sembuf sops) {
 }
 
 void SemOperatorsUsersRestart(int semID, struct sembuf sops) {
-    // if (semctl(semID, 4, SETVAL, NUM_OF_WORKERS) < 0) {
-    //     perror("[Direttore] Errore durante la semctl del semaforo per la sincronizzazione tra operatori e utenti.\n");
-    //     exit(EXIT_FAILURE);
-    // }
+    if (semctl(semID, 2, SETVAL, NUM_SPORTELLI) < 0) {
+        perror("[Direttore] Errore durante la semctl del semaforo dedicato agli sportelli.\n");
+        exit(EXIT_FAILURE);
+    }
 
-    sops.sem_num = 4;
-    sops.sem_op = NUM_OF_WORKERS;
-    semop(semID, &sops, 1);
+    if (semctl(semID, 3, SETVAL, 1) < 0) {
+        perror("[Direttore] Errore durante la semctl del semaforo per l'accesso coordinato agli sportelli.\n");
+        exit(EXIT_FAILURE);
+    }
+    
+    if (semctl(semID, 4, SETVAL, NUM_OF_WORKERS) < 0) {
+        perror("[Direttore] Errore durante la semctl del semaforo per la sincronizzazione tra operatori e utenti.\n");
+        exit(EXIT_FAILURE);
+    }
 }
 
 int messageQueueCreate() {
@@ -236,18 +235,21 @@ void createAllSubProcess(int shmID, int semID, int msgIdDispenser, int msgIdOper
     }
 }
 
-void MasterNotifyAndWait(int semID, struct sembuf sops, bool endSim) {
+void MasterNotifyAndWait(int semID, struct sembuf sops, bool endSim, DailyConfig* config) {
     // aspettiamo che arrivi a 0 (ovvero tutti i figli sono pronti e hanno decrementato il semaforo)
     sops.sem_num = 0;
     sops.sem_op = 0;
     semop(semID, &sops, 1);
-
+    
     // Possibile lettura delle statistiche qui
-
+    
     // Resettiamo il semaforo tra operatori e utenti
     SemOperatorsUsersRestart(semID, sops);
-
+    
     if (!endSim) {
+        // configuriamo gli sportelli
+        ConfigurePostOffices(config);
+
         // avvisiamo i figli che possono partire
         sops.sem_num = 1;
         sops.sem_op = -1;
@@ -275,14 +277,15 @@ void semCleanUp(int semid) {
     }
 }
 
-void messageQueueClean(int msgIdDispenser, int msgIdOperator, int msgIdUser) {
-    msgctl(msgIdDispenser, IPC_RMID, NULL);
-    msgctl(msgIdOperator, IPC_RMID, NULL);
-    msgctl(msgIdUser, IPC_RMID, NULL);
+void messageQueueClean(int msgId) {
+    msgctl(msgId, IPC_RMID, NULL);
 }
 
 void Clean(int msgIdDispenser, int msgIdOperator, int msgIdUser, int semID, int shmID, DailyConfig* config) {
-    messageQueueClean(msgIdDispenser, msgIdOperator, msgIdUser);
+    messageQueueClean(msgIdDispenser);
+    messageQueueClean(msgIdOperator);
+    messageQueueClean(msgIdUser);
+
     semCleanUp(semID);
     SharedMemoryClean(shmID, config);
 }
@@ -296,16 +299,11 @@ int main(int argc, char *argv[]) {
     printf("[Direttore] Avvio della simulazione. PID: %d\n", getpid());
 
     // Installa i signal handler
-    struct sigaction sa_end = {0}, sa_start = {0};
+    struct sigaction sa_end = {0};
     sa_end.sa_handler = handle_day_end;
     sigemptyset(&sa_end.sa_mask);
     sa_end.sa_flags = 0;                // senza SA_RESTART
     sigaction(SIGUSR2, &sa_end, NULL);
-
-    sa_start.sa_handler = handle_day_start;
-    sigemptyset(&sa_start.sa_mask);
-    sa_start.sa_flags = 0;//SA_RESTART;       // opzionale
-    sigaction(SIGUSR1, &sa_start, NULL);
 
     // creiamo la memoria condivisa e colleghiamoci
     int shmID = SharedMemoryCreate();
@@ -324,32 +322,18 @@ int main(int argc, char *argv[]) {
 
     // Coda operatore --> utente
     int msgIdUser = messageQueueCreate();
-    
-    // configuriamo gli sportelli
-    ConfigurePostOffices(config);
 
     // creiamo tutti i figli
     createAllSubProcess(shmID, semID, msgIdDispenser, msgIdOperator, msgIdUser);
 
     // aspettiamo che tutti i figli siano pronti e diamogli il via
-    MasterNotifyAndWait(semID, sops, false);
-
-    // Scorriamo i giorni e avvisiamo ogni volta i figli quando finisce un giorno
-    // for (int giorni = 1; giorni <= SIM_DURATION; giorni++) {
-    //     MasterNotifyAndWait(semID, sops, false);
-    //     printf("[Direttore] Inizio del giorno %d...\n", giorni);
-    //     //SendStartOfDaySignal();
-    //     sleep(20);
-    //     printf("[Direttore] Avviso i figli che è terminato il giorno %d...\n", giorni);
-    // }
+    MasterNotifyAndWait(semID, sops, false, config);
 
     bool endSim = false;
 
     // Scorriamo i giorni e avvisiamo ogni volta i figli quando finisce un giorno
     for (int giorni = 1; giorni <= SIM_DURATION; giorni++) {
         printf("[Direttore] Inizio del giorno %d...\n", giorni);
-        //kill(0, SIGUSR1); // Inizio giornata
-        //SemBarrierRestart(semID);
 
         // simulo il passare dei minuti
         printf("[Direttore] Giorno %d in corso (480 minuti)...\n", giorni);
@@ -366,13 +350,10 @@ int main(int argc, char *argv[]) {
 
         printf("[Direttore] Avviso i figli che è terminato il giorno %d...\n", giorni);
         kill(0, SIGUSR2); // Fine giornata
-
-        // Facciamo ripartire il semaforo per la sincronizzazione tra operatori e utenti
-        //SemOperatorsUsersRestart(semID);
         
         // Facciamo ripartire i figli per il nuovo giorno
         endSim = (giorni == SIM_DURATION);
-        MasterNotifyAndWait(semID, sops, endSim);
+        MasterNotifyAndWait(semID, sops, endSim, config);
     }
 
     // Aspettiamo che tutti i figli finiscano di scrivere le statistiche

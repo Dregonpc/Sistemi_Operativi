@@ -14,16 +14,10 @@
 #include "../headers/SharedMemory.h"
 
 static volatile sig_atomic_t endDay = 0;
-static volatile sig_atomic_t startDay = 0;
 
 // SIGUSR2 -> fine giornata
 static void handle_day_end(int signo) {
     endDay = 1;
-}
-
-// SIGUSR1 -> inizio giornata
-static void handle_day_start(int signo) {
-    startDay = 1;
 }
 
 // Collegamento alla memoria condivisa
@@ -76,8 +70,9 @@ bool CheckPresenceRequiredService(DailyConfig* config, int IndexServizioRichiest
 
 void SendMessageToErogatore(int msgID, char* utenteID, int IndexServizioRichiesto, int myPID) {
     Messaggio msg;
-    
-    msg.mtype = IndexServizioRichiesto + 1; // Dobbiamo incrementarlo di 1 perchè il tipo del messaggio deve essere > 0, e quindi non potremmo passare il servizio 0.
+
+    // Dobbiamo incrementarlo di 1 perchè il tipo del messaggio deve essere > 0, e quindi non potremmo passare il servizio 0.
+    msg.mtype = IndexServizioRichiesto + 1;
     msg.ticket_id = -1;
     msg.user_id = myPID;
     snprintf(msg.text, MAX_TEXT, "%s", utenteID);
@@ -92,12 +87,6 @@ void SendMessageToErogatore(int msgID, char* utenteID, int IndexServizioRichiest
 
 bool ReceiveMessageFromOperator(int msgID, int myPID, char* utenteID) {
     Messaggio msg;
-
-    // if (msgrcv(msgID, &msg, sizeof(Messaggio) - sizeof(long), myPID, 0) < 0) {
-    //     perror("msgrcv");
-    //     exit(EXIT_FAILURE);
-    // }
-
     ssize_t n;
 
     do {
@@ -130,16 +119,11 @@ int main(int argc, char *argv[]) {
     printf("[%s] Avvio in corso. PID = %d\n", utenteID, myPID);
 
     // Installa i signal handler
-    struct sigaction sa_end = {0}, sa_start = {0};
+    struct sigaction sa_end = {0};
     sa_end.sa_handler = handle_day_end;
     sigemptyset(&sa_end.sa_mask);
     sa_end.sa_flags = 0;                // senza SA_RESTART
     sigaction(SIGUSR2, &sa_end, NULL);
-
-    sa_start.sa_handler = handle_day_start;
-    sigemptyset(&sa_start.sa_mask);
-    sa_start.sa_flags = 0;//SA_RESTART;       // opzionale
-    sigaction(SIGUSR1, &sa_start, NULL);
 
     // colleghiamoci alla memoria condivisa
     DailyConfig* config = SharedMemoryAttach(shmID, utenteID);
@@ -154,15 +138,7 @@ int main(int argc, char *argv[]) {
 
     while (1) {
         // reset flag
-        startDay = 0;
         endDay = 0;
-
-        // aspetto nuovo giorno
-        // printf("[%s] In attesa SIGUSR1 (inizio giorno)...\n", utenteID);
-        // while (!startDay) {
-        //     pause();
-        // }
-        //SlaveNotifyAndWait(semID, sops);
 
         // Aspettiamo che gli operatori "ci diano il via"
         WaitStartFromOperator(semID, sops);
@@ -170,9 +146,7 @@ int main(int argc, char *argv[]) {
         // scelgo il servizio
         int IndexServizioRichiesto = RandomizeService(); // PER I TEST: simuliamo di richiedere sempre il servizio 1, da sostituire con un random
 
-        // temporaneamente aspettiamo che gli sportelli vengano occupati, dovremmo inserire qualche sistema di sincronizzazione
-        //sleep(2);
-
+        bool served = false;
         // verifico presenza
         if (!CheckPresenceRequiredService(config, IndexServizioRichiesto, utenteID)) {
             // non vado, aspetto fine giornata
@@ -183,10 +157,13 @@ int main(int argc, char *argv[]) {
 
             continue;
         }
-
-        // invio richiesta e aspetto
-        SendMessageToErogatore(msgIdDispenser, utenteID, IndexServizioRichiesto, myPID);
-        bool served = ReceiveMessageFromOperator(msgIdUser, myPID, utenteID);
+        else {
+            // invio richiesta e aspetto
+            if (!endDay) {
+                SendMessageToErogatore(msgIdDispenser, utenteID, IndexServizioRichiesto, myPID);
+                served = ReceiveMessageFromOperator(msgIdUser, myPID, utenteID);
+            }
+        }
 
         // se servito o giornata finita, torno a casa
         // poi aspetto fine giornata per i prossimi giorni
@@ -200,18 +177,6 @@ int main(int argc, char *argv[]) {
 
         SlaveNotifyAndWait(semID, sops);
     }
-
-    // sleep(5);
-
-    // // Richiedo un ticket
-    // if (CheckPresenceRequiredService(config, IndexServizioRichiesto, utenteID)) {
-    //     SendMessageToErogatore(msgIdDispenser, utenteID, IndexServizioRichiesto, myPID);
-    //     printf("[%s] In attesa di ricevere il messaggio dall'operatore...\n", utenteID);
-    //     ReceiveMessageFromOperator(msgIdUser, myPID);
-    //     printf("[%s] Sono stato servito.\n", utenteID);
-    // }
-
-    // sleep(2);
 
     return EXIT_SUCCESS;
 }

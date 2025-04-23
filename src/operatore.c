@@ -15,16 +15,10 @@
 #include "../headers/SharedMemory.h"
 
 static volatile sig_atomic_t endDay = 0;
-static volatile sig_atomic_t startDay = 0;
 
 // Handler SIGUSR2 -> fine giornata
 static void handle_day_end(int signo) {
     endDay = 1;
-}
-
-// Handler SIGUSR1 -> inizio nuovo giorno
-static void handle_day_start(int signo) {
-    startDay = 1;
 }
 
 // Collegamento alla memoria condivisa
@@ -54,9 +48,58 @@ bool TakeUpPostOffice(DailyConfig* config, int semID, struct sembuf sops, int in
     if (endDay) {
         return false;
     }
+
+    // avviso gli utenti che ho provato ad occupare uno sportello (indipendentemente da se ci riuscirò oppure no)
+    sops.sem_num = 4;
+    sops.sem_op = -1;
+    if (semop(semID, &sops, 1) == -1) {
+        printf("[%s] Errore durante l'avviso agli utenti.\n", operatoreId);
+        //exit(EXIT_FAILURE);
+    }
+
+    // Aspetta che ci sia almeno uno sportello libero
+    sops.sem_num = 2;
+    sops.sem_op = -1; // Se il semaforo attualmente vale 0 mi metto in wait, altrimenti decremento
+    if (semop(semID, &sops, 1) == -1) {
+        printf("[%s] Errore durante l'attesa / l'invio del segnale che uno sportello è stato occupato.\n", operatoreId);
+        //exit(EXIT_FAILURE);
+    }
     
     bool check = false;
+    
+    if (!endDay) {
+        // acquisisco il lock per l'accesso coordinato agli sportelli
+        sops.sem_num = 3;
+        sops.sem_op = -1;
+        if (semop(semID, &sops, 1) == -1) {
+            printf("[%s] Errore durante l'acquisizione del lock per gli sportelli.\n", operatoreId);
+            //exit(EXIT_FAILURE);
+        }
+    
+        for (int i = 0; i < NUM_SPORTELLI; i++) {
+            if (config->sportelli[i].disponibile && config->sportelli[i].indexServizioOfferto == indexServizioOperatore) {
+                config->sportelli[i].idOperatore = operatoreId;
+                config->sportelli[i].disponibile = 0;
+                
+                printf("[%s] Sono stato assegnato allo sportello %d per il servizio %d.\n", operatoreId, config->sportelli[i].idSportello, indexServizioOperatore);
+                check = true;
+                break;
+            }
+        }
+    
+        // rilascio il lock
+        sops.sem_num = 3;
+        sops.sem_op = 1;
+        if (semop(semID, &sops, 1) == -1) {
+            printf("[%s] Errore durante il rilascio del lock per gli sportelli.\n", operatoreId);
+            //exit(EXIT_FAILURE);
+        }
+    }
 
+    return check;
+}
+
+void releasePostOffice(DailyConfig* config, int semID, struct sembuf sops, char* operatoreId) {
     // acquisisco il lock per l'accesso coordinato agli sportelli
     sops.sem_num = 3;
     sops.sem_op = -1;
@@ -65,59 +108,6 @@ bool TakeUpPostOffice(DailyConfig* config, int semID, struct sembuf sops, int in
         //exit(EXIT_FAILURE);
     }
 
-    for (int i = 0; i < NUM_SPORTELLI; i++) {
-        if (config->sportelli[i].disponibile && config->sportelli[i].indexServizioOfferto == indexServizioOperatore) {
-            config->sportelli[i].idOperatore = operatoreId;
-            config->sportelli[i].disponibile = 0;
-            printf("[%s] Sono stato assegnato allo sportello %d per il servizio %d.\n", operatoreId, config->sportelli[i].idSportello, indexServizioOperatore);
-            check = true;
-
-            // invio il segnale che uno sportello è stato occupato
-            sops.sem_num = 2;
-            sops.sem_op = -1;
-            if (semop(semID, &sops, 1) == -1) {
-                printf("[%s] Errore durante l'invio del segnale che uno sportello è stato occupato.\n", operatoreId);
-                //exit(EXIT_FAILURE);
-            }
-
-            break;
-        }
-    }
-
-    // rilascio il lock
-    sops.sem_num = 3;
-    sops.sem_op = 1;
-    if (semop(semID, &sops, 1) == -1) {
-        printf("[%s] Errore durante il rilascio del lock per gli sportelli.\n", operatoreId);
-        //exit(EXIT_FAILURE);
-    }
-    
-    // avviso gli utenti che ho provato ad occupare uno sportello (indipendentemente da se ci sono riuscito oppure no)
-    sops.sem_num = 4;
-    sops.sem_op = -1;
-    if (semop(semID, &sops, 1) == -1) {
-        printf("[%s] Errore durante l'avviso agli utenti.\n", operatoreId);
-        //exit(EXIT_FAILURE);
-    }
-    
-    printf("[%s] HO AVVISATO GLI UTENTI.\n", operatoreId);
-
-    return check;
-}
-
-void waitFreePostOffice(int semID, struct sembuf sops, char *operatoreId) {
-    // attendo il segnale che uno sportello si sia liberato
-    sops.sem_num = 2;
-    sops.sem_op = -1;
-    if (semop(semID, &sops, 1) == -1) { // con questo comando il processo si mette in wait
-        printf("[%s] Errore durante l'attesa di uno sportello.\n", operatoreId);
-        //exit(EXIT_FAILURE);
-    }
-
-    printf("[%s] Ho ricevuto il segnale che uno sportello si è liberato. Riprovo ad occuparlo...\n", operatoreId);
-}
-
-void releasePostOffice(DailyConfig* config, int semID, struct sembuf sops, char* operatoreId) {
     for (int i = 0; i < NUM_SPORTELLI; i++) {
         if (config->sportelli[i].idOperatore = operatoreId) {
             config->sportelli[i].idOperatore = "";
@@ -135,6 +125,14 @@ void releasePostOffice(DailyConfig* config, int semID, struct sembuf sops, char*
 
             break;
         }
+    }
+
+    // rilascio il lock
+    sops.sem_num = 3;
+    sops.sem_op = 1;
+    if (semop(semID, &sops, 1) == -1) {
+        printf("[%s] Errore durante il rilascio del lock per gli sportelli.\n", operatoreId);
+        //exit(EXIT_FAILURE);
     }
 }
 
@@ -168,12 +166,6 @@ int CalculateTimeExecution(int IndexServizio) {
 void ReceiveTicketAndExecute(int msgIdOperator, int msgIdUser, int IndexServizio, char *operatoreID, int NOF_PAUSE, int* pause_effettuate) {
     while (!endDay) {
         Messaggio msg;
-
-        // if (msgrcv(msgIdOperator, &msg, sizeof(Messaggio) - sizeof(long), IndexServizio + 1, 0) < 0) { // Dobbiamo incrementarlo di 1 perchè il tipo del messaggio deve essere > 0, e quindi non potremmo passare il servizio 0.
-        //     perror("msgrcv");
-        //     // exit(EXIT_FAILURE);
-        // }
-
         ssize_t n;
 
         // ricevo finché non ottengo un messaggio valido o endDay
@@ -233,35 +225,14 @@ int main(int argc, char *argv[]) {
     printf("[%s] Avvio in corso. PID = %d\n", operatoreID, getpid());
 
     // Installa i signal handler
-    struct sigaction sa_end = {0}, sa_start = {0};
+    struct sigaction sa_end = {0};
     sa_end.sa_handler = handle_day_end;
     sigemptyset(&sa_end.sa_mask);
     sa_end.sa_flags = 0;                // senza SA_RESTART
     sigaction(SIGUSR2, &sa_end, NULL);
 
-    sa_start.sa_handler = handle_day_start;
-    sigemptyset(&sa_start.sa_mask);
-    sa_start.sa_flags = 0;//SA_RESTART;       // opzionale
-    sigaction(SIGUSR1, &sa_start, NULL);
-
     // colleghiamoci alla memoria condivisa
     DailyConfig* config = SharedMemoryAttach(shmID, operatoreID);
-
-    // proviamo ad occupare uno sportello
-    // while (!TakeUpPostOffice(config, semID, sops, indexServizio, operatoreID)) {
-    //     printf("[%s] Nessuno sportello disponibile per il servizio %d, attendo...\n", operatoreID, indexServizio);
-    //     if (!alreadyNotifiedStart) {
-    //         SlaveNotifyAndWait(semID, sops);
-    //         alreadyNotifiedStart = true;
-    //     }
-    //     waitFreePostOffice(semID, sops, operatoreID);
-    // }
-
-    // if (!alreadyNotifiedStart) {
-    //     printf("[%s] Sono pronto, avviso il direttore e aspetto il via.\n", operatoreID);
-    //     SlaveNotifyAndWait(semID, sops);
-    //     alreadyNotifiedStart = true;
-    // }
 
     // barrier iniziale
     printf("[%s] Ready, aspetto il via.\n", operatoreID);
@@ -269,27 +240,18 @@ int main(int argc, char *argv[]) {
 
     srand(getpid());
     bool CheckService = false;
+
     while (1) {
         // Posso iniziare a lavorare
         printf("[%s] Inizio giornata.\n", operatoreID);
         endDay = 0;
-        startDay = 0;
-
-        // ATTENDO inizio GIORNATA
-        //printf("[%s] In attesa SIGUSR1 (nuovo giorno)...\n", operatoreID);
-        // while (!startDay) {
-        //     pause();
-        // }
-        //SlaveNotifyAndWait(semID, sops);
 
         // Controllo che il servizio di cui mi occupo è presente negli sportelli
         CheckService = CheckDailyService(config, indexServizio, operatoreID);
 
         if (CheckService) {
-            // PROVA A OCCUPARE uno sportello
-            while (!TakeUpPostOffice(config, semID, sops, indexServizio, operatoreID) && !endDay) {
-                waitFreePostOffice(semID, sops, operatoreID);
-            }
+            // Provo ad occupare uno sportello
+            TakeUpPostOffice(config, semID, sops, indexServizio, operatoreID);
     
             if (!endDay) {
                 // LAVORO finché non finisce il giorno o vado in pausa
@@ -304,7 +266,7 @@ int main(int argc, char *argv[]) {
         }
 
         // Aspetto fine giornata se non già arrivata (per gli operatori che vanno in pausa)
-        if (!endDay || CheckService) {
+        if (!endDay || !CheckService) {
             printf("[%s] Attendo SIGUSR2 (fine giornata)...\n", operatoreID);
             while (!endDay) {
                 pause();
