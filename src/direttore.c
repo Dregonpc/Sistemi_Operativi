@@ -33,6 +33,11 @@ static void handle_day_end(int signo) {
     // Do nothing
 }
 
+// SIGTERM -> fine simulazione
+static void handle_simulation_end(int signo) {
+    // Do nothing
+}
+
 // Creazione della memoria condivisa
 int SharedMemoryCreate() {
     int shmID = shmget(IPC_PRIVATE, sizeof(DailyConfig), IPC_CREAT | 0666);
@@ -293,6 +298,12 @@ int main(int argc, char *argv[]) {
     sa_end.sa_flags = 0;                // senza SA_RESTART
     sigaction(SIGUSR2, &sa_end, NULL);
 
+    struct sigaction sa_term = {0};
+    sa_term.sa_handler = handle_simulation_end;
+    sigemptyset(&sa_term.sa_mask);
+    sa_term.sa_flags = 0;
+    sigaction(SIGTERM, &sa_term, NULL);
+
     // creiamo la memoria condivisa e colleghiamoci
     int shmID = SharedMemoryCreate();
     DailyConfig* config = SharedMemoryAttach(shmID);
@@ -344,10 +355,9 @@ int main(int argc, char *argv[]) {
         MasterNotifyAndWait(semID, sops, endSim, config);
     }
 
-    // Aspettiamo che tutti i figli finiscano di scrivere le statistiche
-    // MasterNotifyAndWait(semID, sops, true);
     // Fermiamo la simulazione
-    // printf("[Direttore] Simulazione finita, mando il segnale di terminazione a tutti i figli...\n");
+    printf("[Direttore] Simulazione finita, mando il segnale di terminazione a tutti i figli...\n");
+    kill(0, SIGTERM); // Fine simulazione
 
     // aspettiamo che tutti i processi finiscano la loro esecuzione
     waitFinishAllSubProcess();

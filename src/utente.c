@@ -14,10 +14,16 @@
 #include "../headers/SharedMemory.h"
 
 static volatile sig_atomic_t endDay = 0;
+static volatile sig_atomic_t endSimulation = 0;
 
 // SIGUSR2 -> fine giornata
 static void handle_day_end(int signo) {
     endDay = 1;
+}
+
+// SIGTERM -> fine simulazione
+static void handle_simulation_end(int signo) {
+    endSimulation = 1;
 }
 
 // Collegamento alla memoria condivisa
@@ -125,6 +131,12 @@ int main(int argc, char *argv[]) {
     sa_end.sa_flags = 0;                // senza SA_RESTART
     sigaction(SIGUSR2, &sa_end, NULL);
 
+    struct sigaction sa_term = {0};
+    sa_term.sa_handler = handle_simulation_end;
+    sigemptyset(&sa_term.sa_mask);
+    sa_term.sa_flags = 0;
+    sigaction(SIGTERM, &sa_term, NULL);
+
     // colleghiamoci alla memoria condivisa
     DailyConfig* config = SharedMemoryAttach(shmID, utenteID);
 
@@ -176,6 +188,10 @@ int main(int argc, char *argv[]) {
         printf("[%s] Fine giornata, ci vediamo domani!\n", utenteID);
 
         SlaveNotifyAndWait(semID, sops);
+
+        if (endSimulation) {
+            break;
+        }
     }
 
     return EXIT_SUCCESS;
