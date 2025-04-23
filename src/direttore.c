@@ -26,7 +26,13 @@
 #define SIM_DURATION 3
 #define MINUTES_FOR_DAY 480 // 480 minuti = 8 ore
 //#define SIMULATED_MINUTE 100000000 // 100 milioni di nanosecondi = 100ms
-#define SIMULATED_MINUTE 50000000 // 50 milioni di nanosecondi = 50ms
+//#define SIMULATED_MINUTE 50000000 // 50 milioni di nanosecondi = 50ms
+#define SIMULATED_MINUTE 4000000 // 4 milioni di nanosecondi = 4ms
+// 4ms * 480 = 1,92 secondi
+
+// Probabilità per l'utente
+#define P_SERV_MIN 0
+#define P_SERV_MAX 10
 
 // SIGUSR2 -> fine giornata
 static void handle_day_end(int signo) {
@@ -159,6 +165,10 @@ int RandomizeService() {
     return 1; // Per testare il servizio 1
 }
 
+int CalculateTimeDayUser() {
+    return SIMULATED_MINUTE * MINUTES_FOR_DAY;
+}
+
 void ConfigurePostOffices(DailyConfig* config) {
     for (int i = 0; i < NUM_SPORTELLI; i++) {
         config->sportelli[i].idSportello = i;
@@ -209,6 +219,13 @@ void createAllSubProcess(int shmID, int semID, int msgIdDispenser, int msgIdOper
     sprintf(shmID_str, "%d", shmID);
     char random_service[10];
 
+    char p_serv_min_str[10];
+    sprintf(p_serv_min_str, "%d", P_SERV_MIN);
+    char p_serv_max_str[10];
+    sprintf(p_serv_max_str, "%d", P_SERV_MAX);
+    char timeDay[20];
+    sprintf(timeDay, "%d", CalculateTimeDayUser());
+
     char nof_pause_str[3];
     sprintf(nof_pause_str, "%d", NOF_PAUSE);
 
@@ -223,7 +240,7 @@ void createAllSubProcess(int shmID, int semID, int msgIdDispenser, int msgIdOper
     // Creiamo tutti gli utenti
     for (i = 0; i < NUM_OF_USERS; i++) {
         sprintf(id_buffer, "User_%d", i);
-        char *utente_args[] = {id_buffer, shmID_str, semID_str, msgIdDispenser_str, msgIdUser_str, NULL};
+        char *utente_args[] = {id_buffer, shmID_str, semID_str, msgIdDispenser_str, msgIdUser_str, p_serv_min_str, p_serv_max_str, timeDay, NULL};
         CreateProcess("./bin/utente", utente_args);
     }
 }

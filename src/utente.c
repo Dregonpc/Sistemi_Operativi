@@ -56,6 +56,22 @@ void WaitStartFromOperator(int semID, struct sembuf sops) {
     semop(semID, &sops, 1);
 }
 
+int RandomizeProbabilityUser(int p_serv_min, int p_serv_max) {
+    return (rand() % ((p_serv_max - p_serv_min + 1) + p_serv_min));
+}
+
+bool ChoosePresence(int p_serv, char* utenteId) {
+    // Probabilità del 70% che l'utente si presenti
+    if (p_serv > 3) {
+        printf("[%s] Ho deciso di presentarmi.\n", utenteId);
+        return true;
+    }
+    else {
+        printf("[%s] Ho deciso di NON presentarmi.\n", utenteId);
+        return false;
+    }
+}
+
 int RandomizeService() {
     // srand(time(NULL) + getpid());
     // return rand() % NUM_SERVIZI;
@@ -72,6 +88,10 @@ bool CheckPresenceRequiredService(DailyConfig* config, int IndexServizioRichiest
     
     printf("[%s] Non ho trovato un operatore che può svolgere la mia richiesta (%d)...\n", utenteID, IndexServizioRichiesto);
     return false;
+}
+
+int CalculateTimeToGo(int timeDay) {
+    return (rand() % timeDay);
 }
 
 void SendMessageToErogatore(int msgID, char* utenteID, int IndexServizioRichiesto, int myPID) {
@@ -121,7 +141,12 @@ int main(int argc, char *argv[]) {
     int semID = atoi(argv[2]);
     int msgIdDispenser = atoi(argv[3]);
     int msgIdUser = atoi(argv[4]);
+    int P_SERV_MIN = atoi(argv[5]);
+    int P_SERV_MAX = atoi(argv[6]);
+    int timeDay = atoi(argv[7]);
+    int P_SERV = 0;
     int myPID = getpid();
+    bool served = false;
     printf("[%s] Avvio in corso. PID = %d\n", utenteID, myPID);
 
     // Installa i signal handler
@@ -152,26 +177,27 @@ int main(int argc, char *argv[]) {
         // reset flag
         endDay = 0;
 
-        // Aspettiamo che gli operatori "ci diano il via"
-        WaitStartFromOperator(semID, sops);
+        // Calcoliamo la probabilità per decidere se presentarsi all'ufficio postale oppure no
+        P_SERV = RandomizeProbabilityUser(P_SERV_MIN, P_SERV_MAX);
 
-        // scelgo il servizio
-        int IndexServizioRichiesto = RandomizeService(); // PER I TEST: simuliamo di richiedere sempre il servizio 1, da sostituire con un random
-
-        bool served = false;
-        // verifico presenza
-        if (!CheckPresenceRequiredService(config, IndexServizioRichiesto, utenteID)) {
-            // non vado, aspetto fine giornata
-            printf("[%s] Non vado oggi, aspetto fine giornata...\n", utenteID);
-            while (!endDay) {
-                pause();
-            }
-
-            continue;
-        }
-        else {
-            // invio richiesta e aspetto
-            if (!endDay) {
+        if (ChoosePresence(P_SERV, utenteID)) {
+            // Aspettiamo che gli operatori "ci diano il via"
+            WaitStartFromOperator(semID, sops);
+    
+            // scelgo il servizio
+            int IndexServizioRichiesto = RandomizeService(); // PER I TEST: simuliamo di richiedere sempre il servizio 1, da sostituire con un random
+    
+            // verifico presenza
+            if (CheckPresenceRequiredService(config, IndexServizioRichiesto, utenteID) && !endDay) {
+                // Stabiliamo un orario in cui presentarci
+                int timeToGo = CalculateTimeToGo(timeDay);
+                printf("[%s] Ho deciso di presentarmi tra %d nanosecondi.\n", utenteID, timeToGo);
+                struct timespec req;
+                req.tv_sec  = 0;
+                req.tv_nsec = timeToGo;
+                nanosleep(&req, NULL);
+                
+                // invio richiesta e aspetto
                 SendMessageToErogatore(msgIdDispenser, utenteID, IndexServizioRichiesto, myPID);
                 served = ReceiveMessageFromOperator(msgIdUser, myPID, utenteID);
             }
