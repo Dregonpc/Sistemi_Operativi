@@ -19,7 +19,7 @@
 #define NUM_OF_USERS 5
 #define TOTAL_PROCESSES (1 + NUM_OF_WORKERS + NUM_OF_USERS)
 #define TOTAL_PROCESSES_DIR (1 + TOTAL_PROCESSES)
-#define NOF_PAUSE 0 //3 temporaneo, per non far andare in pausa l'operatore
+#define NOF_PAUSE 3 // Numero di pause che un operatore può fare in tutta la simulazione
 
 #define NUM_OF_SEM 3
 
@@ -225,6 +225,8 @@ void createAllSubProcess(int shmID, int semID, int msgIdDispenser, int msgIdOper
     sprintf(p_serv_max_str, "%d", P_SERV_MAX);
     char timeDay[20];
     sprintf(timeDay, "%d", CalculateTimeDayUser());
+    char simulated_minute_str[20];
+    sprintf(simulated_minute_str, "%d", SIMULATED_MINUTE);
 
     char nof_pause_str[3];
     sprintf(nof_pause_str, "%d", NOF_PAUSE);
@@ -233,7 +235,7 @@ void createAllSubProcess(int shmID, int semID, int msgIdDispenser, int msgIdOper
     for (i = 0; i < NUM_OF_WORKERS; i++) {
         sprintf(id_buffer, "Operator_%d", i);
         sprintf(random_service, "%d", RandomizeService());
-        char *operatore_args[] = {id_buffer, shmID_str, semID_str, msgIdOperator_str, msgIdUser_str, random_service, nof_pause_str, NULL};
+        char *operatore_args[] = {id_buffer, shmID_str, semID_str, msgIdOperator_str, msgIdUser_str, random_service, nof_pause_str, simulated_minute_str, NULL};
         CreateProcess("./bin/operatore", operatore_args);
     }
 

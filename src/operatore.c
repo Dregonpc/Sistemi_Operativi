@@ -159,17 +159,16 @@ bool breakCondition() {
     return (rand() % 100) < 20; // 20% di possibilità di andare in pausa
 }
 
-int CalculateTimeExecution(int IndexServizio) {
-    //srand(time(NULL));
+int CalculateTimeExecution(int IndexServizio, int simulated_minute) {
     int durata = servizi[IndexServizio].durata;
     int variazione = durata / 2;
     int delta = (rand() % (2 * variazione + 1)) - variazione;
     int durataCasuale = durata + delta;
     
-    return durataCasuale;
+    return durataCasuale * simulated_minute;
 }
 
-void ReceiveTicketAndExecute(int msgIdOperator, int msgIdUser, int IndexServizio, char *operatoreID, int NOF_PAUSE, int* pause_effettuate) {
+void ReceiveTicketAndExecute(int msgIdOperator, int msgIdUser, int IndexServizio, char *operatoreID, int NOF_PAUSE, int* pause_effettuate, int simulated_minute) {
     while (!endDay) {
         Messaggio msg;
         ssize_t n;
@@ -193,8 +192,11 @@ void ReceiveTicketAndExecute(int msgIdOperator, int msgIdUser, int IndexServizio
         printf("[%s] Servo il ticket %d per l'utente '%s' (servizio %ld).\n", operatoreID, msg.ticket_id, msg.text, msg.mtype);
 
         // Eseguo il servizio
-        int tempo = CalculateTimeExecution(IndexServizio);
-        sleep(2); // Da modificare con il valore calcolato * unità di misura scelta da noi
+        int tempo = CalculateTimeExecution(IndexServizio, simulated_minute);
+        struct timespec req;
+        req.tv_sec  = 0;
+        req.tv_nsec = tempo;
+        nanosleep(&req, NULL);
 
         // Manda risposta all'utente usando il suo PID come "destinatario"
         msg.mtype = msg.user_id;
@@ -205,7 +207,7 @@ void ReceiveTicketAndExecute(int msgIdOperator, int msgIdUser, int IndexServizio
 
         printf("[%s] Ho finito di servire %ld. Ci ho impiegato %d secondi.\n", operatoreID, msg.mtype, tempo);
 
-        if ((*pause_effettuate) < NOF_PAUSE && breakCondition()) {
+        if ((*pause_effettuate) < NOF_PAUSE && breakCondition()) { // Qui da modificare e aggiungere che abbia servito almeno due utenti
             (*pause_effettuate)++;
             printf("[%s] Posso andare in pausa, termino la mia giornata.\n", operatoreID);
             break;
@@ -224,6 +226,7 @@ int main(int argc, char *argv[]) {
     int msgIdUser = atoi(argv[4]);
     int indexServizio = atoi(argv[5]);
     int NOF_PAUSE = atoi(argv[6]);
+    int SIMULATED_MINUTE = atoi(argv[7]);
 
     int pause_effettuate = 0;
     bool alreadyNotifiedStart = false;
@@ -250,7 +253,7 @@ int main(int argc, char *argv[]) {
     printf("[%s] Ready, aspetto il via.\n", operatoreID);
     SlaveNotifyAndWait(semID, sops);
 
-    srand(getpid());
+    srand(time(NULL) + getpid());
     bool CheckService = false;
 
     while (1) {
@@ -270,7 +273,7 @@ int main(int argc, char *argv[]) {
                 printf("[%s] Inizio turno (servizio %d)\n", operatoreID, indexServizio);
         
                 // Mi metto a ricevere i ticket e ad eseguirli
-                ReceiveTicketAndExecute(msgIdOperator, msgIdUser, indexServizio, operatoreID, NOF_PAUSE, &pause_effettuate);
+                ReceiveTicketAndExecute(msgIdOperator, msgIdUser, indexServizio, operatoreID, NOF_PAUSE, &pause_effettuate, SIMULATED_MINUTE);
         
                 // rilascio lo sportello
                 releasePostOffice(config, semID, sops, operatoreID);
