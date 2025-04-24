@@ -16,14 +16,17 @@
 static volatile sig_atomic_t endDay = 0;
 static volatile sig_atomic_t endSimulation = 0;
 
-// SIGUSR2 -> fine giornata
-static void handle_day_end(int signo) {
-    endDay = 1;
-}
-
-// SIGTERM -> fine simulazione
-static void handle_simulation_end(int signo) {
-    endSimulation = 1;
+static void signalHandler(int signo) {
+    switch (signo) {
+        case SIGUSR2:
+            endDay = 1;
+            break;
+        case SIGTERM:
+            endSimulation = 1;
+            break;
+        default:
+            break;
+    }
 }
 
 // Collegamento alla memoria condivisa
@@ -73,9 +76,8 @@ bool ChoosePresence(int p_serv, char* utenteId) {
 }
 
 int RandomizeService() {
-    // srand(time(NULL) + getpid());
-    // return rand() % NUM_SERVIZI;
-    return 1; // Per testare il servizio 1
+    return rand() % NUM_SERVIZI;
+    //return 1; // Per testare il servizio 1
 }
 
 bool CheckPresenceRequiredService(DailyConfig* config, int IndexServizioRichiesto, char* utenteID) {
@@ -151,13 +153,13 @@ int main(int argc, char *argv[]) {
 
     // Installa i signal handler
     struct sigaction sa_end = {0};
-    sa_end.sa_handler = handle_day_end;
+    sa_end.sa_handler = signalHandler;
     sigemptyset(&sa_end.sa_mask);
     sa_end.sa_flags = 0;                // senza SA_RESTART
     sigaction(SIGUSR2, &sa_end, NULL);
 
     struct sigaction sa_term = {0};
-    sa_term.sa_handler = handle_simulation_end;
+    sa_term.sa_handler = signalHandler;
     sigemptyset(&sa_term.sa_mask);
     sa_term.sa_flags = 0;
     sigaction(SIGTERM, &sa_term, NULL);
