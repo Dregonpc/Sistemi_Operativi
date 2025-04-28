@@ -34,13 +34,8 @@
 #define P_SERV_MIN 0
 #define P_SERV_MAX 10
 
-// SIGUSR2 -> fine giornata
-static void handle_day_end(int signo) {
-    // Do nothing
-}
-
-// SIGTERM -> fine simulazione
-static void handle_simulation_end(int signo) {
+// Handler per tutti i segnali
+static void signalHandler(int signo) {
     // Do nothing
 }
 
@@ -312,13 +307,13 @@ int main(int argc, char *argv[]) {
 
     // Installa i signal handler
     struct sigaction sa_end = {0};
-    sa_end.sa_handler = handle_day_end;
+    sa_end.sa_handler = signalHandler;
     sigemptyset(&sa_end.sa_mask);
     sa_end.sa_flags = 0;                // senza SA_RESTART
     sigaction(SIGUSR2, &sa_end, NULL);
 
     struct sigaction sa_term = {0};
-    sa_term.sa_handler = handle_simulation_end;
+    sa_term.sa_handler = signalHandler;
     sigemptyset(&sa_term.sa_mask);
     sa_term.sa_flags = 0;
     sigaction(SIGTERM, &sa_term, NULL);
