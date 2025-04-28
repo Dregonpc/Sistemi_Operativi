@@ -3,7 +3,7 @@
 
 #include "servizi.h"
 
-#define NUM_SPORTELLI 5
+#define NUM_SPORTELLI 2
 
 typedef struct {
     int idSportello;
