@@ -15,28 +15,46 @@
 #include "../headers/servizi.h"
 #include "../headers/SharedMemory.h"
 
-#define NUM_OF_WORKERS 3
-#define NUM_OF_USERS 5
-#define TOTAL_PROCESSES (1 + NUM_OF_WORKERS + NUM_OF_USERS)
-#define TOTAL_PROCESSES_DIR (1 + TOTAL_PROCESSES)
-#define NOF_PAUSE 3 // Numero di pause che un operatore può fare in tutta la simulazione
+/*  Global Var  */
+int NUM_OF_WORKERS;
+int NUM_OF_USERS;
+int TOTAL_PROCESSES;
+int TOTAL_PROCESSES_DIR;
+
+int NOF_PAUSE;  // Numero di pause che un operatore può fare in tutta la simulazione
+
+// Probabilità per l'utente
+int P_SERV_MIN;
+int P_SERV_MAX;
+
+int SIM_DURATION; // Durata della simulazione in giorni
+int EXPLODE_THRESHOLD;  // max numero di utenti a fine giornata che non sono stati serviti --> se supera la soglia termina la simulazione
 
 #define NUM_OF_SEM 3
 
-#define SIM_DURATION 3
 #define MINUTES_FOR_DAY 480 // 480 minuti = 8 ore
 //#define SIMULATED_MINUTE 100000000 // 100 milioni di nanosecondi = 100ms
 //#define SIMULATED_MINUTE 50000000 // 50 milioni di nanosecondi = 50ms
 #define SIMULATED_MINUTE 4000000 // 4 milioni di nanosecondi = 4ms
 // 4ms * 480 = 1,92 secondi
 
-// Probabilità per l'utente
-#define P_SERV_MIN 0
-#define P_SERV_MAX 10
-
 // Handler per tutti i segnali
 static void signalHandler(int signo) {
     // Do nothing
+}
+
+void readConfig(char *numOfWorkers, char *numOfUsers, char *nofPause, char *pServMin, char *pServMax, char *simDuration, char *explodeThreshold) {
+    NUM_OF_WORKERS = atoi(numOfWorkers);
+    NUM_OF_USERS = atoi(numOfUsers);
+    NOF_PAUSE = atoi(nofPause);
+    P_SERV_MIN = atoi(pServMin);
+    P_SERV_MAX = atoi(pServMax);
+    SIM_DURATION = atoi(simDuration);
+    EXPLODE_THRESHOLD = atoi(explodeThreshold);
+
+    TOTAL_PROCESSES = 1 + NUM_OF_WORKERS + NUM_OF_USERS;
+    TOTAL_PROCESSES_DIR = 1 + TOTAL_PROCESSES;
+
 }
 
 // Creazione della memoria condivisa
@@ -299,6 +317,8 @@ void Clean(int msgIdDispenser, int msgIdOperator, int msgIdUser, int semID, int 
 
 int main(int argc, char *argv[]) {
     struct sembuf sops;
+
+    readConfig(argv[1], argv[2], argv[3], argv[4], argv[5], argv[6], argv[7]);
 
     // Inizializza il generatore di numeri casuali
     srand(time(NULL) + getpid());
