@@ -101,7 +101,7 @@ void SharedMemoryClean(int shmID, DailyConfig* config, int shmIdStat, Stats* sta
 
 // Creazione dei semafori
 int semCreate() {
-    int semID = semget(IPC_PRIVATE, 5, IPC_CREAT | 0666);
+    int semID = semget(IPC_PRIVATE, 6, IPC_CREAT | 0666);
     if (semID < 0) {
         printf("[Direttore] Creazione del semaforo fallita.\n");
         exit(EXIT_FAILURE);
@@ -146,6 +146,13 @@ void semInizialize(int semID) {
         perror("[Direttore] Errore durante la semctl del semaforo per la sincronizzazione tra operatori e utenti.\n");
         exit(EXIT_FAILURE);
     }
+
+    // semNum = 5 : semaforo per gestire il lock per le statistiche
+    // vale sempre 1, quando qualcuno acquisice il lock diventa 0 e nessuno ci può più accedere finchè non torna a valere 1
+    if (semctl(semID, 5, SETVAL, 1) < 0) {
+        perror("[Direttore] Errore durante la semctl del semaforo per il lock delle statistiche.\n");
+        exit(EXIT_FAILURE);
+    }
 }
 
 void SemBarrierRestart(int semID, struct sembuf sops) {
@@ -173,6 +180,11 @@ void SemOperatorsUsersRestart(int semID, struct sembuf sops) {
     
     if (semctl(semID, 4, SETVAL, NUM_OF_WORKERS) < 0) {
         perror("[Direttore] Errore durante la semctl del semaforo per la sincronizzazione tra operatori e utenti.\n");
+        exit(EXIT_FAILURE);
+    }
+
+    if (semctl(semID, 5, SETVAL, 1) < 0) {
+        perror("[Direttore] Errore durante la semctl del semaforo per il lock delle statistiche.\n");
         exit(EXIT_FAILURE);
     }
 }
