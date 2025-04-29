@@ -41,6 +41,17 @@ DailyConfig* SharedMemoryAttach(int shmID, char* utenteId) {
     return config;
 }
 
+// Collegamento alla memoria condivisa
+Stats* SharedMemoryAttachStats(int shmID, char* utenteId) {
+    Stats* stats = (Stats*)shmat(shmID, NULL, 0);
+    if (stats == (void *) -1) {
+        printf("[%s] Collegamento alla memoria condivisa fallita.\n", utenteId);
+        exit(EXIT_FAILURE);
+    }
+
+    return stats;
+}
+
 void SlaveNotifyAndWait(int semID, struct sembuf sops) {
     // avviso il direttore che sono pronto
     sops.sem_num = 0;
@@ -77,7 +88,6 @@ bool ChoosePresence(int p_serv, char* utenteId) {
 }
 
 int RandomizeService() {
-    // srand(time(NULL) + getpid());
     // return rand() % NUM_SERVIZI;
     return 1; // Per testare il servizio 1
 }
@@ -142,12 +152,13 @@ int main(int argc, char *argv[]) {
 
     char *utenteID = argv[0];
     int shmID = atoi(argv[1]);
-    int semID = atoi(argv[2]);
-    int msgIdDispenser = atoi(argv[3]);
-    int msgIdUser = atoi(argv[4]);
-    int P_SERV_MIN = atoi(argv[5]);
-    int P_SERV_MAX = atoi(argv[6]);
-    int timeDay = atoi(argv[7]);
+    int shmIddStats = atoi(argv[2]);
+    int semID = atoi(argv[3]);
+    int msgIdDispenser = atoi(argv[4]);
+    int msgIdUser = atoi(argv[5]);
+    int P_SERV_MIN = atoi(argv[6]);
+    int P_SERV_MAX = atoi(argv[7]);
+    int timeDay = atoi(argv[8]);
     int P_SERV = 0;
     int myPID = getpid();
     bool served = false;
@@ -168,6 +179,7 @@ int main(int argc, char *argv[]) {
 
     // colleghiamoci alla memoria condivisa
     DailyConfig* config = SharedMemoryAttach(shmID, utenteID);
+    Stats* stats = SharedMemoryAttachStats(shmID, utenteID);
 
     printf("[%s] Sono pronto, avviso il direttore e aspetto il via.\n", utenteID);
     SlaveNotifyAndWait(semID, sops);
@@ -223,6 +235,9 @@ int main(int argc, char *argv[]) {
             break;
         }
     }
+
+    shmdt(config);
+    shmdt(stats);
 
     return EXIT_SUCCESS;
 }

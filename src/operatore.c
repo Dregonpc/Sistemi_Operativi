@@ -42,6 +42,17 @@ DailyConfig* SharedMemoryAttach(int shmID, char* operatoreId) {
     return config;
 }
 
+// Collegamento alla memoria condivisa
+Stats* SharedMemoryAttachStats(int shmID, char* operatoreId) {
+    Stats* stats = (Stats*)shmat(shmID, NULL, 0);
+    if (stats == (void *) -1) {
+        printf("[%s] Collegamento alla memoria condivisa fallita.\n", operatoreId);
+        exit(EXIT_FAILURE);
+    }
+
+    return stats;
+}
+
 bool CheckDailyService(DailyConfig* config, int indexServizioOperatore, char* operatoreId) {
     for (int i = 0; i < NUM_SPORTELLI; i++) {
         if (config->sportelli[i].indexServizioOfferto == indexServizioOperatore) {
@@ -225,12 +236,13 @@ int main(int argc, char *argv[]) {
 
     char *operatoreID = argv[0];
     int shmID = atoi(argv[1]);
-    int semID = atoi(argv[2]);
-    int msgIdOperator = atoi(argv[3]);
-    int msgIdUser = atoi(argv[4]);
-    int indexServizio = atoi(argv[5]);
-    int NOF_PAUSE = atoi(argv[6]);
-    int SIMULATED_MINUTE = atoi(argv[7]);
+    int shmIdStats = atoi(argv[2]);
+    int semID = atoi(argv[3]);
+    int msgIdOperator = atoi(argv[4]);
+    int msgIdUser = atoi(argv[5]);
+    int indexServizio = atoi(argv[6]);
+    int NOF_PAUSE = atoi(argv[7]);
+    int SIMULATED_MINUTE = atoi(argv[8]);
 
     int pause_effettuate = 0;
     bool alreadyNotifiedStart = false;
@@ -252,6 +264,7 @@ int main(int argc, char *argv[]) {
 
     // colleghiamoci alla memoria condivisa
     DailyConfig* config = SharedMemoryAttach(shmID, operatoreID);
+    Stats* stats = SharedMemoryAttachStats(shmIdStats, operatoreID);
 
     // barrier iniziale
     printf("[%s] Ready, aspetto il via.\n", operatoreID);
@@ -305,6 +318,7 @@ int main(int argc, char *argv[]) {
     }
 
     shmdt(config);
+    shmdt(stats);
 
     return EXIT_SUCCESS;
 }

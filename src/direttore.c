@@ -58,8 +58,8 @@ void readConfig(char *numOfWorkers, char *numOfUsers, char *nofPause, char *pSer
 }
 
 // Creazione della memoria condivisa
-int SharedMemoryCreate() {
-    int shmID = shmget(IPC_PRIVATE, sizeof(DailyConfig), IPC_CREAT | 0666);
+int SharedMemoryCreate(size_t sizeStruct) {
+    int shmID = shmget(IPC_PRIVATE, sizeStruct, IPC_CREAT | 0666);
     if (shmID < 0) {
         printf("[Direttore] Creazione della memoria condivisa fallita.\n");
         exit(EXIT_FAILURE);
@@ -79,10 +79,24 @@ DailyConfig* SharedMemoryAttach(int shmID) {
     return config;
 }
 
+// Collegamento alla memoria condivisa
+Stats* SharedMemoryAttachStats(int shmID) {
+    Stats* stats = (Stats*)shmat(shmID, NULL, 0);
+    if (stats == (void *) -1) {
+        printf("[Direttore] Collegamento alla memoria condivisa fallita.\n");
+        exit(EXIT_FAILURE);
+    }
+
+    return stats;
+}
+
 // Pulizia della memoria condivisa
-void SharedMemoryClean(int shmID, DailyConfig* config) {
+void SharedMemoryClean(int shmID, DailyConfig* config, int shmIdStat, Stats* stats) {
     shmdt(config);
     shmctl(shmID, IPC_RMID, NULL);
+
+    shmdt(stats);
+    shmctl(shmIdStat, IPC_RMID, NULL);
 }
 
 // Creazione dei semafori
@@ -208,7 +222,7 @@ void CreateProcess(const char *path, char *const argv[]) {
     }
 }
 
-void createAllSubProcess(int shmID, int semID, int msgIdDispenser, int msgIdOperator, int msgIdUser) {
+void createAllSubProcess(int shmID, int shmIdStats, int semID, int msgIdDispenser, int msgIdOperator, int msgIdUser) {
     // Creiamo l'erogatore dei ticket
     char semID_str[15];
     sprintf(semID_str, "%d", semID);
@@ -230,6 +244,8 @@ void createAllSubProcess(int shmID, int semID, int msgIdDispenser, int msgIdOper
     char id_buffer[50];  // Buffer per gli ID dinamici
     char shmID_str[15];
     sprintf(shmID_str, "%d", shmID);
+    char shmIdStats_str[15];
+    sprintf(shmIdStats_str, "%d", shmIdStats);
     char random_service[10];
 
     char p_serv_min_str[10];
@@ -248,14 +264,14 @@ void createAllSubProcess(int shmID, int semID, int msgIdDispenser, int msgIdOper
     for (i = 0; i < NUM_OF_WORKERS; i++) {
         sprintf(id_buffer, "Operator_%d", i);
         sprintf(random_service, "%d", RandomizeService());
-        char *operatore_args[] = {id_buffer, shmID_str, semID_str, msgIdOperator_str, msgIdUser_str, random_service, nof_pause_str, simulated_minute_str, NULL};
+        char *operatore_args[] = {id_buffer, shmID_str, shmIdStats_str, semID_str, msgIdOperator_str, msgIdUser_str, random_service, nof_pause_str, simulated_minute_str, NULL};
         CreateProcess("./bin/operatore", operatore_args);
     }
 
     // Creiamo tutti gli utenti
     for (i = 0; i < NUM_OF_USERS; i++) {
         sprintf(id_buffer, "User_%d", i);
-        char *utente_args[] = {id_buffer, shmID_str, semID_str, msgIdDispenser_str, msgIdUser_str, p_serv_min_str, p_serv_max_str, timeDay, NULL};
+        char *utente_args[] = {id_buffer, shmID_str, shmIdStats_str, semID_str, msgIdDispenser_str, msgIdUser_str, p_serv_min_str, p_serv_max_str, timeDay, NULL};
         CreateProcess("./bin/utente", utente_args);
     }
 }
@@ -306,13 +322,13 @@ void messageQueueClean(int msgId) {
     msgctl(msgId, IPC_RMID, NULL);
 }
 
-void Clean(int msgIdDispenser, int msgIdOperator, int msgIdUser, int semID, int shmID, DailyConfig* config) {
+void Clean(int msgIdDispenser, int msgIdOperator, int msgIdUser, int semID, int shmID, DailyConfig* config, int shmIdStat, Stats* stats) {
     messageQueueClean(msgIdDispenser);
     messageQueueClean(msgIdOperator);
     messageQueueClean(msgIdUser);
 
     semCleanUp(semID);
-    SharedMemoryClean(shmID, config);
+    SharedMemoryClean(shmID, config, shmIdStat, stats);
 }
 
 int main(int argc, char *argv[]) {
@@ -339,8 +355,11 @@ int main(int argc, char *argv[]) {
     sigaction(SIGTERM, &sa_term, NULL);
 
     // creiamo la memoria condivisa e colleghiamoci
-    int shmID = SharedMemoryCreate();
+    int shmID = SharedMemoryCreate(sizeof(DailyConfig));
     DailyConfig* config = SharedMemoryAttach(shmID);
+
+    int shmIdStats = SharedMemoryCreate(sizeof(Stats));
+    Stats* stats = SharedMemoryAttachStats(shmIdStats);
 
     // creiamo il semaforo e inizializziamolo
     int semID = semCreate();
@@ -357,7 +376,7 @@ int main(int argc, char *argv[]) {
     int msgIdUser = messageQueueCreate();
 
     // creiamo tutti i figli
-    createAllSubProcess(shmID, semID, msgIdDispenser, msgIdOperator, msgIdUser);
+    createAllSubProcess(shmID, shmIdStats, semID, msgIdDispenser, msgIdOperator, msgIdUser);
 
     // aspettiamo che tutti i figli siano pronti e diamogli il via
     MasterNotifyAndWait(semID, sops, false, config);
@@ -399,7 +418,7 @@ int main(int argc, char *argv[]) {
     printf("[Direttore] Tutti i processi sono terminati, avvio la pulizia.\n");
     
     // Pulizia
-    Clean(msgIdDispenser, msgIdOperator, msgIdUser, semID, shmID, config);
+    Clean(msgIdDispenser, msgIdOperator, msgIdUser, semID, shmID, config, shmIdStats, stats);
 
     printf("[Direttore] Fine della simulazione.\n");
 
