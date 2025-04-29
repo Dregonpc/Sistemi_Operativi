@@ -242,6 +242,29 @@ void ResetCounters(int* servizi_erogati, int* operatori_attivi, int* counter_pau
     *counter_pause = 0;
 }
 
+void UpdateStats(int semID, struct sembuf sops, Stats* stats, char *operatoreId, int IndexServizio, int* servizi_erogati, int* operatori_attivi, int* counter_pause) {
+    // acquisisco il lock
+    sops.sem_num = 5;
+    sops.sem_op = -1;
+    if (semop(semID, &sops, 1) == -1) {
+        printf("[%s] Errore durante l'acquisizione del lock per le statistiche.\n", operatoreId);
+    }
+
+    // Scrivo statistiche
+    stats->servizi_erogati_tot_sim += *servizi_erogati;
+    stats->operatori_attivi_day += *operatori_attivi;
+    stats->operatori_attivi_sim += *operatori_attivi;
+    stats->pause_effettuate_sim += *counter_pause;
+    stats->servizi_erogati_tot_sim_services[IndexServizio] += *servizi_erogati;
+
+    // rilascio il lock
+    sops.sem_num = 5;
+    sops.sem_op = 1;
+    if (semop(semID, &sops, 1) == -1) {
+        printf("[%s] Errore durante il rilascio del lock per le statistiche.\n", operatoreId);
+    }
+}
+
 int main(int argc, char *argv[]) {
 
     struct sembuf sops;

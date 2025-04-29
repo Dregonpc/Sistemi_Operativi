@@ -19,7 +19,7 @@ typedef struct {
     int pause_effettuate_sim; // numero totale di pause effettuate durante la simulazione
     int durata_simulazione; // numero di giorni che dura la simulazione (viene incrementato ogni inizio giornata dal direttore)
 
-    // Medie
+    // Medie (gestite dal direttore)
     double utenti_serviti_avg; // numero di utenti serviti in media al giorno
     double servizi_erogati_avg; // numero di servizi erogati in media al giorno
     double servizi_non_erogati_avg; // numero di servizi non erogati in media al giorno
@@ -43,6 +43,7 @@ typedef struct {
     double tempo_erogazione_servizi_sim_services[NUM_SERVIZI];
     double tempo_erogazione_servizi_day_services[NUM_SERVIZI];
 
+    // ANCORA DA FARE (come tutto il resto)
     // Rapporto tra operatori disponibili e sportelli esistenti, per ogni servizio e per ogni giornata
     int operatori_disponibili_services[NUM_SERVIZI]; // Facciamo in ogni operatore a fine giornata += 1 nel proprio index
     int sportelli_esistenti_services[NUM_SERVIZI];
