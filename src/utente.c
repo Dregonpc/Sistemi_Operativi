@@ -146,6 +146,11 @@ bool ReceiveMessageFromOperator(int msgID, int myPID, char* utenteID) {
     return true;
 }
 
+void ResetCounters(int* utenti_serviti, int* servizi_non_erogati) {
+    *utenti_serviti = 0;
+    *servizi_non_erogati = 0;
+}
+
 int main(int argc, char *argv[]) {
 
     struct sembuf sops;
@@ -189,7 +194,13 @@ int main(int argc, char *argv[]) {
 
     srand(time(NULL) + getpid());
 
+    // Contatori locali
+    int utenti_serviti = 0;
+    int servizi_non_erogati = 0;
+
     while (1) {
+        ResetCounters(&utenti_serviti, &servizi_non_erogati);
+
         // reset flag
         endDay = 0;
 
@@ -201,8 +212,8 @@ int main(int argc, char *argv[]) {
             WaitStartFromOperator(semID, sops);
     
             // scelgo il servizio
-            int IndexServizioRichiesto = RandomizeService(); // PER I TEST: simuliamo di richiedere sempre il servizio 1, da sostituire con un random
-    
+            int IndexServizioRichiesto = RandomizeService();
+            
             // verifico presenza
             if (CheckPresenceRequiredService(config, IndexServizioRichiesto, utenteID) && !endDay) {
                 // Stabiliamo un orario in cui presentarci
@@ -213,10 +224,25 @@ int main(int argc, char *argv[]) {
                 req.tv_nsec = timeToGo;
                 nanosleep(&req, NULL);
                 
+                // Contiamo il tempo che ci vuole per essere serviti
+                clock_t time_start, time_end;
+                time_start = clock();
+
                 // invio richiesta e aspetto
                 SendMessageToErogatore(msgIdDispenser, utenteID, IndexServizioRichiesto, myPID);
                 served = ReceiveMessageFromOperator(msgIdUser, myPID, utenteID);
+
+                time_end = clock();
+
+                float time_total = (float)((time_end - time_start) / CLOCKS_PER_SEC);
             }
+        }
+
+        if (served) {
+            utenti_serviti++;
+        }
+        else {
+            servizi_non_erogati++;
         }
 
         // se servito o giornata finita, torno a casa

@@ -65,7 +65,7 @@ bool CheckDailyService(DailyConfig* config, int indexServizioOperatore, char* op
     return false;
 }
 
-bool TakeUpPostOffice(DailyConfig* config, int semID, struct sembuf sops, int indexServizioOperatore, char* operatoreId) {
+bool TakeUpPostOffice(DailyConfig* config, int semID, struct sembuf sops, int indexServizioOperatore, char* operatoreId, int* operatori_attivi) {
     if (endDay) {
         return false;
     }
@@ -101,6 +101,8 @@ bool TakeUpPostOffice(DailyConfig* config, int semID, struct sembuf sops, int in
             if (config->sportelli[i].disponibile && config->sportelli[i].indexServizioOfferto == indexServizioOperatore) {
                 config->sportelli[i].idOperatore = operatoreId;
                 config->sportelli[i].disponibile = 0;
+
+                (*operatori_attivi)++;
                 
                 printf("[%s] Sono stato assegnato allo sportello %d per il servizio %d.\n", operatoreId, config->sportelli[i].idSportello, indexServizioOperatore);
                 check = true;
@@ -183,7 +185,7 @@ int CalculateTimeExecution(int IndexServizio, int simulated_minute) {
     return durataCasuale * simulated_minute;
 }
 
-void ReceiveTicketAndExecute(int msgIdOperator, int msgIdUser, int IndexServizio, char *operatoreID, int NOF_PAUSE, int* pause_effettuate, int simulated_minute) {
+void ReceiveTicketAndExecute(int msgIdOperator, int msgIdUser, int IndexServizio, char *operatoreID, int NOF_PAUSE, int* pause_effettuate, int simulated_minute, int* servizi_erogati, int* counter_pause) {
     while (!endDay) {
         Messaggio msg;
         ssize_t n;
@@ -220,14 +222,24 @@ void ReceiveTicketAndExecute(int msgIdOperator, int msgIdUser, int IndexServizio
             //exit(EXIT_FAILURE);
         }
 
+        // Aumentiamo i contatori
+        (*servizi_erogati)++;
+
         printf("[%s] Ho finito di servire %ld. Ci ho impiegato %d secondi.\n", operatoreID, msg.mtype, tempo);
 
         if ((*pause_effettuate) < NOF_PAUSE && breakCondition()) { // Qui da modificare e aggiungere che abbia servito almeno due utenti
             (*pause_effettuate)++;
+            (*counter_pause)++;
             printf("[%s] Posso andare in pausa, termino la mia giornata.\n", operatoreID);
             break;
         }
     }
+}
+
+void ResetCounters(int* servizi_erogati, int* operatori_attivi, int* counter_pause) {
+    *servizi_erogati = 0;
+    *operatori_attivi = 0;
+    *counter_pause = 0;
 }
 
 int main(int argc, char *argv[]) {
@@ -273,7 +285,14 @@ int main(int argc, char *argv[]) {
     srand(time(NULL) + getpid());
     bool CheckService = false;
 
+    // Contatori locali
+    int servizi_erogati = 0;
+    int operatori_attivi = 0;
+    int counter_pause = 0;
+
     while (1) {
+        ResetCounters(&servizi_erogati, &operatori_attivi, &counter_pause);
+
         // Posso iniziare a lavorare
         printf("[%s] Inizio giornata.\n", operatoreID);
         endDay = 0;
@@ -283,14 +302,14 @@ int main(int argc, char *argv[]) {
 
         if (CheckService) {
             // Provo ad occupare uno sportello
-            TakeUpPostOffice(config, semID, sops, indexServizio, operatoreID);
+            TakeUpPostOffice(config, semID, sops, indexServizio, operatoreID, &operatori_attivi);
     
             if (!endDay) {
                 // LAVORO finché non finisce il giorno o vado in pausa
                 printf("[%s] Inizio turno (servizio %d)\n", operatoreID, indexServizio);
         
                 // Mi metto a ricevere i ticket e ad eseguirli
-                ReceiveTicketAndExecute(msgIdOperator, msgIdUser, indexServizio, operatoreID, NOF_PAUSE, &pause_effettuate, SIMULATED_MINUTE);
+                ReceiveTicketAndExecute(msgIdOperator, msgIdUser, indexServizio, operatoreID, NOF_PAUSE, &pause_effettuate, SIMULATED_MINUTE, &servizi_erogati, &counter_pause);
         
                 // rilascio lo sportello
                 releasePostOffice(config, semID, sops, operatoreID);

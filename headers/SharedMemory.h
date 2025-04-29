@@ -13,7 +13,7 @@ typedef struct {
     int utenti_serviti_tot_sim; // numero di utenti serviti totali nella simulazione
     int servizi_erogati_tot_sim; // numero di servizi erogati totali nella simuazione
     int servizi_non_erogati_tot_sim; // numero di servizi non erogati totali nella simuazione
-    int servizi_non_erogati_tot_day; // numero di servizi non erogati totali nella giornata
+    int servizi_non_erogati_tot_day; // numero di servizi non erogati totali nella giornata (da usare per explode)
     int operatori_attivi_day; // numero di operatori attivi durante la giornata
     int operatori_attivi_sim; // numero di operatori attivi durante la simulazione
     int pause_effettuate_sim; // numero totale di pause effettuate durante la simulazione
@@ -44,7 +44,7 @@ typedef struct {
     double tempo_erogazione_servizi_day_services[NUM_SERVIZI];
 
     // Rapporto tra operatori disponibili e sportelli esistenti, per ogni servizio e per ogni giornata
-    int operatori_disponibili_services[NUM_SERVIZI];
+    int operatori_disponibili_services[NUM_SERVIZI]; // Facciamo in ogni operatore a fine giornata += 1 nel proprio index
     int sportelli_esistenti_services[NUM_SERVIZI];
     double rapporto_operatori_sportelli_services[NUM_SERVIZI];
 } Stats;
