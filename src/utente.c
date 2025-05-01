@@ -151,6 +151,17 @@ void ResetCounters(int* utenti_serviti, int* utenti_non_serviti_day) {
     *utenti_non_serviti_day = 0;
 }
 
+void PrintDailyStats(Stats* stats) {
+    printf("[Utente] Statistiche giornaliere:\n");
+    printf("Utenti serviti totali: %d\n", stats->utenti_serviti_tot_sim);
+    // printf("Servizi erogati totali: %d\n", stats->servizi_erogati_tot_sim);
+    // printf("Servizi non erogati totali: %d\n", stats->servizi_non_erogati_tot_sim);
+    // printf("Operatori attivi totali: %d\n", stats->operatori_attivi_day);
+    // printf("Pause effettuate totali: %d\n", stats->pause_effettuate_sim);
+    // printf("Tempo medio di attesa degli utenti: %.2f nanosecondi\n", stats->tempo_attesa_utenti_day * 1000000000.0);
+    // printf("Tempo medio di erogazione dei servizi: %.2f nanosecondi\n", stats->tempo_erogazione_servizi_day * 1000000000.0);
+}
+
 void UpdateStats(int semID, struct sembuf sops, Stats* stats, char *utenteId, int IndexServizioRichiesto,  int* utenti_serviti, int* utenti_non_serviti_day, float* time_total) {
     // acquisisco il lock
     sops.sem_num = 5;
@@ -159,14 +170,20 @@ void UpdateStats(int semID, struct sembuf sops, Stats* stats, char *utenteId, in
         printf("[%s] Errore durante l'acquisizione del lock per le statistiche.\n", utenteId);
     }
 
+    printf("[%s] Aggiorno le statistiche...\n", utenteId);
     // Scrivo statistiche
-    stats->utenti_serviti_tot_sim += utenti_serviti;
-    stats->utenti_non_serviti_tot_day += utenti_non_serviti_day;
-    stats->utenti_non_serviti_tot_sim += utenti_non_serviti_day;
+
+    stats->utenti_serviti_tot_sim = stats->utenti_serviti_tot_sim + *utenti_serviti;
+    stats->utenti_non_serviti_tot_day = stats->utenti_non_serviti_tot_day + *utenti_non_serviti_day;
+    stats->utenti_non_serviti_tot_sim += *utenti_non_serviti_day;
     
     stats->utenti_serviti_tot_sim_services[IndexServizioRichiesto] += *utenti_serviti;
     stats->tempo_attesa_utenti_day_services[IndexServizioRichiesto] += *time_total;
-    stats->tempo_attesa_utenti_avg += *time_total;
+    stats->tempo_attesa_utenti_sim += *time_total;
+    stats->tempo_attesa_utenti_day += *time_total;
+
+    PrintDailyStats(stats);
+    
     // rilascio il lock
     sops.sem_num = 5;
     sops.sem_op = 1;
