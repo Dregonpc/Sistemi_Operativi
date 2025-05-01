@@ -146,9 +146,33 @@ bool ReceiveMessageFromOperator(int msgID, int myPID, char* utenteID) {
     return true;
 }
 
-void ResetCounters(int* utenti_serviti, int* servizi_non_erogati) {
+void ResetCounters(int* utenti_serviti, int* utenti_non_serviti_day) {
     *utenti_serviti = 0;
-    *servizi_non_erogati = 0;
+    *utenti_non_serviti_day = 0;
+}
+
+void UpdateStats(int semID, struct sembuf sops, Stats* stats, char *utenteId, int IndexServizioRichiesto,  int* utenti_serviti, int* utenti_non_serviti_day, float* time_total) {
+    // acquisisco il lock
+    sops.sem_num = 5;
+    sops.sem_op = -1;
+    if (semop(semID, &sops, 1) == -1) {
+        printf("[%s] Errore durante l'acquisizione del lock per le statistiche.\n", utenteId);
+    }
+
+    // Scrivo statistiche
+    stats->utenti_serviti_tot_sim += utenti_serviti;
+    stats->utenti_non_serviti_tot_day += utenti_non_serviti_day;
+    stats->utenti_non_serviti_tot_sim += utenti_non_serviti_day;
+    
+    stats->utenti_serviti_tot_sim_services[IndexServizioRichiesto] += *utenti_serviti;
+    stats->tempo_attesa_utenti_day_services[IndexServizioRichiesto] += *time_total;
+    stats->tempo_attesa_utenti_avg += *time_total;
+    // rilascio il lock
+    sops.sem_num = 5;
+    sops.sem_op = 1;
+    if (semop(semID, &sops, 1) == -1) {
+        printf("[%s] Errore durante il rilascio del lock per le statistiche.\n", utenteId);
+    }
 }
 
 int main(int argc, char *argv[]) {
@@ -196,10 +220,12 @@ int main(int argc, char *argv[]) {
 
     // Contatori locali
     int utenti_serviti = 0;
-    int servizi_non_erogati = 0;
+    int utenti_non_serviti_day = 0;
 
     while (1) {
-        ResetCounters(&utenti_serviti, &servizi_non_erogati);
+        int IndexServizioRichiesto = -1;
+        float time_total = 0.0;
+        ResetCounters(&utenti_serviti, &utenti_non_serviti_day);
 
         // reset flag
         endDay = 0;
@@ -212,7 +238,7 @@ int main(int argc, char *argv[]) {
             WaitStartFromOperator(semID, sops);
     
             // scelgo il servizio
-            int IndexServizioRichiesto = RandomizeService();
+            IndexServizioRichiesto = RandomizeService();
             
             // verifico presenza
             if (CheckPresenceRequiredService(config, IndexServizioRichiesto, utenteID) && !endDay) {
@@ -234,7 +260,7 @@ int main(int argc, char *argv[]) {
 
                 time_end = clock();
 
-                float time_total = (float)((time_end - time_start) / CLOCKS_PER_SEC);
+                time_total = (float)((time_end - time_start) / CLOCKS_PER_SEC);
             }
         }
 
@@ -242,7 +268,7 @@ int main(int argc, char *argv[]) {
             utenti_serviti++;
         }
         else {
-            servizi_non_erogati++;
+            utenti_non_serviti_day++;
         }
 
         // se servito o giornata finita, torno a casa
@@ -251,6 +277,9 @@ int main(int argc, char *argv[]) {
         while (!endDay) {
             pause();
         }
+
+        // Aggiorna le statistiche
+        UpdateStats(semID, sops, stats, utenteID, IndexServizioRichiesto, &utenti_serviti, &utenti_non_serviti_day, &time_total);
 
         // loop riparte per il giorno successivo
         printf("[%s] Fine giornata, ci vediamo domani!\n", utenteID);

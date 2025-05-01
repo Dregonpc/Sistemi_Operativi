@@ -208,12 +208,16 @@ int CalculateTimeDayUser() {
     return SIMULATED_MINUTE * MINUTES_FOR_DAY;
 }
 
-void ConfigurePostOffices(DailyConfig* config) {
+void ConfigurePostOffices(DailyConfig* config, Stats* stats) {
     for (int i = 0; i < NUM_SPORTELLI; i++) {
         config->sportelli[i].idSportello = i;
         config->sportelli[i].indexServizioOfferto = RandomizeService();
         config->sportelli[i].idOperatore = "";
         config->sportelli[i].disponibile = 1;
+
+        // Inserisco dati dello sportello nella stats
+        stats->sportelli_esistenti_services[config->sportelli[i].indexServizioOfferto]++;
+
 
         printf("[Direttore] Sportello %d è stato creato con il servizio %d.\n", config->sportelli[i].idSportello, config->sportelli[i].indexServizioOfferto);
     }
@@ -288,20 +292,21 @@ void createAllSubProcess(int shmID, int shmIdStats, int semID, int msgIdDispense
     }
 }
 
-void MasterNotifyAndWait(int semID, struct sembuf sops, bool endSim, DailyConfig* config) {
+void MasterNotifyAndWait(int semID, struct sembuf sops, bool endSim, DailyConfig* config, Stats* stats) {
     // aspettiamo che arrivi a 0 (ovvero tutti i figli sono pronti e hanno decrementato il semaforo)
     sops.sem_num = 0;
     sops.sem_op = 0;
     semop(semID, &sops, 1);
     
     // Possibile lettura delle statistiche qui
+    // TODO: check explode threshold
     
     // Resettiamo il semaforo tra operatori e utenti
     SemOperatorsUsersRestart(semID, sops);
     
     if (!endSim) {
         // configuriamo gli sportelli
-        ConfigurePostOffices(config);
+        ConfigurePostOffices(config, stats);
 
         // avvisiamo i figli che possono partire
         sops.sem_num = 1;
@@ -341,6 +346,55 @@ void Clean(int msgIdDispenser, int msgIdOperator, int msgIdUser, int semID, int 
 
     semCleanUp(semID);
     SharedMemoryClean(shmID, config, shmIdStat, stats);
+}
+
+void ResetStatsDaily(Stats* stats) {
+    // Resettiamo le statistiche
+    stats->servizi_non_erogati_tot_day = 0;
+    stats->operatori_attivi_day = 0;
+
+    stats->tempo_attesa_utenti_day = 0.0;
+    stats->tempo_erogazione_servizi_day = 0.0;
+
+    for (int i = 0; i < NUM_SERVIZI; i++) {
+        stats->tempo_attesa_utenti_day_services[i] = 0.0;
+        stats->tempo_erogazione_servizi_day_services[i] = 0.0;
+        stats->sportelli_esistenti_services
+    }
+}
+
+void CalculateFinalStats(Stats* stats) {
+    // Calcoliamo le statistiche finali
+    stats->utenti_serviti_avg = (double)stats->utenti_serviti_tot_sim / (double)stats->durata_simulazione;
+    stats->servizi_erogati_avg = (double)stats->servizi_erogati_tot_sim / (double)stats->durata_simulazione;
+    stats->servizi_non_erogati_avg = (double)stats->servizi_non_erogati_tot_sim / (double)stats->durata_simulazione;
+    stats->pause_effettuate_avg = (double)stats->pause_effettuate_sim / (double)stats->durata_simulazione;
+
+    stats->tempo_attesa_utenti_avg = (double)stats->tempo_attesa_utenti_sim / (double)stats->utenti_serviti_tot_sim;
+    stats->tempo_erogazione_servizi_avg = (double)stats->tempo_erogazione_servizi_sim / (double)stats->servizi_erogati_tot_sim;
+}
+
+void PrintFinalStats(Stats* stats) {
+    printf("[Direttore] Statistiche finali:\n");
+    printf("Utenti serviti totali: %d\n", stats->utenti_serviti_tot_sim);
+    printf("Servizi erogati totali: %d\n", stats->servizi_erogati_tot_sim);
+    printf("Servizi non erogati totali: %d\n", stats->servizi_non_erogati_tot_sim);
+    printf("Operatori attivi totali: %d\n", stats->operatori_attivi_sim);
+    printf("Pause effettuate totali: %d\n", stats->pause_effettuate_sim);
+    printf("Durata della simulazione: %d giorni\n", stats->durata_simulazione);
+    printf("Tempo medio di attesa degli utenti: %.2f nanosecondi\n", stats->tempo_attesa_utenti_avg * 1000000000.0);
+    printf("Tempo medio di erogazione dei servizi: %.2f nanosecondi\n", stats->tempo_erogazione_servizi_avg * 1000000000.0);
+}
+
+void PrintDailyStats(Stats* stats) {
+    printf("[Direttore] Statistiche giornaliere:\n");
+    printf("Utenti serviti totali: %d\n", stats->utenti_serviti_tot_sim);
+    printf("Servizi erogati totali: %d\n", stats->servizi_erogati_tot_sim);
+    printf("Servizi non erogati totali: %d\n", stats->servizi_non_erogati_tot_sim);
+    printf("Operatori attivi totali: %d\n", stats->operatori_attivi_day);
+    printf("Pause effettuate totali: %d\n", stats->pause_effettuate_sim);
+    printf("Tempo medio di attesa degli utenti: %.2f nanosecondi\n", stats->tempo_attesa_utenti_day * 1000000000.0);
+    printf("Tempo medio di erogazione dei servizi: %.2f nanosecondi\n", stats->tempo_erogazione_servizi_day * 1000000000.0);
 }
 
 int main(int argc, char *argv[]) {
@@ -391,7 +445,7 @@ int main(int argc, char *argv[]) {
     createAllSubProcess(shmID, shmIdStats, semID, msgIdDispenser, msgIdOperator, msgIdUser);
 
     // aspettiamo che tutti i figli siano pronti e diamogli il via
-    MasterNotifyAndWait(semID, sops, false, config);
+    MasterNotifyAndWait(semID, sops, false, config, stats);
 
     bool endSim = false;
 

@@ -348,6 +348,7 @@ int main(int argc, char *argv[]) {
         }
 
         // Aggiorna le statistiche
+        UpdateStats(semID, sops, stats, operatoreID, indexServizio, &servizi_erogati, &operatori_attivi, &counter_pause);
         
         // loop riparte per il giorno successivo
         printf("[%s] Fine giornata elaborata.\n", operatoreID);
