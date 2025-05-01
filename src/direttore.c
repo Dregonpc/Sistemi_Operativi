@@ -370,8 +370,8 @@ void CalculateFinalStats(Stats* stats) {
     stats->servizi_non_erogati_avg = (double)stats->servizi_non_erogati_tot_sim / (double)stats->durata_simulazione;
     stats->pause_effettuate_avg = (double)stats->pause_effettuate_sim / (double)stats->durata_simulazione;
 
-    stats->tempo_attesa_utenti_avg = (double)stats->tempo_attesa_utenti_sim / (double)stats->utenti_serviti_tot_sim;
-    stats->tempo_erogazione_servizi_avg = (double)stats->tempo_erogazione_servizi_sim / (double)stats->servizi_erogati_tot_sim;
+    stats->tempo_attesa_utenti_sim = (double)stats->tempo_attesa_utenti_sim / (double)stats->utenti_serviti_tot_sim;
+    stats->tempo_erogazione_servizi_sim = (double)stats->tempo_erogazione_servizi_sim / (double)stats->servizi_erogati_tot_sim;
 }
 
 void PrintFinalStats(Stats* stats) {
@@ -471,7 +471,7 @@ int main(int argc, char *argv[]) {
         
         // Facciamo ripartire i figli per il nuovo giorno
         endSim = (giorni == SIM_DURATION);
-        MasterNotifyAndWait(semID, sops, endSim, config);
+        MasterNotifyAndWait(semID, sops, endSim, config, stats);
     }
 
     // Fermiamo la simulazione
