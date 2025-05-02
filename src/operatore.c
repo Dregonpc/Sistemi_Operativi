@@ -65,7 +65,19 @@ bool CheckDailyService(DailyConfig* config, int indexServizioOperatore, char* op
     return false;
 }
 
-bool TakeUpPostOffice(DailyConfig* config, int semID, struct sembuf sops, int indexServizioOperatore, char* operatoreId, int* operatori_attivi) {
+void SlaveNotifyAndWait(int semID, struct sembuf sops) {
+    // avviso il direttore che sono pronto
+    sops.sem_num = 0;
+    sops.sem_op = -1;
+    semop(semID, &sops, 1);
+    
+    // aspetto che arrivi a 0 (ovvero il direttore mi da il via)
+    sops.sem_num = 1;
+    sops.sem_op = 0;
+    semop(semID, &sops, 1);
+}
+
+bool TakeUpPostOffice(DailyConfig* config, int semID, struct sembuf sops, int indexServizioOperatore, char* operatoreId, int* operatori_attivi, bool* firstTry) {
     if (endDay) {
         return false;
     }
@@ -80,6 +92,14 @@ bool TakeUpPostOffice(DailyConfig* config, int semID, struct sembuf sops, int in
 
     // Aspetta che ci sia almeno uno sportello libero
     sops.sem_num = 2;
+
+    // Se gli sportelli sono già finiti, avviso gli altri che possono partire e poi mi metto in wait
+    int checkSportelli = semctl(semID, 2, GETVAL);
+    if (checkSportelli == 0) {
+        *firstTry = false;
+        SlaveNotifyAndWait(semID, sops);
+    }
+
     sops.sem_op = -1; // Se il semaforo attualmente vale 0 mi metto in wait, altrimenti decremento
     if (semop(semID, &sops, 1) == -1) {
         printf("[%s] Errore durante l'attesa / l'invio del segnale che uno sportello è stato occupato.\n", operatoreId);
@@ -159,18 +179,6 @@ void releasePostOffice(DailyConfig* config, int semID, struct sembuf sops, char*
     }
 }
 
-void SlaveNotifyAndWait(int semID, struct sembuf sops) {
-    // avviso il direttore che sono pronto
-    sops.sem_num = 0;
-    sops.sem_op = -1;
-    semop(semID, &sops, 1);
-    
-    // aspetto che arrivi a 0 (ovvero il direttore mi da il via)
-    sops.sem_num = 1;
-    sops.sem_op = 0;
-    semop(semID, &sops, 1);
-}
-
 bool breakCondition() {
     // Da decidere una vera condizione (ad esempio che abbia servito almeno due clienti)
     return (rand() % 100) < 20; // 20% di possibilità di andare in pausa
@@ -225,7 +233,7 @@ void ReceiveTicketAndExecute(int msgIdOperator, int msgIdUser, int IndexServizio
         // Aumentiamo i contatori
         (*servizi_erogati)++;
 
-        printf("[%s] Ho finito di servire %ld. Ci ho impiegato %d secondi.\n", operatoreID, msg.mtype, tempo);
+        printf("[%s] Ho finito di servire %ld. Ci ho impiegato %d nanosecondi.\n", operatoreID, msg.mtype, tempo);
 
         if ((*pause_effettuate) < NOF_PAUSE && breakCondition()) { // Qui da modificare e aggiungere che abbia servito almeno due utenti
             (*pause_effettuate)++;
@@ -323,9 +331,17 @@ int main(int argc, char *argv[]) {
         // Controllo che il servizio di cui mi occupo è presente negli sportelli
         CheckService = CheckDailyService(config, indexServizio, operatoreID);
 
+        bool voglioLeccareLaCiolaAQuelliCheHannoHackeratoGoogle = true;
+
         if (CheckService) {
             // Provo ad occupare uno sportello
-            TakeUpPostOffice(config, semID, sops, indexServizio, operatoreID, &operatori_attivi);
+            TakeUpPostOffice(config, semID, sops, indexServizio, operatoreID, &operatori_attivi, &voglioLeccareLaCiolaAQuelliCheHannoHackeratoGoogle);
+
+            // Devo avvisare solo se non ho già avvisato precedentemente nella funzione TakeUp
+            if (voglioLeccareLaCiolaAQuelliCheHannoHackeratoGoogle) {
+                // Mi sono configurato per il nuovo giorno, aspetto il via dal direttore per iniziare a lavorare
+                SlaveNotifyAndWait(semID, sops);
+            }
     
             if (!endDay) {
                 // LAVORO finché non finisce il giorno o vado in pausa

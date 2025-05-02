@@ -376,7 +376,7 @@ void StatsInitialize(Stats* stats, int semID) {
 
 }
 
-void MasterNotifyAndWait(int semID, struct sembuf sops, bool endSim, DailyConfig* config, Stats* stats) {
+void MasterNotifyAndWait(int semID, struct sembuf sops, DailyConfig* config, Stats* stats, bool endDay, bool endSim) {
     // aspettiamo che arrivi a 0 (ovvero tutti i figli sono pronti e hanno decrementato il semaforo)
     sops.sem_num = 0;
     sops.sem_op = 0;
@@ -385,21 +385,25 @@ void MasterNotifyAndWait(int semID, struct sembuf sops, bool endSim, DailyConfig
     // Possibile lettura delle statistiche qui
     // TODO: check explode threshold
 
-    PrintFinalStats(stats);
+    if (endDay) {
+        PrintFinalStats(stats);
+        
+        // Resettiamo il semaforo tra operatori e utenti
+        SemOperatorsUsersRestart(semID, sops);
+    }
     
-    // Resettiamo il semaforo tra operatori e utenti
-    SemOperatorsUsersRestart(semID, sops);
-    
-    if (!endSim) {
+    if (endDay && !endSim) {
         // configuriamo gli sportelli
         ConfigurePostOffices(config, stats);
+    }
 
+    if (!endSim) {
         // avvisiamo i figli che possono partire
         sops.sem_num = 1;
         sops.sem_op = -1;
         semop(semID, &sops, 1);
     }
-
+    
     // Resettiamo il semaforo della barriera
     SemBarrierRestart(semID, sops);
 }
@@ -547,13 +551,16 @@ int main(int argc, char *argv[]) {
     createAllSubProcess(shmID, shmIdStats, semID, msgIdDispenser, msgIdOperator, msgIdUser);
 
     // aspettiamo che tutti i figli siano pronti e diamogli il via
-    MasterNotifyAndWait(semID, sops, false, config, stats);
+    MasterNotifyAndWait(semID, sops, config, stats, true, false);
 
     bool endSim = false;
 
     // Scorriamo i giorni e avvisiamo ogni volta i figli quando finisce un giorno
     for (int giorni = 1; giorni <= SIM_DURATION; giorni++) {
         printf("[Direttore] Inizio del giorno %d...\n", giorni);
+
+        // Diamo il tempo ai figli per configurarsi per il nuovo giorno
+        MasterNotifyAndWait(semID, sops, config, stats, false, false);
 
         // simulo il passare dei minuti
         printf("[Direttore] Giorno %d in corso (480 minuti)...\n", giorni);
@@ -570,11 +577,10 @@ int main(int argc, char *argv[]) {
 
         printf("[Direttore] Avviso i figli che è terminato il giorno %d...\n", giorni);
         kill(0, SIGUSR2); // Fine giornata
-
         
         // Facciamo ripartire i figli per il nuovo giorno
         endSim = (giorni == SIM_DURATION);
-        MasterNotifyAndWait(semID, sops, endSim, config, stats);
+        MasterNotifyAndWait(semID, sops, config, stats, true, endSim);
     }
 
     // Fermiamo la simulazione

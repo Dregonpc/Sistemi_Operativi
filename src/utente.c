@@ -244,6 +244,8 @@ int main(int argc, char *argv[]) {
         float time_total = 0.0;
         ResetCounters(&utenti_serviti, &utenti_non_serviti_day);
 
+        SlaveNotifyAndWait(semID, sops);
+
         // reset flag
         endDay = 0;
 

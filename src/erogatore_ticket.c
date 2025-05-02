@@ -106,6 +106,8 @@ int main(int argc, char *argv[]) {
         // Posso iniziare a lavorare
         endDay = 0;
 
+        SlaveNotifyAndWait(semID, sops);
+
         printf("[%s] Inizio giornata.\n", erogatoreID);
 
         // Mi metto in ricezione
