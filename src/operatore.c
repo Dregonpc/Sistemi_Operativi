@@ -87,8 +87,10 @@ bool TakeUpPostOffice(DailyConfig* config, int semID, struct sembuf sops, int in
 
     // Se gli sportelli sono già finiti, avviso gli altri che possono partire e poi mi metto in wait
     int checkSportelli = semctl(semID, 2, GETVAL);
+    printf("[%s] Sportelli disponibili: %d\n", operatoreId, checkSportelli);
     if (checkSportelli == 0) {
         *firstTry = false;
+        printf("[HELICOPTER] SI VAH A LETTOH\n");
         SlaveNotifyAndWait(semID, sops);
     }
 
@@ -121,6 +123,8 @@ bool TakeUpPostOffice(DailyConfig* config, int semID, struct sembuf sops, int in
                 break;
             }
         }
+
+
     
         // rilascio il lock
         sops.sem_num = 3;
@@ -323,15 +327,16 @@ int main(int argc, char *argv[]) {
         // Controllo che il servizio di cui mi occupo è presente negli sportelli
         CheckService = CheckDailyService(config, indexServizio, operatoreID);
 
-        bool voglioLeccareLaCiolaAQuelliCheHannoHackeratoGoogle = true;
+        bool firstTryTakeUp = true;
 
         if (CheckService) {
             // Provo ad occupare uno sportello
-            TakeUpPostOffice(config, semID, sops, indexServizio, operatoreID, &operatori_attivi, &voglioLeccareLaCiolaAQuelliCheHannoHackeratoGoogle);
+            TakeUpPostOffice(config, semID, sops, indexServizio, operatoreID, &operatori_attivi, &firstTryTakeUp);
 
             // Devo avvisare solo se non ho già avvisato precedentemente nella funzione TakeUp
-            if (voglioLeccareLaCiolaAQuelliCheHannoHackeratoGoogle) {
+            if (firstTryTakeUp) {
                 // Mi sono configurato per il nuovo giorno, aspetto il via dal direttore per iniziare a lavorare
+                printf("[%s] SI VAH A LETTOH OCCUPANDO LA TROAI DI TUA MADRE\n", operatoreID);
                 SlaveNotifyAndWait(semID, sops);
             }
     
@@ -345,6 +350,10 @@ int main(int argc, char *argv[]) {
                 // rilascio lo sportello
                 releasePostOffice(config, semID, sops, operatoreID);
             }
+        }
+        else {
+            // Se non c'è il servizio che offro io, avviso lo stesso il direttore
+            SlaveNotifyAndWait(semID, sops);
         }
 
         // Aspetto fine giornata se non già arrivata (per gli operatori che vanno in pausa)

@@ -187,8 +187,8 @@ int messageQueueCreate() {
 }
 
 int RandomizeService() {
-    //return rand() % NUM_SERVIZI;
-    return 1; // Per testare il servizio 1
+    return rand() % NUM_SERVIZI;
+    // return 1; // Per testare il servizio 1
 }
 
 int CalculateTimeDayUser() {

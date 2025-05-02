@@ -81,8 +81,8 @@ bool ChoosePresence(int p_serv, char* utenteId) {
 }
 
 int RandomizeService() {
-    // return rand() % NUM_SERVIZI;
-    return 1; // Per testare il servizio 1
+    return rand() % NUM_SERVIZI;
+    // return 1; // Per testare il servizio 1
 }
 
 bool CheckPresenceRequiredService(DailyConfig* config, int IndexServizioRichiesto, char* utenteID) {
@@ -237,6 +237,9 @@ int main(int argc, char *argv[]) {
         float time_total = 0.0;
         ResetCounters(&utenti_serviti, &utenti_non_serviti_day);
 
+        IndexServizioRichiesto = RandomizeService();
+        
+        
         SlaveNotifyAndWait(semID, sops);
 
         // reset flag
@@ -247,7 +250,7 @@ int main(int argc, char *argv[]) {
 
         if (ChoosePresence(P_SERV, utenteID)) {    
             // scelgo il servizio
-            IndexServizioRichiesto = RandomizeService();
+            //IndexServizioRichiesto = RandomizeService();
             
             // verifico presenza
             if (CheckPresenceRequiredService(config, IndexServizioRichiesto, utenteID) && !endDay) {
