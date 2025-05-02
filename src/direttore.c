@@ -101,7 +101,7 @@ void SharedMemoryClean(int shmID, DailyConfig* config, int shmIdStat, Stats* sta
 
 // Creazione dei semafori
 int semCreate() {
-    int semID = semget(IPC_PRIVATE, 6, IPC_CREAT | 0666);
+    int semID = semget(IPC_PRIVATE, 5, IPC_CREAT | 0666);
     if (semID < 0) {
         printf("[Direttore] Creazione del semaforo fallita.\n");
         exit(EXIT_FAILURE);
@@ -139,17 +139,9 @@ void semInizialize(int semID) {
         exit(EXIT_FAILURE);
     }
 
-    // semNum = 4 : semaforo per avvisare gli utenti che possono chiedere un servizio perchè tutti gli operatori hanno provato a occupare uno sportello
-    // all'inizio, il semaforo vale come il numero di operatori, che andranno a decrementarlo in modo che quando arriva a 0 gli utenti possano iniziare a chiedere i servizi (si resetta ogni giornata)
-    //if (semctl(semID, 4, SETVAL, NUM_OF_WORKERS) < 0) {
-    if (semctl(semID, 4, SETVAL, 0) < 0) {
-        perror("[Direttore] Errore durante la semctl del semaforo per la sincronizzazione tra operatori e utenti.\n");
-        exit(EXIT_FAILURE);
-    }
-
-    // semNum = 5 : semaforo per gestire il lock per le statistiche
+    // semNum = 4 : semaforo per gestire il lock per le statistiche
     // vale sempre 1, quando qualcuno acquisice il lock diventa 0 e nessuno ci può più accedere finchè non torna a valere 1
-    if (semctl(semID, 5, SETVAL, 1) < 0) {
+    if (semctl(semID, 4, SETVAL, 1) < 0) {
         perror("[Direttore] Errore durante la semctl del semaforo per il lock delle statistiche.\n");
         exit(EXIT_FAILURE);
     }
@@ -167,7 +159,7 @@ void SemBarrierRestart(int semID, struct sembuf sops) {
     }
 }
 
-void SemOperatorsUsersRestart(int semID, struct sembuf sops) {
+void SemRestart(int semID, struct sembuf sops) {
     if (semctl(semID, 2, SETVAL, NUM_SPORTELLI) < 0) {
         perror("[Direttore] Errore durante la semctl del semaforo dedicato agli sportelli.\n");
         exit(EXIT_FAILURE);
@@ -177,13 +169,8 @@ void SemOperatorsUsersRestart(int semID, struct sembuf sops) {
         perror("[Direttore] Errore durante la semctl del semaforo per l'accesso coordinato agli sportelli.\n");
         exit(EXIT_FAILURE);
     }
-    
-    if (semctl(semID, 4, SETVAL, NUM_OF_WORKERS) < 0) {
-        perror("[Direttore] Errore durante la semctl del semaforo per la sincronizzazione tra operatori e utenti.\n");
-        exit(EXIT_FAILURE);
-    }
 
-    if (semctl(semID, 5, SETVAL, 1) < 0) {
+    if (semctl(semID, 4, SETVAL, 1) < 0) {
         perror("[Direttore] Errore durante la semctl del semaforo per il lock delle statistiche.\n");
         exit(EXIT_FAILURE);
     }
@@ -319,7 +306,7 @@ void StatsInitialize(Stats* stats, int semID) {
     struct sembuf sops;
 
     // acquisisco il lock
-    sops.sem_num = 5;
+    sops.sem_num = 4;
     sops.sem_op = -1;
     if (semop(semID, &sops, 1) == -1) {
         printf("[Direttore] Errore durante l'acquisizione del lock per le statistiche.\n");
@@ -368,7 +355,7 @@ void StatsInitialize(Stats* stats, int semID) {
     }
 
     // rilascio il lock
-    sops.sem_num = 5;
+    sops.sem_num = 4;
     sops.sem_op = 1;
     if (semop(semID, &sops, 1) == -1) {
         printf("[Direttore] Errore durante il rilascio del lock per le statistiche.\n");
@@ -389,7 +376,7 @@ void MasterNotifyAndWait(int semID, struct sembuf sops, DailyConfig* config, Sta
         PrintFinalStats(stats);
         
         // Resettiamo il semaforo tra operatori e utenti
-        SemOperatorsUsersRestart(semID, sops);
+        SemRestart(semID, sops);
     }
     
     if (endDay && !endSim) {
@@ -442,7 +429,7 @@ void ResetStatsDaily(Stats* stats, int semID) {
     struct sembuf sops;
 
     // acquisisco il lock
-    sops.sem_num = 5;
+    sops.sem_num = 4;
     sops.sem_op = -1;
     if (semop(semID, &sops, 1) == -1) {
         printf("[Direttore] Errore durante l'acquisizione del lock per le statistiche.\n");
@@ -462,7 +449,7 @@ void ResetStatsDaily(Stats* stats, int semID) {
     }
 
     // rilascio il lock
-    sops.sem_num = 5;
+    sops.sem_num = 4;
     sops.sem_op = 1;
     if (semop(semID, &sops, 1) == -1) {
         printf("[Direttore] Errore durante il rilascio del lock per le statistiche.\n");
@@ -473,12 +460,11 @@ void CalculateFinalStats(Stats* stats, int semID) {
     struct sembuf sops;
 
     // acquisisco il lock
-    sops.sem_num = 5;
+    sops.sem_num = 4;
     sops.sem_op = -1;
     if (semop(semID, &sops, 1) == -1) {
         printf("[Direttore] Errore durante l'acquisizione del lock per le statistiche.\n");
     }
-
 
     // Calcoliamo le statistiche finali
     stats->utenti_serviti_avg = (double)stats->utenti_serviti_tot_sim / (double)stats->durata_simulazione;
@@ -490,7 +476,7 @@ void CalculateFinalStats(Stats* stats, int semID) {
     stats->tempo_erogazione_servizi_sim = (double)stats->tempo_erogazione_servizi_sim / (double)stats->servizi_erogati_tot_sim;
 
     // rilascio il lock
-    sops.sem_num = 5;
+    sops.sem_num = 4;
     sops.sem_op = 1;
     if (semop(semID, &sops, 1) == -1) {
         printf("[Direttore] Errore durante il rilascio del lock per le statistiche.\n");
@@ -528,7 +514,6 @@ int main(int argc, char *argv[]) {
 
     int shmIdStats = SharedMemoryCreate(sizeof(Stats));
     Stats* stats = SharedMemoryAttachStats(shmIdStats);
-
     
     // creiamo il semaforo e inizializziamolo
     int semID = semCreate();

@@ -82,14 +82,6 @@ bool TakeUpPostOffice(DailyConfig* config, int semID, struct sembuf sops, int in
         return false;
     }
 
-    // avviso gli utenti che ho provato ad occupare uno sportello (indipendentemente da se ci riuscirò oppure no)
-    sops.sem_num = 4;
-    sops.sem_op = -1;
-    if (semop(semID, &sops, 1) == -1) {
-        printf("[%s] Errore durante l'avviso agli utenti.\n", operatoreId);
-        //exit(EXIT_FAILURE);
-    }
-
     // Aspetta che ci sia almeno uno sportello libero
     sops.sem_num = 2;
 
@@ -252,7 +244,7 @@ void ResetCounters(int* servizi_erogati, int* operatori_attivi, int* counter_pau
 
 void UpdateStats(int semID, struct sembuf sops, Stats* stats, char *operatoreId, int IndexServizio, int* servizi_erogati, int* operatori_attivi, int* counter_pause) {
     // acquisisco il lock
-    sops.sem_num = 5;
+    sops.sem_num = 4;
     sops.sem_op = -1;
     if (semop(semID, &sops, 1) == -1) {
         printf("[%s] Errore durante l'acquisizione del lock per le statistiche.\n", operatoreId);
@@ -266,7 +258,7 @@ void UpdateStats(int semID, struct sembuf sops, Stats* stats, char *operatoreId,
     stats->servizi_erogati_tot_sim_services[IndexServizio] += *servizi_erogati;
 
     // rilascio il lock
-    sops.sem_num = 5;
+    sops.sem_num = 4;
     sops.sem_op = 1;
     if (semop(semID, &sops, 1) == -1) {
         printf("[%s] Errore durante il rilascio del lock per le statistiche.\n", operatoreId);

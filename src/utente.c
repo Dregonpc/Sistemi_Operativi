@@ -64,13 +64,6 @@ void SlaveNotifyAndWait(int semID, struct sembuf sops) {
     semop(semID, &sops, 1);
 }
 
-void WaitStartFromOperator(int semID, struct sembuf sops) {
-    // aspetto che arrivi a 0 (ovvero gli operatori ci danno il via)
-    sops.sem_num = 4;
-    sops.sem_op = 0;
-    semop(semID, &sops, 1);
-}
-
 int RandomizeProbabilityUser(int p_serv_min, int p_serv_max) {
     return (rand() % ((p_serv_max - p_serv_min + 1) + p_serv_min));
 }
@@ -164,7 +157,7 @@ void PrintDailyStats(Stats* stats) {
 
 void UpdateStats(int semID, struct sembuf sops, Stats* stats, char *utenteId, int IndexServizioRichiesto,  int* utenti_serviti, int* utenti_non_serviti_day, float* time_total) {
     // acquisisco il lock
-    sops.sem_num = 5;
+    sops.sem_num = 4;
     sops.sem_op = -1;
     if (semop(semID, &sops, 1) == -1) {
         printf("[%s] Errore durante l'acquisizione del lock per le statistiche.\n", utenteId);
@@ -185,7 +178,7 @@ void UpdateStats(int semID, struct sembuf sops, Stats* stats, char *utenteId, in
     PrintDailyStats(stats);
     
     // rilascio il lock
-    sops.sem_num = 5;
+    sops.sem_num = 4;
     sops.sem_op = 1;
     if (semop(semID, &sops, 1) == -1) {
         printf("[%s] Errore durante il rilascio del lock per le statistiche.\n", utenteId);
@@ -252,10 +245,7 @@ int main(int argc, char *argv[]) {
         // Calcoliamo la probabilità per decidere se presentarsi all'ufficio postale oppure no
         P_SERV = RandomizeProbabilityUser(P_SERV_MIN, P_SERV_MAX);
 
-        if (ChoosePresence(P_SERV, utenteID)) {
-            // Aspettiamo che gli operatori "ci diano il via"
-            WaitStartFromOperator(semID, sops);
-    
+        if (ChoosePresence(P_SERV, utenteID)) {    
             // scelgo il servizio
             IndexServizioRichiesto = RandomizeService();
             
