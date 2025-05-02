@@ -164,8 +164,8 @@ void UpdateStats(int semID, struct sembuf sops, Stats* stats, char *utenteId, in
     }
 
     printf("[%s] Aggiorno le statistiche...\n", utenteId);
+    
     // Scrivo statistiche
-
     stats->utenti_serviti_tot_sim = stats->utenti_serviti_tot_sim + *utenti_serviti;
     stats->utenti_non_serviti_tot_day = stats->utenti_non_serviti_tot_day + *utenti_non_serviti_day;
     stats->utenti_non_serviti_tot_sim += *utenti_non_serviti_day;
@@ -175,7 +175,7 @@ void UpdateStats(int semID, struct sembuf sops, Stats* stats, char *utenteId, in
     stats->tempo_attesa_utenti_sim += *time_total;
     stats->tempo_attesa_utenti_day += *time_total;
 
-    PrintDailyStats(stats);
+    //PrintDailyStats(stats);
     
     // rilascio il lock
     sops.sem_num = 4;
@@ -237,8 +237,7 @@ int main(int argc, char *argv[]) {
         float time_total = 0.0;
         ResetCounters(&utenti_serviti, &utenti_non_serviti_day);
 
-        IndexServizioRichiesto = RandomizeService();
-        
+        //IndexServizioRichiesto = RandomizeService();
         
         SlaveNotifyAndWait(semID, sops);
 
@@ -250,7 +249,7 @@ int main(int argc, char *argv[]) {
 
         if (ChoosePresence(P_SERV, utenteID)) {    
             // scelgo il servizio
-            //IndexServizioRichiesto = RandomizeService();
+            IndexServizioRichiesto = RandomizeService();
             
             // verifico presenza
             if (CheckPresenceRequiredService(config, IndexServizioRichiesto, utenteID) && !endDay) {

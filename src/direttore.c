@@ -33,8 +33,6 @@ int EXPLODE_THRESHOLD;  // max numero di utenti a fine giornata che non sono sta
 #define NUM_OF_SEM 3
 
 #define MINUTES_FOR_DAY 480 // 480 minuti = 8 ore
-//#define SIMULATED_MINUTE 100000000 // 100 milioni di nanosecondi = 100ms
-//#define SIMULATED_MINUTE 50000000 // 50 milioni di nanosecondi = 50ms
 #define SIMULATED_MINUTE 4000000 // 4 milioni di nanosecondi = 4ms
 // 4ms * 480 = 1,92 secondi
 
@@ -54,7 +52,6 @@ void readConfig(char *numOfWorkers, char *numOfUsers, char *nofPause, char *pSer
 
     TOTAL_PROCESSES = 1 + NUM_OF_WORKERS + NUM_OF_USERS;
     TOTAL_PROCESSES_DIR = 1 + TOTAL_PROCESSES;
-
 }
 
 // Creazione della memoria condivisa
@@ -204,7 +201,6 @@ void ConfigurePostOffices(DailyConfig* config, Stats* stats) {
 
         // Inserisco dati dello sportello nella stats
         stats->sportelli_esistenti_services[config->sportelli[i].indexServizioOfferto]++;
-
 
         printf("[Direttore] Sportello %d è stato creato con il servizio %d.\n", config->sportelli[i].idSportello, config->sportelli[i].indexServizioOfferto);
     }
@@ -360,7 +356,6 @@ void StatsInitialize(Stats* stats, int semID) {
     if (semop(semID, &sops, 1) == -1) {
         printf("[Direttore] Errore durante il rilascio del lock per le statistiche.\n");
     }
-
 }
 
 void MasterNotifyAndWait(int semID, struct sembuf sops, DailyConfig* config, Stats* stats, bool endDay, bool endSim) {
@@ -482,8 +477,6 @@ void CalculateFinalStats(Stats* stats, int semID) {
         printf("[Direttore] Errore durante il rilascio del lock per le statistiche.\n");
     }
 }
-
-
 
 int main(int argc, char *argv[]) {
     struct sembuf sops;

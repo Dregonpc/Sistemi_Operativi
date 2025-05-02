@@ -87,10 +87,8 @@ bool TakeUpPostOffice(DailyConfig* config, int semID, struct sembuf sops, int in
 
     // Se gli sportelli sono già finiti, avviso gli altri che possono partire e poi mi metto in wait
     int checkSportelli = semctl(semID, 2, GETVAL);
-    printf("[%s] Sportelli disponibili: %d\n", operatoreId, checkSportelli);
     if (checkSportelli == 0) {
         *firstTry = false;
-        printf("[HELICOPTER] SI VAH A LETTOH\n");
         SlaveNotifyAndWait(semID, sops);
     }
 
@@ -124,8 +122,6 @@ bool TakeUpPostOffice(DailyConfig* config, int semID, struct sembuf sops, int in
             }
         }
 
-
-    
         // rilascio il lock
         sops.sem_num = 3;
         sops.sem_op = 1;
@@ -336,7 +332,6 @@ int main(int argc, char *argv[]) {
             // Devo avvisare solo se non ho già avvisato precedentemente nella funzione TakeUp
             if (firstTryTakeUp) {
                 // Mi sono configurato per il nuovo giorno, aspetto il via dal direttore per iniziare a lavorare
-                printf("[%s] SI VAH A LETTOH OCCUPANDO LA TROAI DI TUA MADRE\n", operatoreID);
                 SlaveNotifyAndWait(semID, sops);
             }
     
