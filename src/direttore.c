@@ -368,7 +368,8 @@ void MasterNotifyAndWait(int semID, struct sembuf sops, DailyConfig* config, Sta
     // TODO: check explode threshold
 
     if (endDay) {
-        PrintFinalStats(stats);
+        PrintDailyStats(stats);
+        // PrintFinalStats(stats);
         
         // Resettiamo il semaforo tra operatori e utenti
         SemRestart(semID, sops);

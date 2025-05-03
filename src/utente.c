@@ -166,7 +166,7 @@ void UpdateStats(int semID, struct sembuf sops, Stats* stats, char *utenteId, in
     printf("[%s] Aggiorno le statistiche...\n", utenteId);
     
     // Scrivo statistiche
-    stats->utenti_serviti_tot_sim = stats->utenti_serviti_tot_sim + *utenti_serviti;
+    stats->utenti_serviti_tot_sim += *utenti_serviti;
     stats->utenti_non_serviti_tot_day = stats->utenti_non_serviti_tot_day + *utenti_non_serviti_day;
     stats->utenti_non_serviti_tot_sim += *utenti_non_serviti_day;
     
@@ -218,7 +218,7 @@ int main(int argc, char *argv[]) {
 
     // colleghiamoci alla memoria condivisa
     DailyConfig* config = SharedMemoryAttach(shmID, utenteID);
-    Stats* stats = SharedMemoryAttachStats(shmID, utenteID);
+    Stats* stats = SharedMemoryAttachStats(shmIddStats, utenteID);
 
     printf("[%s] Sono pronto, avviso il direttore e aspetto il via.\n", utenteID);
     SlaveNotifyAndWait(semID, sops);
@@ -236,8 +236,6 @@ int main(int argc, char *argv[]) {
         int IndexServizioRichiesto = -1;
         float time_total = 0.0;
         ResetCounters(&utenti_serviti, &utenti_non_serviti_day);
-
-        //IndexServizioRichiesto = RandomizeService();
         
         SlaveNotifyAndWait(semID, sops);
 
