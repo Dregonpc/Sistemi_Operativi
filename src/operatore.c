@@ -185,7 +185,7 @@ int CalculateTimeExecution(int IndexServizio, int simulated_minute) {
     return durataCasuale * simulated_minute;
 }
 
-void ReceiveTicketAndExecute(int msgIdOperator, int msgIdUser, int IndexServizio, char *operatoreID, int NOF_PAUSE, int* pause_effettuate, int simulated_minute, int* servizi_erogati, int* counter_pause) {
+void ReceiveTicketAndExecute(int msgIdOperator, int msgIdUser, int IndexServizio, char *operatoreID, int NOF_PAUSE, int* pause_effettuate, int simulated_minute, int* servizi_erogati, int* counter_pause, double* tempo_erogazione) {
     while (!endDay) {
         Messaggio msg;
         ssize_t n;
@@ -215,8 +215,11 @@ void ReceiveTicketAndExecute(int msgIdOperator, int msgIdUser, int IndexServizio
         req.tv_nsec = tempo;
         nanosleep(&req, NULL);
 
+        *tempo_erogazione = tempo;
+
         // Manda risposta all'utente usando il suo PID come "destinatario"
         msg.mtype = msg.user_id;
+        msg.time_for_execution = tempo;
         if (msgsnd(msgIdUser, &msg, sizeof(Messaggio) - sizeof(long), 0) < 0) {
             perror("msgsnd");
             //exit(EXIT_FAILURE);
@@ -236,13 +239,14 @@ void ReceiveTicketAndExecute(int msgIdOperator, int msgIdUser, int IndexServizio
     }
 }
 
-void ResetCounters(int* servizi_erogati, int* operatori_attivi, int* counter_pause) {
+void ResetCounters(int* servizi_erogati, int* operatori_attivi, int* counter_pause, double* tempo_erogazione) {
     *servizi_erogati = 0;
     *operatori_attivi = 0;
     *counter_pause = 0;
+    *tempo_erogazione = 0;
 }
 
-void UpdateStats(int semID, struct sembuf sops, Stats* stats, char *operatoreId, int IndexServizio, int* servizi_erogati, int* operatori_attivi, int* counter_pause) {
+void UpdateStats(int semID, struct sembuf sops, Stats* stats, char *operatoreId, int IndexServizio, int* servizi_erogati, int* operatori_attivi, int* counter_pause, double* tempo_erogazione) {
     // acquisisco il lock
     sops.sem_num = 4;
     sops.sem_op = -1;
@@ -252,10 +256,18 @@ void UpdateStats(int semID, struct sembuf sops, Stats* stats, char *operatoreId,
 
     // Scrivo statistiche
     stats->servizi_erogati_tot_sim += *servizi_erogati;
+    stats->servizi_erogati_tot_day += *servizi_erogati;
     stats->operatori_attivi_day += *operatori_attivi;
     stats->operatori_attivi_sim += *operatori_attivi;
-    stats->pause_effettuate_sim += *counter_pause;
+    stats->pause_effettuate_tot_sim += *counter_pause;
+    stats->pause_effettuate_tot_day += *counter_pause;
+    stats->tempo_erogazione_servizi_day += *tempo_erogazione;
+    stats->tempo_erogazione_servizi_sim += *tempo_erogazione;
     stats->servizi_erogati_tot_sim_services[IndexServizio] += *servizi_erogati;
+    stats->tempo_erogazione_servizi_day_services[IndexServizio] += *tempo_erogazione;
+    stats->tempo_erogazione_servizi_sim_services[IndexServizio] += *tempo_erogazione;
+
+    stats->operatori_disponibili_services[IndexServizio]++;
 
     // rilascio il lock
     sops.sem_num = 4;
@@ -312,9 +324,10 @@ int main(int argc, char *argv[]) {
     int servizi_erogati = 0;
     int operatori_attivi = 0;
     int counter_pause = 0;
+    double tempo_erogazione = 0;
 
     while (1) {
-        ResetCounters(&servizi_erogati, &operatori_attivi, &counter_pause);
+        ResetCounters(&servizi_erogati, &operatori_attivi, &counter_pause, &tempo_erogazione);
 
         // Posso iniziare a lavorare
         printf("[%s] Inizio giornata.\n", operatoreID);
@@ -340,7 +353,7 @@ int main(int argc, char *argv[]) {
                 printf("[%s] Inizio turno (servizio %d)\n", operatoreID, indexServizio);
         
                 // Mi metto a ricevere i ticket e ad eseguirli
-                ReceiveTicketAndExecute(msgIdOperator, msgIdUser, indexServizio, operatoreID, NOF_PAUSE, &pause_effettuate, SIMULATED_MINUTE, &servizi_erogati, &counter_pause);
+                ReceiveTicketAndExecute(msgIdOperator, msgIdUser, indexServizio, operatoreID, NOF_PAUSE, &pause_effettuate, SIMULATED_MINUTE, &servizi_erogati, &counter_pause, &tempo_erogazione);
         
                 // rilascio lo sportello
                 releasePostOffice(config, semID, sops, operatoreID);
@@ -360,7 +373,7 @@ int main(int argc, char *argv[]) {
         }
 
         // Aggiorna le statistiche
-        UpdateStats(semID, sops, stats, operatoreID, indexServizio, &servizi_erogati, &operatori_attivi, &counter_pause);
+        UpdateStats(semID, sops, stats, operatoreID, indexServizio, &servizi_erogati, &operatori_attivi, &counter_pause, &tempo_erogazione);
         
         // loop riparte per il giorno successivo
         printf("[%s] Fine giornata elaborata.\n", operatoreID);

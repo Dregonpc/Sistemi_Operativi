@@ -276,26 +276,52 @@ void createAllSubProcess(int shmID, int shmIdStats, int semID, int msgIdDispense
 }
 
 void PrintFinalStats(Stats* stats) {
-    printf("[Direttore] Statistiche finali:\n");
+    printf("[Direttore] STATISTICHE FINALI:\n");
     printf("Utenti serviti totali: %d\n", stats->utenti_serviti_tot_sim);
+    printf("Utenti NON serviti totali: %d\n", stats->utenti_non_serviti_tot_sim);
     printf("Servizi erogati totali: %d\n", stats->servizi_erogati_tot_sim);
     printf("Servizi non erogati totali: %d\n", stats->servizi_non_erogati_tot_sim);
     printf("Operatori attivi totali: %d\n", stats->operatori_attivi_sim);
-    printf("Pause effettuate totali: %d\n", stats->pause_effettuate_sim);
+    printf("Pause effettuate totali: %d\n", stats->pause_effettuate_tot_sim);
     printf("Durata della simulazione: %d giorni\n", stats->durata_simulazione);
-    printf("Tempo medio di attesa degli utenti: %.2f nanosecondi\n", stats->tempo_attesa_utenti_sim * 1000000000.0);
-    printf("Tempo medio di erogazione dei servizi: %.2f nanosecondi\n", stats->tempo_erogazione_servizi_sim * 1000000000.0);
+    printf("Numero di utenti serviti in media al giorno: %.4lf\n", stats->utenti_serviti_avg);
+    printf("Numero di servizi erogati in media al giorno: %.4lf\n", stats->servizi_erogati_avg);
+    printf("Numero di servizi NON erogati in media al giorno: %.4lf\n", stats->servizi_non_erogati_avg);
+    printf("Numero medio di pause effettuate al giorno: %.4lf\n", stats->pause_effettuate_avg);
+    printf("Tempo medio di attesa degli utenti: %.0f nanosecondi\n", stats->tempo_attesa_utenti_sim);
+    printf("Tempo medio di erogazione dei servizi: %.0f nanosecondi\n", stats->tempo_erogazione_servizi_sim);
+
+    printf("   | utenti serv. | serv. erogati | serv. non erogati |\n");
+    for (int i = 0; i < NUM_SERVIZI; i++) {
+        printf("%1d: | %12.0d | %13.0d | %17.0d |\n", i, stats->utenti_serviti_tot_sim_services[i], stats->servizi_erogati_tot_sim_services[i], stats->servizi_non_erogati_tot_sim_services[i]);
+    }
+
+    printf("   | utenti serv. avg | serv. erogati avg | serv. non erogati avg |\n");
+    for (int i = 0; i < NUM_SERVIZI; i++) {
+        printf("%1d: | %16.0f | %17.0f | %21.0f |\n", i, stats->utenti_serviti_avg_services[i], stats->servizi_erogati_avg_services[i], stats->servizi_non_erogati_avg_services[i]);
+    }
+
+    printf("   | tempo utenti | tempo servizi |\n");
+    for (int i = 0; i < NUM_SERVIZI; i++) {
+        printf("%1d: | %12.0f | %13.0f |\n", i, stats->tempo_attesa_utenti_sim_services[i], stats->tempo_erogazione_servizi_sim_services[i]);
+    }
 }
 
 void PrintDailyStats(Stats* stats) {
-    printf("[Direttore] Statistiche giornaliere:\n");
-    printf("Utenti serviti totali: %d\n", stats->utenti_serviti_tot_sim);
-    printf("Servizi erogati totali: %d\n", stats->servizi_erogati_tot_sim);
-    printf("Servizi non erogati totali: %d\n", stats->servizi_non_erogati_tot_sim);
-    printf("Operatori attivi totali: %d\n", stats->operatori_attivi_day);
-    printf("Pause effettuate totali: %d\n", stats->pause_effettuate_sim);
-    printf("Tempo medio di attesa degli utenti: %.2f nanosecondi\n", stats->tempo_attesa_utenti_day * 1000000000.0);
-    printf("Tempo medio di erogazione dei servizi: %.2f nanosecondi\n", stats->tempo_erogazione_servizi_day * 1000000000.0);
+    printf("[Direttore] STATISTICHE GIORNALIERE:\n");
+    printf("Utenti serviti giornalmente: %d\n", stats->utenti_serviti_tot_day);
+    printf("Utenti NON serviti giornalmente: %d\n", stats->utenti_non_serviti_tot_day);
+    printf("Servizi erogati giornalmente: %d\n", stats->servizi_erogati_tot_day);
+    printf("Servizi non erogati giornalmente: %d\n", stats->servizi_non_erogati_tot_day);
+    printf("Operatori attivi giornalmente: %d\n", stats->operatori_attivi_day);
+    printf("Pause effettuate giornalmente: %d\n", stats->pause_effettuate_tot_day);
+    printf("Tempo medio di attesa degli utenti giornalmente: %.0f nanosecondi\n", stats->tempo_attesa_utenti_day);
+    printf("Tempo medio di erogazione dei servizi giornalmente: %.0f nanosecondi\n", stats->tempo_erogazione_servizi_day);
+
+    printf("   | Tempo_attesa_day | tempo_erogazione_day | rapporto_operatori_sportelli |\n");
+    for (int i = 0; i < NUM_SERVIZI; i++) {
+        printf("%1d: | %16.0f | %20.0f | %28.0f |\n", i, stats->tempo_attesa_utenti_day_services[i], stats->tempo_erogazione_servizi_day_services[i], stats->rapporto_operatori_sportelli_services[i]);
+    }
 }
 
 void StatsInitialize(Stats* stats, int semID) {
@@ -310,14 +336,17 @@ void StatsInitialize(Stats* stats, int semID) {
 
     // Inizializziamo le statistiche
     stats->utenti_serviti_tot_sim = 0;
+    stats->utenti_serviti_tot_day = 0;
     stats->utenti_non_serviti_tot_sim = 0;
     stats->utenti_non_serviti_tot_day = 0;
     stats->servizi_erogati_tot_sim = 0;
+    stats->servizi_erogati_tot_day = 0;
     stats->servizi_non_erogati_tot_sim = 0;
     stats->servizi_non_erogati_tot_day = 0;
     stats->operatori_attivi_day = 0;
     stats->operatori_attivi_sim = 0;
-    stats->pause_effettuate_sim = 0;
+    stats->pause_effettuate_tot_sim = 0;
+    stats->pause_effettuate_tot_day = 0;
     stats->durata_simulazione = 0;
 
     // Medie (gestite dal direttore)
@@ -358,7 +387,77 @@ void StatsInitialize(Stats* stats, int semID) {
     }
 }
 
-void MasterNotifyAndWait(int semID, struct sembuf sops, DailyConfig* config, Stats* stats, bool endDay, bool endSim) {
+void ResetStatsDaily(Stats* stats, int semID) {
+    struct sembuf sops;
+
+    // acquisisco il lock
+    sops.sem_num = 4;
+    sops.sem_op = -1;
+    if (semop(semID, &sops, 1) == -1) {
+        printf("[Direttore] Errore durante l'acquisizione del lock per le statistiche.\n");
+    }
+
+    stats->durata_simulazione++;
+
+    // Resettiamo le statistiche per il nuovo giorno
+    stats->utenti_serviti_tot_day = 0;
+    stats->utenti_non_serviti_tot_day = 0;
+    stats->servizi_erogati_tot_day = 0;
+    stats->servizi_non_erogati_tot_day = 0;
+    stats->pause_effettuate_tot_day = 0;
+    stats->operatori_attivi_day = 0;
+    
+    stats->tempo_attesa_utenti_day = 0.0;
+    stats->tempo_erogazione_servizi_day = 0.0;
+    
+    for (int i = 0; i < NUM_SERVIZI; i++) {
+        stats->tempo_attesa_utenti_day_services[i] = 0.0;
+        stats->tempo_erogazione_servizi_day_services[i] = 0.0;
+        stats->operatori_disponibili_services[i] = 0;
+        stats->sportelli_esistenti_services[i] = 0;
+        stats->rapporto_operatori_sportelli_services[i] = 0.0;
+    }
+
+    // rilascio il lock
+    sops.sem_num = 4;
+    sops.sem_op = 1;
+    if (semop(semID, &sops, 1) == -1) {
+        printf("[Direttore] Errore durante il rilascio del lock per le statistiche.\n");
+    }
+}
+
+void CalculateDailyStats(Stats* stats, int semID) {
+    struct sembuf sops;
+
+    // acquisisco il lock
+    sops.sem_num = 4;
+    sops.sem_op = -1;
+    if (semop(semID, &sops, 1) == -1) {
+        printf("[Direttore] Errore durante l'acquisizione del lock per le statistiche.\n");
+    }
+
+    // Calcoliamo le statistiche giornalmente
+    stats->tempo_attesa_utenti_day = (double)stats->tempo_attesa_utenti_day / (double)stats->utenti_serviti_tot_day;
+    stats->tempo_erogazione_servizi_day = (double)stats->tempo_erogazione_servizi_day / (double)stats->servizi_erogati_tot_day;
+
+    for (int i = 0; i < NUM_SERVIZI; i++) {
+        if (stats->sportelli_esistenti_services[i] != 0) {
+            stats->rapporto_operatori_sportelli_services[i] = (double)stats->operatori_disponibili_services[i] / (double)stats->sportelli_esistenti_services[i];
+        }
+        else {
+            stats->rapporto_operatori_sportelli_services[i] = 0;
+        }
+    }
+
+    // rilascio il lock
+    sops.sem_num = 4;
+    sops.sem_op = 1;
+    if (semop(semID, &sops, 1) == -1) {
+        printf("[Direttore] Errore durante il rilascio del lock per le statistiche.\n");
+    }
+}
+
+void MasterNotifyAndWait(int semID, struct sembuf sops, DailyConfig* config, Stats* stats, bool endDay, bool endSim, bool printStats) {
     // aspettiamo che arrivi a 0 (ovvero tutti i figli sono pronti e hanno decrementato il semaforo)
     sops.sem_num = 0;
     sops.sem_op = 0;
@@ -367,10 +466,12 @@ void MasterNotifyAndWait(int semID, struct sembuf sops, DailyConfig* config, Sta
     // Possibile lettura delle statistiche qui
     // TODO: check explode threshold
 
-    if (endDay) {
+    if (printStats) {
+        CalculateDailyStats(stats, semID);
         PrintDailyStats(stats);
-        // PrintFinalStats(stats);
-        
+    }
+
+    if (endDay) {
         // Resettiamo il semaforo tra operatori e utenti
         SemRestart(semID, sops);
     }
@@ -421,37 +522,6 @@ void Clean(int msgIdDispenser, int msgIdOperator, int msgIdUser, int semID, int 
     SharedMemoryClean(shmID, config, shmIdStat, stats);
 }
 
-void ResetStatsDaily(Stats* stats, int semID) {
-    struct sembuf sops;
-
-    // acquisisco il lock
-    sops.sem_num = 4;
-    sops.sem_op = -1;
-    if (semop(semID, &sops, 1) == -1) {
-        printf("[Direttore] Errore durante l'acquisizione del lock per le statistiche.\n");
-    }
-
-    // Resettiamo le statistiche
-    stats->servizi_non_erogati_tot_day = 0;
-    stats->operatori_attivi_day = 0;
-    
-    stats->tempo_attesa_utenti_day = 0.0;
-    stats->tempo_erogazione_servizi_day = 0.0;
-    
-    for (int i = 0; i < NUM_SERVIZI; i++) {
-        stats->tempo_attesa_utenti_day_services[i] = 0.0;
-        stats->tempo_erogazione_servizi_day_services[i] = 0.0;
-        stats->sportelli_esistenti_services[i] = 0;
-    }
-
-    // rilascio il lock
-    sops.sem_num = 4;
-    sops.sem_op = 1;
-    if (semop(semID, &sops, 1) == -1) {
-        printf("[Direttore] Errore durante il rilascio del lock per le statistiche.\n");
-    }
-}
-
 void CalculateFinalStats(Stats* stats, int semID) {
     struct sembuf sops;
 
@@ -466,10 +536,17 @@ void CalculateFinalStats(Stats* stats, int semID) {
     stats->utenti_serviti_avg = (double)stats->utenti_serviti_tot_sim / (double)stats->durata_simulazione;
     stats->servizi_erogati_avg = (double)stats->servizi_erogati_tot_sim / (double)stats->durata_simulazione;
     stats->servizi_non_erogati_avg = (double)stats->servizi_non_erogati_tot_sim / (double)stats->durata_simulazione;
-    stats->pause_effettuate_avg = (double)stats->pause_effettuate_sim / (double)stats->durata_simulazione;
+    stats->pause_effettuate_avg = (double)stats->pause_effettuate_tot_sim / (double)stats->durata_simulazione;
 
     stats->tempo_attesa_utenti_sim = (double)stats->tempo_attesa_utenti_sim / (double)stats->utenti_serviti_tot_sim;
     stats->tempo_erogazione_servizi_sim = (double)stats->tempo_erogazione_servizi_sim / (double)stats->servizi_erogati_tot_sim;
+
+    // Calcoliamo le medie suddivise per i servizi
+    for (int i = 0; i < NUM_SERVIZI; i++) {
+        stats->utenti_serviti_avg_services[i] = (double)stats->utenti_serviti_tot_sim_services[i] / (double)stats->durata_simulazione;
+        stats->servizi_erogati_avg_services[i] = (double)stats->servizi_erogati_tot_sim_services[i] / (double)stats->durata_simulazione;
+        stats->servizi_non_erogati_avg_services[i] = (double)stats->servizi_non_erogati_tot_sim_services[i] / (double)stats->durata_simulazione;
+    }
 
     // rilascio il lock
     sops.sem_num = 4;
@@ -530,7 +607,7 @@ int main(int argc, char *argv[]) {
     createAllSubProcess(shmID, shmIdStats, semID, msgIdDispenser, msgIdOperator, msgIdUser);
 
     // aspettiamo che tutti i figli siano pronti e diamogli il via
-    MasterNotifyAndWait(semID, sops, config, stats, true, false);
+    MasterNotifyAndWait(semID, sops, config, stats, true, false, false);
 
     bool endSim = false;
 
@@ -538,8 +615,11 @@ int main(int argc, char *argv[]) {
     for (int giorni = 1; giorni <= SIM_DURATION; giorni++) {
         printf("[Direttore] Inizio del giorno %d...\n", giorni);
 
+        // La simulazione continua, resettiamo le statistiche daily
+        ResetStatsDaily(stats, semID);
+
         // Diamo il tempo ai figli per configurarsi per il nuovo giorno
-        MasterNotifyAndWait(semID, sops, config, stats, false, false);
+        MasterNotifyAndWait(semID, sops, config, stats, false, false, false);
 
         // simulo il passare dei minuti
         printf("[Direttore] Giorno %d in corso (480 minuti)...\n", giorni);
@@ -559,7 +639,7 @@ int main(int argc, char *argv[]) {
         
         // Facciamo ripartire i figli per il nuovo giorno
         endSim = (giorni == SIM_DURATION);
-        MasterNotifyAndWait(semID, sops, config, stats, true, endSim);
+        MasterNotifyAndWait(semID, sops, config, stats, true, endSim, true);
     }
 
     // Fermiamo la simulazione

@@ -1,3 +1,4 @@
+#define _POSIX_C_SOURCE 199309L // per clock_gettime
 #include <stdio.h>
 #include <stdlib.h>
 #include <unistd.h>
@@ -118,7 +119,7 @@ void SendMessageToErogatore(int msgID, char* utenteID, int IndexServizioRichiest
     printf("[%s] Ho richiesto un ticket per il servizio %d.\n", utenteID, IndexServizioRichiesto);
 }
 
-bool ReceiveMessageFromOperator(int msgID, int myPID, char* utenteID) {
+bool ReceiveMessageFromOperator(int msgID, int myPID, char* utenteID, long* timeExecution) {
     Messaggio msg;
     ssize_t n;
 
@@ -135,27 +136,18 @@ bool ReceiveMessageFromOperator(int msgID, int myPID, char* utenteID) {
         //exit(EXIT_FAILURE);
     }
 
+    *timeExecution = msg.time_for_execution;
     printf("[%s] Ricevuto ticket %d, servito!\n", utenteID, msg.ticket_id);
     return true;
 }
 
-void ResetCounters(int* utenti_serviti, int* utenti_non_serviti_day) {
+void ResetCounters(int* utenti_serviti, int* utenti_non_serviti_day, int* servizi_non_erogati) {
     *utenti_serviti = 0;
     *utenti_non_serviti_day = 0;
+    *servizi_non_erogati = 0;
 }
 
-void PrintDailyStats(Stats* stats) {
-    printf("[Utente] Statistiche giornaliere:\n");
-    printf("Utenti serviti totali: %d\n", stats->utenti_serviti_tot_sim);
-    // printf("Servizi erogati totali: %d\n", stats->servizi_erogati_tot_sim);
-    // printf("Servizi non erogati totali: %d\n", stats->servizi_non_erogati_tot_sim);
-    // printf("Operatori attivi totali: %d\n", stats->operatori_attivi_day);
-    // printf("Pause effettuate totali: %d\n", stats->pause_effettuate_sim);
-    // printf("Tempo medio di attesa degli utenti: %.2f nanosecondi\n", stats->tempo_attesa_utenti_day * 1000000000.0);
-    // printf("Tempo medio di erogazione dei servizi: %.2f nanosecondi\n", stats->tempo_erogazione_servizi_day * 1000000000.0);
-}
-
-void UpdateStats(int semID, struct sembuf sops, Stats* stats, char *utenteId, int IndexServizioRichiesto,  int* utenti_serviti, int* utenti_non_serviti_day, float* time_total) {
+void UpdateStats(int semID, struct sembuf sops, Stats* stats, char *utenteId, int IndexServizioRichiesto,  int* utenti_serviti, int* utenti_non_serviti_day, long* time_total, int* servizi_non_erogati) {
     // acquisisco il lock
     sops.sem_num = 4;
     sops.sem_op = -1;
@@ -166,16 +158,19 @@ void UpdateStats(int semID, struct sembuf sops, Stats* stats, char *utenteId, in
     printf("[%s] Aggiorno le statistiche...\n", utenteId);
     
     // Scrivo statistiche
+    stats->utenti_serviti_tot_day += *utenti_serviti;
     stats->utenti_serviti_tot_sim += *utenti_serviti;
-    stats->utenti_non_serviti_tot_day = stats->utenti_non_serviti_tot_day + *utenti_non_serviti_day;
+    stats->utenti_non_serviti_tot_day += *utenti_non_serviti_day;
     stats->utenti_non_serviti_tot_sim += *utenti_non_serviti_day;
+    stats->servizi_non_erogati_tot_sim += *servizi_non_erogati;
+    stats->servizi_non_erogati_tot_day += *servizi_non_erogati;
     
     stats->utenti_serviti_tot_sim_services[IndexServizioRichiesto] += *utenti_serviti;
+    stats->servizi_non_erogati_tot_sim_services[IndexServizioRichiesto] += *servizi_non_erogati;
     stats->tempo_attesa_utenti_day_services[IndexServizioRichiesto] += *time_total;
+    stats->tempo_attesa_utenti_sim_services[IndexServizioRichiesto] += *time_total;
     stats->tempo_attesa_utenti_sim += *time_total;
     stats->tempo_attesa_utenti_day += *time_total;
-
-    //PrintDailyStats(stats);
     
     // rilascio il lock
     sops.sem_num = 4;
@@ -231,11 +226,12 @@ int main(int argc, char *argv[]) {
     // Contatori locali
     int utenti_serviti = 0;
     int utenti_non_serviti_day = 0;
+    int servizi_non_erogati = 0;
 
     while (1) {
         int IndexServizioRichiesto = -1;
-        float time_total = 0.0;
-        ResetCounters(&utenti_serviti, &utenti_non_serviti_day);
+        long time_total = 0.0;
+        ResetCounters(&utenti_serviti, &utenti_non_serviti_day, &servizi_non_erogati);
         
         SlaveNotifyAndWait(semID, sops);
 
@@ -258,18 +254,32 @@ int main(int argc, char *argv[]) {
                 req.tv_sec  = 0;
                 req.tv_nsec = timeToGo;
                 nanosleep(&req, NULL);
+
+                long timeExecution = 0;
                 
                 // Contiamo il tempo che ci vuole per essere serviti
-                clock_t time_start, time_end;
-                time_start = clock();
+                struct timespec time_start, time_end;
+                clock_gettime(CLOCK_MONOTONIC, &time_start);
 
                 // invio richiesta e aspetto
                 SendMessageToErogatore(msgIdDispenser, utenteID, IndexServizioRichiesto, myPID);
-                served = ReceiveMessageFromOperator(msgIdUser, myPID, utenteID);
+                served = ReceiveMessageFromOperator(msgIdUser, myPID, utenteID, &timeExecution);
 
-                time_end = clock();
+                clock_gettime(CLOCK_MONOTONIC, &time_end);
+                long sec = time_end.tv_sec - time_start.tv_sec;
+                long nsec = time_end.tv_nsec - time_start.tv_nsec;
+                if (nsec < 0) {
+                    sec--;
+                    nsec += (long)1000000000;
+                }
 
-                time_total = (float)((time_end - time_start) / CLOCKS_PER_SEC);
+                // Sottraiammo al tempo totale il tempo che ci ha messo l'operatore per servirmi per trovare il tempo di attesa in coda
+                time_total = nsec - timeExecution;
+                
+                // Se siamo qui e served è false, significa che abbiamo richiesto un servizio ma l'operatore non l'ha erogato
+                if (!served) {
+                    servizi_non_erogati++;
+                }
             }
         }
 
@@ -288,7 +298,7 @@ int main(int argc, char *argv[]) {
         }
 
         // Aggiorna le statistiche
-        UpdateStats(semID, sops, stats, utenteID, IndexServizioRichiesto, &utenti_serviti, &utenti_non_serviti_day, &time_total);
+        UpdateStats(semID, sops, stats, utenteID, IndexServizioRichiesto, &utenti_serviti, &utenti_non_serviti_day, &time_total, &servizi_non_erogati);
 
         // loop riparte per il giorno successivo
         printf("[%s] Fine giornata, ci vediamo domani!\n", utenteID);
