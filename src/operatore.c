@@ -171,9 +171,9 @@ void releasePostOffice(DailyConfig* config, int semID, struct sembuf sops, char*
     }
 }
 
-bool breakCondition() {
-    // Da decidere una vera condizione (ad esempio che abbia servito almeno due clienti)
-    return (rand() % 100) < 20; // 20% di possibilità di andare in pausa
+bool breakCondition(int counter_servizi_erogati) {
+    // 30% di possibilità di andare in pausa e deve aver servito almeno due clienti
+    return ((rand() % 100) < 30) && (counter_servizi_erogati > 1);
 }
 
 int CalculateTimeExecution(int IndexServizio, int simulated_minute) {
@@ -230,7 +230,7 @@ void ReceiveTicketAndExecute(int msgIdOperator, int msgIdUser, int IndexServizio
 
         printf("[%s] Ho finito di servire %ld. Ci ho impiegato %d nanosecondi.\n", operatoreID, msg.mtype, tempo);
 
-        if ((*pause_effettuate) < NOF_PAUSE && breakCondition()) { // Qui da modificare e aggiungere che abbia servito almeno due utenti
+        if ((*pause_effettuate) < NOF_PAUSE && breakCondition(*servizi_erogati)) {
             (*pause_effettuate)++;
             (*counter_pause)++;
             printf("[%s] Posso andare in pausa, termino la mia giornata.\n", operatoreID);
