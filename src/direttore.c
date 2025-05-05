@@ -200,7 +200,7 @@ void ConfigurePostOffices(DailyConfig* config, Stats* stats) {
         config->sportelli[i].disponibile = 1;
 
         // Inserisco dati dello sportello nella stats
-        stats->sportelli_esistenti_services[config->sportelli[i].indexServizioOfferto]++;
+        stats->sportelli_esistenti_services[config->sportelli[i].indexServizioOfferto] += 1;
 
         printf("[Direttore] Sportello %d è stato creato con il servizio %d.\n", config->sportelli[i].idSportello, config->sportelli[i].indexServizioOfferto);
     }
@@ -298,7 +298,7 @@ void PrintFinalStats(Stats* stats) {
 
     printf("   | utenti serv. avg | serv. erogati avg | serv. non erogati avg |\n");
     for (int i = 0; i < NUM_SERVIZI; i++) {
-        printf("%1d: | %16.0f | %17.0f | %21.0f |\n", i, stats->utenti_serviti_avg_services[i], stats->servizi_erogati_avg_services[i], stats->servizi_non_erogati_avg_services[i]);
+        printf("%1d: | %16.4f | %17.4f | %21.4f |\n", i, stats->utenti_serviti_avg_services[i], stats->servizi_erogati_avg_services[i], stats->servizi_non_erogati_avg_services[i]);
     }
 
     printf("   | tempo utenti | tempo servizi |\n");
@@ -320,7 +320,14 @@ void PrintDailyStats(Stats* stats) {
 
     printf("   | Tempo_attesa_day | tempo_erogazione_day | rapporto_operatori_sportelli |\n");
     for (int i = 0; i < NUM_SERVIZI; i++) {
-        printf("%1d: | %16.0f | %20.0f | %28.0f |\n", i, stats->tempo_attesa_utenti_day_services[i], stats->tempo_erogazione_servizi_day_services[i], stats->rapporto_operatori_sportelli_services[i]);
+        printf("%1d: | %16.0f | %20.0f | %28.4f |\n", i, stats->tempo_attesa_utenti_day_services[i], stats->tempo_erogazione_servizi_day_services[i], stats->rapporto_operatori_sportelli_services[i]);
+    }
+
+    // Resettiamo qui questi valori perchè li valorizziamo prima di iniziare il nuovo giorno, quindi non possiamo metterli nella funzione reset
+    for (int i = 0; i < NUM_SERVIZI; i++) {
+        stats->operatori_disponibili_services[i] = 0;
+        stats->sportelli_esistenti_services[i] = 0;
+        stats->rapporto_operatori_sportelli_services[i] = 0.0;
     }
 }
 
@@ -363,7 +370,9 @@ void StatsInitialize(Stats* stats, int semID) {
 
     // Contatori divisi per servizi
     for (int i = 0; i < NUM_SERVIZI; i++) {
+        stats->utenti_serviti_day_sim_services[i] = 0;
         stats->utenti_serviti_tot_sim_services[i] = 0;
+        stats->servizi_erogati_day_sim_services[i] = 0;
         stats->servizi_erogati_tot_sim_services[i] = 0;
         stats->servizi_non_erogati_tot_sim_services[i] = 0;
         stats->utenti_serviti_avg_services[i] = 0.0;
@@ -411,11 +420,10 @@ void ResetStatsDaily(Stats* stats, int semID) {
     stats->tempo_erogazione_servizi_day = 0.0;
     
     for (int i = 0; i < NUM_SERVIZI; i++) {
+        stats->utenti_serviti_day_sim_services[i] = 0;
+        stats->servizi_erogati_day_sim_services[i] = 0;
         stats->tempo_attesa_utenti_day_services[i] = 0.0;
         stats->tempo_erogazione_servizi_day_services[i] = 0.0;
-        stats->operatori_disponibili_services[i] = 0;
-        stats->sportelli_esistenti_services[i] = 0;
-        stats->rapporto_operatori_sportelli_services[i] = 0.0;
     }
 
     // rilascio il lock
@@ -437,16 +445,13 @@ void CalculateDailyStats(Stats* stats, int semID) {
     }
 
     // Calcoliamo le statistiche giornalmente
-    stats->tempo_attesa_utenti_day = (double)stats->tempo_attesa_utenti_day / (double)stats->utenti_serviti_tot_day;
-    stats->tempo_erogazione_servizi_day = (double)stats->tempo_erogazione_servizi_day / (double)stats->servizi_erogati_tot_day;
+    stats->tempo_attesa_utenti_day = (stats->utenti_serviti_tot_day != 0) ? ((double)stats->tempo_attesa_utenti_day / (double)stats->utenti_serviti_tot_day) : 0;
+    stats->tempo_erogazione_servizi_day = (stats->servizi_erogati_tot_day != 0) ? ((double)stats->tempo_erogazione_servizi_day / (double)stats->servizi_erogati_tot_day) : 0;
 
     for (int i = 0; i < NUM_SERVIZI; i++) {
-        if (stats->sportelli_esistenti_services[i] != 0) {
-            stats->rapporto_operatori_sportelli_services[i] = (double)stats->operatori_disponibili_services[i] / (double)stats->sportelli_esistenti_services[i];
-        }
-        else {
-            stats->rapporto_operatori_sportelli_services[i] = 0;
-        }
+        stats->tempo_attesa_utenti_day_services[i] = (stats->utenti_serviti_day_sim_services[i] != 0) ? ((double)stats->tempo_attesa_utenti_day_services[i] / (double)stats->utenti_serviti_day_sim_services[i]) : 0;
+        stats->tempo_erogazione_servizi_day_services[i] = (stats->servizi_erogati_day_sim_services[i] != 0) ? ((double)stats->tempo_erogazione_servizi_day_services[i] / (double)stats->servizi_erogati_day_sim_services[i]) : 0;
+        stats->rapporto_operatori_sportelli_services[i] = (stats->sportelli_esistenti_services[i] != 0) ? ((double)stats->operatori_disponibili_services[i] / (double)stats->sportelli_esistenti_services[i]) : 0;
     }
 
     // rilascio il lock

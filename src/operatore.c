@@ -254,6 +254,8 @@ void UpdateStats(int semID, struct sembuf sops, Stats* stats, char *operatoreId,
         printf("[%s] Errore durante l'acquisizione del lock per le statistiche.\n", operatoreId);
     }
 
+    printf("[%s] Aggiorno le statistiche...\n", operatoreId);
+
     // Scrivo statistiche
     stats->servizi_erogati_tot_sim += *servizi_erogati;
     stats->servizi_erogati_tot_day += *servizi_erogati;
@@ -263,11 +265,12 @@ void UpdateStats(int semID, struct sembuf sops, Stats* stats, char *operatoreId,
     stats->pause_effettuate_tot_day += *counter_pause;
     stats->tempo_erogazione_servizi_day += *tempo_erogazione;
     stats->tempo_erogazione_servizi_sim += *tempo_erogazione;
+    stats->servizi_erogati_day_sim_services[IndexServizio] += *servizi_erogati;
     stats->servizi_erogati_tot_sim_services[IndexServizio] += *servizi_erogati;
     stats->tempo_erogazione_servizi_day_services[IndexServizio] += *tempo_erogazione;
     stats->tempo_erogazione_servizi_sim_services[IndexServizio] += *tempo_erogazione;
 
-    stats->operatori_disponibili_services[IndexServizio]++;
+    stats->operatori_disponibili_services[IndexServizio] += 1;
 
     // rilascio il lock
     sops.sem_num = 4;

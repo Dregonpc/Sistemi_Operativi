@@ -141,10 +141,11 @@ bool ReceiveMessageFromOperator(int msgID, int myPID, char* utenteID, long* time
     return true;
 }
 
-void ResetCounters(int* utenti_serviti, int* utenti_non_serviti_day, int* servizi_non_erogati) {
+void ResetCounters(int* utenti_serviti, int* utenti_non_serviti_day, int* servizi_non_erogati, bool* served) {
     *utenti_serviti = 0;
     *utenti_non_serviti_day = 0;
     *servizi_non_erogati = 0;
+    *served = false;
 }
 
 void UpdateStats(int semID, struct sembuf sops, Stats* stats, char *utenteId, int IndexServizioRichiesto,  int* utenti_serviti, int* utenti_non_serviti_day, long* time_total, int* servizi_non_erogati) {
@@ -165,6 +166,7 @@ void UpdateStats(int semID, struct sembuf sops, Stats* stats, char *utenteId, in
     stats->servizi_non_erogati_tot_sim += *servizi_non_erogati;
     stats->servizi_non_erogati_tot_day += *servizi_non_erogati;
     
+    stats->utenti_serviti_day_sim_services[IndexServizioRichiesto] += *utenti_serviti;
     stats->utenti_serviti_tot_sim_services[IndexServizioRichiesto] += *utenti_serviti;
     stats->servizi_non_erogati_tot_sim_services[IndexServizioRichiesto] += *servizi_non_erogati;
     stats->tempo_attesa_utenti_day_services[IndexServizioRichiesto] += *time_total;
@@ -231,7 +233,7 @@ int main(int argc, char *argv[]) {
     while (1) {
         int IndexServizioRichiesto = -1;
         long time_total = 0.0;
-        ResetCounters(&utenti_serviti, &utenti_non_serviti_day, &servizi_non_erogati);
+        ResetCounters(&utenti_serviti, &utenti_non_serviti_day, &servizi_non_erogati, &served);
         
         SlaveNotifyAndWait(semID, sops);
 
@@ -255,7 +257,7 @@ int main(int argc, char *argv[]) {
                 req.tv_nsec = timeToGo;
                 nanosleep(&req, NULL);
 
-                long timeExecution = 0;
+                long timeExecution = 0.0;
                 
                 // Contiamo il tempo che ci vuole per essere serviti
                 struct timespec time_start, time_end;
