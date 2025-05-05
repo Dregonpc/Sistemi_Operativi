@@ -12,7 +12,7 @@
 #include <time.h>
 #include <errno.h>
 #include "../headers/messaggi.h"
-#include "../headers/SharedMemory.h"
+#include "../lib/StatsLib.h"
 
 static volatile sig_atomic_t endDay = 0;
 static volatile sig_atomic_t endSimulation = 0;
@@ -148,40 +148,6 @@ void ResetCounters(int* utenti_serviti, int* utenti_non_serviti_day, int* serviz
     *served = false;
 }
 
-void UpdateStats(int semID, struct sembuf sops, Stats* stats, char *utenteId, int IndexServizioRichiesto,  int* utenti_serviti, int* utenti_non_serviti_day, long* time_total, int* servizi_non_erogati) {
-    // acquisisco il lock
-    sops.sem_num = 4;
-    sops.sem_op = -1;
-    if (semop(semID, &sops, 1) == -1) {
-        printf("[%s] Errore durante l'acquisizione del lock per le statistiche.\n", utenteId);
-    }
-
-    printf("[%s] Aggiorno le statistiche...\n", utenteId);
-    
-    // Scrivo statistiche
-    stats->utenti_serviti_tot_day += *utenti_serviti;
-    stats->utenti_serviti_tot_sim += *utenti_serviti;
-    stats->utenti_non_serviti_tot_day += *utenti_non_serviti_day;
-    stats->utenti_non_serviti_tot_sim += *utenti_non_serviti_day;
-    stats->servizi_non_erogati_tot_sim += *servizi_non_erogati;
-    stats->servizi_non_erogati_tot_day += *servizi_non_erogati;
-    
-    stats->utenti_serviti_day_sim_services[IndexServizioRichiesto] += *utenti_serviti;
-    stats->utenti_serviti_tot_sim_services[IndexServizioRichiesto] += *utenti_serviti;
-    stats->servizi_non_erogati_tot_sim_services[IndexServizioRichiesto] += *servizi_non_erogati;
-    stats->tempo_attesa_utenti_day_services[IndexServizioRichiesto] += *time_total;
-    stats->tempo_attesa_utenti_sim_services[IndexServizioRichiesto] += *time_total;
-    stats->tempo_attesa_utenti_sim += *time_total;
-    stats->tempo_attesa_utenti_day += *time_total;
-    
-    // rilascio il lock
-    sops.sem_num = 4;
-    sops.sem_op = 1;
-    if (semop(semID, &sops, 1) == -1) {
-        printf("[%s] Errore durante il rilascio del lock per le statistiche.\n", utenteId);
-    }
-}
-
 int main(int argc, char *argv[]) {
 
     struct sembuf sops;
@@ -300,7 +266,7 @@ int main(int argc, char *argv[]) {
         }
 
         // Aggiorna le statistiche
-        UpdateStats(semID, sops, stats, utenteID, IndexServizioRichiesto, &utenti_serviti, &utenti_non_serviti_day, &time_total, &servizi_non_erogati);
+        UpdateStatsUsers(semID, sops, stats, utenteID, IndexServizioRichiesto, &utenti_serviti, &utenti_non_serviti_day, &time_total, &servizi_non_erogati);
 
         // loop riparte per il giorno successivo
         printf("[%s] Fine giornata, ci vediamo domani!\n", utenteID);
