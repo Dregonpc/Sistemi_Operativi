@@ -144,7 +144,7 @@ void releasePostOffice(DailyConfig* config, int semID, struct sembuf sops, char*
     }
 
     for (int i = 0; i < NUM_SPORTELLI; i++) {
-        if (config->sportelli[i].idOperatore = operatoreId) {
+        if (config->sportelli[i].idOperatore == operatoreId) {
             config->sportelli[i].idOperatore = "";
             config->sportelli[i].disponibile = 1;
 
