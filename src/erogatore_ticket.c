@@ -7,9 +7,9 @@
 #include <sys/wait.h>
 #include <semaphore.h>
 #include <sys/sem.h>
-#include <sys/shm.h>
 #include <sys/msg.h>
 #include "../headers/messaggi.h"
+#include "../headers/SharedMemory.h"
 
 // flag globali gestite dai signal handler
 static volatile sig_atomic_t endDay = 0;

@@ -12,6 +12,7 @@
 #include <time.h>
 #include <errno.h>
 #include "../headers/messaggi.h"
+#include "../headers/SharedMemory.h"
 #include "../lib/StatsLib.h"
 
 static volatile sig_atomic_t endDay = 0;
@@ -29,28 +30,6 @@ static void signalHandler(int signo) {
         default:
             break;
     }
-}
-
-// Collegamento alla memoria condivisa
-DailyConfig* SharedMemoryAttach(int shmID, char* utenteId) {
-    DailyConfig* config = (DailyConfig*)shmat(shmID, NULL, 0);
-    if (config == (void *) -1) {
-        printf("[%s] Collegamento alla memoria condivisa fallita.\n", utenteId);
-        exit(EXIT_FAILURE);
-    }
-
-    return config;
-}
-
-// Collegamento alla memoria condivisa
-Stats* SharedMemoryAttachStats(int shmID, char* utenteId) {
-    Stats* stats = (Stats*)shmat(shmID, NULL, 0);
-    if (stats == (void *) -1) {
-        printf("[%s] Collegamento alla memoria condivisa fallita.\n", utenteId);
-        exit(EXIT_FAILURE);
-    }
-
-    return stats;
 }
 
 void SlaveNotifyAndWait(int semID, struct sembuf sops) {

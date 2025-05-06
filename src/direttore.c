@@ -2,7 +2,6 @@
 #include <stdlib.h>
 #include <unistd.h>
 #include <sys/wait.h>
-#include <sys/shm.h>
 #include <sys/sem.h>
 #include <sys/types.h>
 #include <sys/msg.h>
@@ -13,6 +12,7 @@
 #include <stdbool.h>
 #include <errno.h>
 #include "../lib/StatsLib.h"
+#include "../headers/SharedMemory.h"
 
 /*  Global Var  */
 int NUM_OF_WORKERS;
@@ -51,48 +51,6 @@ void readConfig(char *numOfWorkers, char *numOfUsers, char *nofPause, char *pSer
 
     TOTAL_PROCESSES = 1 + NUM_OF_WORKERS + NUM_OF_USERS;
     TOTAL_PROCESSES_DIR = 1 + TOTAL_PROCESSES;
-}
-
-// Creazione della memoria condivisa
-int SharedMemoryCreate(size_t sizeStruct) {
-    int shmID = shmget(IPC_PRIVATE, sizeStruct, IPC_CREAT | 0666);
-    if (shmID < 0) {
-        printf("[Direttore] Creazione della memoria condivisa fallita.\n");
-        exit(EXIT_FAILURE);
-    }
-    
-    return shmID;
-}
-
-// Collegamento alla memoria condivisa
-DailyConfig* SharedMemoryAttach(int shmID) {
-    DailyConfig* config = (DailyConfig*)shmat(shmID, NULL, 0);
-    if (config == (void *) -1) {
-        printf("[Direttore] Collegamento alla memoria condivisa fallita.\n");
-        exit(EXIT_FAILURE);
-    }
-
-    return config;
-}
-
-// Collegamento alla memoria condivisa
-Stats* SharedMemoryAttachStats(int shmID) {
-    Stats* stats = (Stats*)shmat(shmID, NULL, 0);
-    if (stats == (void *) -1) {
-        printf("[Direttore] Collegamento alla memoria condivisa fallita.\n");
-        exit(EXIT_FAILURE);
-    }
-
-    return stats;
-}
-
-// Pulizia della memoria condivisa
-void SharedMemoryClean(int shmID, DailyConfig* config, int shmIdStat, Stats* stats) {
-    shmdt(config);
-    shmctl(shmID, IPC_RMID, NULL);
-
-    shmdt(stats);
-    shmctl(shmIdStat, IPC_RMID, NULL);
 }
 
 // Creazione dei semafori
@@ -337,7 +295,9 @@ void Clean(int msgIdDispenser, int msgIdOperator, int msgIdUser, int semID, int 
     messageQueueClean(msgIdUser);
 
     semCleanUp(semID);
-    SharedMemoryClean(shmID, config, shmIdStat, stats);
+    SharedMemoryCleanConfig(shmID, config);
+    SharedMemoryCleanStats(shmIdStat, stats);
+    
 }
 
 void CalculateFinalStats(Stats* stats, int semID) {
@@ -401,10 +361,10 @@ int main(int argc, char *argv[]) {
 
     // creiamo la memoria condivisa e colleghiamoci
     int shmID = SharedMemoryCreate(sizeof(DailyConfig));
-    DailyConfig* config = SharedMemoryAttach(shmID);
+    DailyConfig* config = SharedMemoryAttach(shmID, "Direttore");
 
     int shmIdStats = SharedMemoryCreate(sizeof(Stats));
-    Stats* stats = SharedMemoryAttachStats(shmIdStats);
+    Stats* stats = SharedMemoryAttachStats(shmIdStats, "Direttore");
     
     // creiamo il semaforo e inizializziamolo
     int semID = semCreate();

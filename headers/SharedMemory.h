@@ -3,6 +3,12 @@
 
 #include "sportelli.h"
 #include "servizi.h"
+#include <sys/types.h>
+#include <sys/ipc.h>
+#include <sys/shm.h>
+#include <sys/sem.h>
+#include <stdio.h>
+#include <stdlib.h>
 
 typedef struct {
     Sportello sportelli[NUM_SPORTELLI];
@@ -55,5 +61,40 @@ typedef struct {
     int sportelli_esistenti_services[NUM_SERVIZI];
     double rapporto_operatori_sportelli_services[NUM_SERVIZI]; // operatori servizio / sportelli servizio
 } Stats;
+
+/**
+ * @brief Crea la memoria condivisa per la configurazione giornaliera.
+ * @return L'ID della memoria condivisa.
+ */
+int SharedMemoryCreate();
+
+/**
+ * @brief Collega il processo alla memoria condivisa.
+ * @param shmID L'ID della memoria condivisa.
+ * @param processName Il nome del processo che si sta collegando.
+ * @return Un puntatore alla struttura DailyConfig.
+ */
+DailyConfig* SharedMemoryAttach(int shmID, char* processName);
+
+/**
+ * @brief Collega il processo alla memoria condivisa per le statistiche.
+ * @param shmID L'ID della memoria condivisa.
+ * @return Un puntatore alla struttura Stats.
+ */
+Stats* SharedMemoryAttachStats(int shmID, char* processName);
+
+/**
+ * @brief Pulisce la memoria condivisa e la cancella.
+ * @param shmID L'ID della memoria condivisa.
+ * @param config Il puntatore alla struttura DailyConfig.
+ */
+void SharedMemoryCleanConfig(int shmID, DailyConfig* config);
+
+/**
+ * @brief Pulisce la memoria condivisa e la cancella.
+ * @param shmID L'ID della memoria condivisa.
+ * @param config Il puntatore alla struttura Stats.
+ */
+void SharedMemoryCleanStats(int shmID, Stats* stats);
 
 #endif //SHAREDMEMORY_H

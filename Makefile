@@ -22,10 +22,13 @@ $(BLD)/main.o: $(SRC)/main.c
 	$(CC) $(CFLAGS) -c $< -o $@
 
 # direttore
-$(BIN)/direttore: $(BLD)/servizi.o $(BLD)/StatsLib.o $(BLD)/direttore.o
+$(BIN)/direttore: $(BLD)/servizi.o $(BLD)/SharedMemory.o $(BLD)/StatsLib.o $(BLD)/direttore.o
 	$(CC) $(CFLAGS) $^ -o $@
 
 $(BLD)/servizi.o: $(HDR)/servizi.c
+	$(CC) $(CFLAGS) -c $< -o $@
+
+$(BLD)/SharedMemory.o: $(HDR)/SharedMemory.c
 	$(CC) $(CFLAGS) -c $< -o $@
 
 $(BLD)/StatsLib.o: $(LIB)/StatsLib.c
@@ -42,14 +45,14 @@ $(BLD)/erogatore_ticket.o: $(SRC)/erogatore_ticket.c
 	$(CC) $(CFLAGS) -c $< -o $@
 
 # operatore
-$(BIN)/operatore: $(BLD)/servizi.o $(BLD)/StatsLib.o $(BLD)/operatore.o
+$(BIN)/operatore: $(BLD)/servizi.o $(BLD)/SharedMemory.o $(BLD)/StatsLib.o $(BLD)/operatore.o
 	$(CC) $(CFLAGS) $^ -o $@
 
 $(BLD)/operatore.o: $(SRC)/operatore.c
 	$(CC) $(CFLAGS) -c $< -o $@
 
 # utente
-$(BIN)/utente: $(BLD)/StatsLib.o $(BLD)/utente.o
+$(BIN)/utente: $(BLD)/StatsLib.o $(BLD)/SharedMemory.o $(BLD)/utente.o
 	$(CC) $(CFLAGS) $^ -o $@
 
 $(BLD)/utente.o: $(SRC)/utente.c
