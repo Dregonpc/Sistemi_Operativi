@@ -2,15 +2,14 @@
 #include <stdio.h>
 #include <stdlib.h>
 #include <unistd.h>
-#include <semaphore.h>
 #include <signal.h>
 #include <stdbool.h>
 #include <sys/wait.h>
 #include <sys/shm.h>
-#include <sys/sem.h>
 #include <sys/msg.h>
 #include <time.h>
 #include <errno.h>
+#include "../lib/SemsLib.h"
 #include "../headers/messaggi.h"
 #include "../headers/SharedMemory.h"
 #include "../lib/StatsLib.h"
@@ -34,14 +33,10 @@ static void signalHandler(int signo) {
 
 void SlaveNotifyAndWait(int semID, struct sembuf sops) {
     // avviso il direttore che sono pronto
-    sops.sem_num = 0;
-    sops.sem_op = -1;
-    semop(semID, &sops, 1);
+    ExecuteSemop(semID, sops, 0, -1);
     
     // aspetto che arrivi a 0 (ovvero il direttore mi da il via)
-    sops.sem_num = 1;
-    sops.sem_op = 0;
-    semop(semID, &sops, 1);
+    ExecuteSemop(semID, sops, 1, 0);
 }
 
 int RandomizeProbabilityUser(int p_serv_min, int p_serv_max) {
@@ -92,7 +87,6 @@ void SendMessageToErogatore(int msgID, char* utenteID, int IndexServizioRichiest
 
     if (msgsnd(msgID, &msg, sizeof(Messaggio) - sizeof(long), 0) < 0) {
         printf("[%s] Errore durante l'invio del messaggio all'erogatore.\n", utenteID);
-        //exit(EXIT_FAILURE);
     }
 
     printf("[%s] Ho richiesto un ticket per il servizio %d.\n", utenteID, IndexServizioRichiesto);
@@ -112,7 +106,6 @@ bool ReceiveMessageFromOperator(int msgID, int myPID, char* utenteID, long* time
     }
     if (n < 0) {
         perror("msgrcv");
-        //exit(EXIT_FAILURE);
     }
 
     *timeExecution = msg.time_for_execution;

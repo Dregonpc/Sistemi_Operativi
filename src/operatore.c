@@ -2,14 +2,13 @@
 #include <stdlib.h>
 #include <unistd.h>
 #include <stdbool.h>
-#include <semaphore.h>
 #include <signal.h>
 #include <sys/wait.h>
 #include <sys/shm.h>
-#include <sys/sem.h>
 #include <sys/msg.h>
 #include <time.h>
 #include <errno.h>
+#include "../lib/SemsLib.h"
 #include "../headers/messaggi.h"
 #include "../headers/SharedMemory.h"
 #include "../lib/StatsLib.h"
@@ -45,14 +44,10 @@ bool CheckDailyService(DailyConfig* config, int indexServizioOperatore, char* op
 
 void SlaveNotifyAndWait(int semID, struct sembuf sops) {
     // avviso il direttore che sono pronto
-    sops.sem_num = 0;
-    sops.sem_op = -1;
-    semop(semID, &sops, 1);
+    ExecuteSemop(semID, sops, 0, -1);
     
     // aspetto che arrivi a 0 (ovvero il direttore mi da il via)
-    sops.sem_num = 1;
-    sops.sem_op = 0;
-    semop(semID, &sops, 1);
+    ExecuteSemop(semID, sops, 1, 0);
 }
 
 bool TakeUpPostOffice(DailyConfig* config, int semID, struct sembuf sops, int indexServizioOperatore, char* operatoreId, int* operatori_attivi, bool* firstTry) {
@@ -60,31 +55,24 @@ bool TakeUpPostOffice(DailyConfig* config, int semID, struct sembuf sops, int in
         return false;
     }
 
-    // Aspetta che ci sia almeno uno sportello libero
-    sops.sem_num = 2;
-
     // Se gli sportelli sono già finiti, avviso gli altri che possono partire e poi mi metto in wait
-    int checkSportelli = semctl(semID, 2, GETVAL);
+    int checkSportelli = SemGetVal(semID, 2);
     if (checkSportelli == 0) {
         *firstTry = false;
         SlaveNotifyAndWait(semID, sops);
     }
 
-    sops.sem_op = -1; // Se il semaforo attualmente vale 0 mi metto in wait, altrimenti decremento
-    if (semop(semID, &sops, 1) == -1) {
+    // Aspetta che ci sia almeno uno sportello libero
+    if (ExecuteSemop(semID, sops, 2, -1) == -1) { // Se il semaforo attualmente vale 0 mi metto in wait, altrimenti decremento
         printf("[%s] Errore durante l'attesa / l'invio del segnale che uno sportello è stato occupato.\n", operatoreId);
-        //exit(EXIT_FAILURE);
     }
     
     bool check = false;
     
     if (!endDay) {
         // acquisisco il lock per l'accesso coordinato agli sportelli
-        sops.sem_num = 3;
-        sops.sem_op = -1;
-        if (semop(semID, &sops, 1) == -1) {
+        if (CaptureLock(semID, sops, 3) == -1) {
             printf("[%s] Errore durante l'acquisizione del lock per gli sportelli.\n", operatoreId);
-            //exit(EXIT_FAILURE);
         }
     
         for (int i = 0; i < NUM_SPORTELLI; i++) {
@@ -101,11 +89,8 @@ bool TakeUpPostOffice(DailyConfig* config, int semID, struct sembuf sops, int in
         }
 
         // rilascio il lock
-        sops.sem_num = 3;
-        sops.sem_op = 1;
-        if (semop(semID, &sops, 1) == -1) {
+        if (ReleaseLock(semID, sops, 3) == -1) {
             printf("[%s] Errore durante il rilascio del lock per gli sportelli.\n", operatoreId);
-            //exit(EXIT_FAILURE);
         }
     }
 
@@ -114,11 +99,8 @@ bool TakeUpPostOffice(DailyConfig* config, int semID, struct sembuf sops, int in
 
 void releasePostOffice(DailyConfig* config, int semID, struct sembuf sops, char* operatoreId) {
     // acquisisco il lock per l'accesso coordinato agli sportelli
-    sops.sem_num = 3;
-    sops.sem_op = -1;
-    if (semop(semID, &sops, 1) == -1) {
+    if (CaptureLock(semID, sops, 3) == -1) {
         printf("[%s] Errore durante l'acquisizione del lock per gli sportelli.\n", operatoreId);
-        //exit(EXIT_FAILURE);
     }
 
     for (int i = 0; i < NUM_SPORTELLI; i++) {
@@ -127,12 +109,8 @@ void releasePostOffice(DailyConfig* config, int semID, struct sembuf sops, char*
             config->sportelli[i].disponibile = 1;
 
             // Avvisiamo i colleghi che ho rilasciato lo sportello
-            sops.sem_num = 2;
-            sops.sem_op = 1;
-            sops.sem_flg = 0;
-            if (semop(semID, &sops, 1) == -1) {
+            if (ExecuteSemop(semID, sops, 2, 1) == -1) {
                 printf("[%s] Errore durante il rilascio di uno sportello.\n", operatoreId);
-                //exit(EXIT_FAILURE);
             }
             printf("[%s] Ho rilasciato lo sportello e mandato la notifica ai miei colleghi.\n", operatoreId);
 
@@ -141,11 +119,8 @@ void releasePostOffice(DailyConfig* config, int semID, struct sembuf sops, char*
     }
 
     // rilascio il lock
-    sops.sem_num = 3;
-    sops.sem_op = 1;
-    if (semop(semID, &sops, 1) == -1) {
+    if (ReleaseLock(semID, sops, 3) == -1) {
         printf("[%s] Errore durante il rilascio del lock per gli sportelli.\n", operatoreId);
-        //exit(EXIT_FAILURE);
     }
 }
 
@@ -179,7 +154,6 @@ void ReceiveTicketAndExecute(int msgIdOperator, int msgIdUser, int IndexServizio
         }
         if (n < 0) {
             perror("msgrcv");
-            //exit(EXIT_FAILURE);
         }
 
         msg.mtype--;
@@ -200,7 +174,6 @@ void ReceiveTicketAndExecute(int msgIdOperator, int msgIdUser, int IndexServizio
         msg.time_for_execution = tempo;
         if (msgsnd(msgIdUser, &msg, sizeof(Messaggio) - sizeof(long), 0) < 0) {
             perror("msgsnd");
-            //exit(EXIT_FAILURE);
         }
 
         // Aumentiamo i contatori

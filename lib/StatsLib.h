@@ -27,6 +27,13 @@ void ResetStatsDaily(Stats* stats, int semID);
 void CalculateDailyStats(Stats* stats, int semID);
 
 /**
+ * @brief Calcola le statistiche alla fine della simulazione
+ * @param stats puntatore alla struttura delle statistiche
+ * @param semID identificativo del semaforo per il lock
+ */
+void CalculateFinalStats(Stats* stats, int semID);
+
+/**
  * @brief Stampa le statistiche giornaliere
  * @param stats puntatore alla struttura delle statistiche
  */

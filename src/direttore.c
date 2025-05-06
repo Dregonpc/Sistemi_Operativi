@@ -2,17 +2,16 @@
 #include <stdlib.h>
 #include <unistd.h>
 #include <sys/wait.h>
-#include <sys/sem.h>
 #include <sys/types.h>
 #include <sys/msg.h>
-#include <semaphore.h>
 #include <signal.h>
 #include <time.h>
 #include <sys/time.h>
 #include <stdbool.h>
 #include <errno.h>
-#include "../lib/StatsLib.h"
+#include "../lib/SemsLib.h"
 #include "../headers/SharedMemory.h"
+#include "../lib/StatsLib.h"
 
 /*  Global Var  */
 int NUM_OF_WORKERS;
@@ -29,7 +28,7 @@ int P_SERV_MAX;
 int SIM_DURATION; // Durata della simulazione in giorni
 int EXPLODE_THRESHOLD;  // max numero di utenti a fine giornata che non sono stati serviti --> se supera la soglia termina la simulazione
 
-#define NUM_OF_SEM 3
+#define NUM_OF_SEM 5
 
 #define MINUTES_FOR_DAY 480 // 480 minuti = 8 ore
 #define SIMULATED_MINUTE 4000000 // 4 milioni di nanosecondi = 4ms
@@ -51,83 +50,6 @@ void readConfig(char *numOfWorkers, char *numOfUsers, char *nofPause, char *pSer
 
     TOTAL_PROCESSES = 1 + NUM_OF_WORKERS + NUM_OF_USERS;
     TOTAL_PROCESSES_DIR = 1 + TOTAL_PROCESSES;
-}
-
-// Creazione dei semafori
-int semCreate() {
-    int semID = semget(IPC_PRIVATE, 5, IPC_CREAT | 0666);
-    if (semID < 0) {
-        printf("[Direttore] Creazione del semaforo fallita.\n");
-        exit(EXIT_FAILURE);
-    }
-    
-    return semID;
-}
-
-void semInizialize(int semID) {
-    // semNum = 0 : semaforo per gestire la barriera di partenza dei processi
-    // all'inizio, contiene il numero di tutti i processi, quando arriverà a zero la simulazione partirà
-    if (semctl(semID, 0, SETVAL, TOTAL_PROCESSES) < 0) {
-        perror("[Direttore] Errore durante la semctl del semaforo dedicato alla barriera.\n");
-        exit(EXIT_FAILURE);
-    }
-
-    // semNum = 1 : semaforo per gestire lo start (ovvero i figli possono partire)
-    // all'inizio, vale 1, tutti i figli aspettano che diventi 0
-    if (semctl(semID, 1, SETVAL, 1) < 0) {
-        perror("[Direttore] Errore durante la semctl del semaforo dedicato allo start.\n");
-        exit(EXIT_FAILURE);
-    }
-
-    // semNum = 2 : semaforo per gestire se ci sono sportelli liberi
-    // all'inizio, tutti gli sportelli sono liberi
-    if (semctl(semID, 2, SETVAL, NUM_SPORTELLI) < 0) {
-        perror("[Direttore] Errore durante la semctl del semaforo dedicato agli sportelli.\n");
-        exit(EXIT_FAILURE);
-    }
-
-    // semNum = 3 : semaforo per coordinare l'accesso singolo agli operatori per provare ad occupare uno sportello, in modo che vada uno per volta
-    // all'inizio, il semaforo vale 1, quindi il primo operatore può provare ad occupare uno sportello
-    if (semctl(semID, 3, SETVAL, 1) < 0) {
-        perror("[Direttore] Errore durante la semctl del semaforo per l'accesso coordinato agli sportelli.\n");
-        exit(EXIT_FAILURE);
-    }
-
-    // semNum = 4 : semaforo per gestire il lock per le statistiche
-    // vale sempre 1, quando qualcuno acquisice il lock diventa 0 e nessuno ci può più accedere finchè non torna a valere 1
-    if (semctl(semID, 4, SETVAL, 1) < 0) {
-        perror("[Direttore] Errore durante la semctl del semaforo per il lock delle statistiche.\n");
-        exit(EXIT_FAILURE);
-    }
-}
-
-void SemBarrierRestart(int semID, struct sembuf sops) {
-    if (semctl(semID, 0, SETVAL, TOTAL_PROCESSES) < 0) {
-        perror("[Direttore] Errore durante la semctl del semaforo dedicato alla barriera.\n");
-        exit(EXIT_FAILURE);
-    }
-
-    if (semctl(semID, 1, SETVAL, 1) < 0) {
-        perror("[Direttore] Errore durante la semctl del semaforo dedicato allo start.\n");
-        exit(EXIT_FAILURE);
-    }
-}
-
-void SemRestart(int semID, struct sembuf sops) {
-    if (semctl(semID, 2, SETVAL, NUM_SPORTELLI) < 0) {
-        perror("[Direttore] Errore durante la semctl del semaforo dedicato agli sportelli.\n");
-        exit(EXIT_FAILURE);
-    }
-
-    if (semctl(semID, 3, SETVAL, 1) < 0) {
-        perror("[Direttore] Errore durante la semctl del semaforo per l'accesso coordinato agli sportelli.\n");
-        exit(EXIT_FAILURE);
-    }
-
-    if (semctl(semID, 4, SETVAL, 1) < 0) {
-        perror("[Direttore] Errore durante la semctl del semaforo per il lock delle statistiche.\n");
-        exit(EXIT_FAILURE);
-    }
 }
 
 int messageQueueCreate() {
@@ -232,11 +154,9 @@ void createAllSubProcess(int shmID, int shmIdStats, int semID, int msgIdDispense
     }
 }
 
-void MasterNotifyAndWait(int semID, struct sembuf sops, DailyConfig* config, Stats* stats, bool endDay, bool endSim, bool printStats, char* csvPath) {
+void MasterNotifyAndWait(int semID, struct sembuf sops, DailyConfig* config, Stats* stats, bool endDay, bool endSim, bool printStats, char* csvPath, char* direttoreID) {
     // aspettiamo che arrivi a 0 (ovvero tutti i figli sono pronti e hanno decrementato il semaforo)
-    sops.sem_num = 0;
-    sops.sem_op = 0;
-    semop(semID, &sops, 1);
+    ExecuteSemop(semID, sops, 0, 0);
     
     // Possibile lettura delle statistiche qui
     // TODO: check explode threshold
@@ -249,7 +169,7 @@ void MasterNotifyAndWait(int semID, struct sembuf sops, DailyConfig* config, Sta
 
     if (endDay) {
         // Resettiamo il semaforo tra operatori e utenti
-        SemRestart(semID, sops);
+        SemRestart(semID, sops, NUM_SPORTELLI, 1, 1, direttoreID);
     }
     
     if (endDay && !endSim) {
@@ -259,13 +179,11 @@ void MasterNotifyAndWait(int semID, struct sembuf sops, DailyConfig* config, Sta
 
     if (!endSim) {
         // avvisiamo i figli che possono partire
-        sops.sem_num = 1;
-        sops.sem_op = -1;
-        semop(semID, &sops, 1);
+        ExecuteSemop(semID, sops, 1, -1);
     }
     
     // Resettiamo il semaforo della barriera
-    SemBarrierRestart(semID, sops);
+    SemBarrierRestart(semID, sops, TOTAL_PROCESSES, 1, direttoreID);
 }
 
 // Aspettiamo tutti i processi finiscano di lavorare
@@ -273,15 +191,6 @@ void waitFinishAllSubProcess() {
     int i;
     for (i = 0; i < TOTAL_PROCESSES; i++) {
         wait(NULL);
-    }
-}
-
-// Pulizia dei semafori
-void semCleanUp(int semid) {
-    // Rimuovi il set di semafori
-    if (semctl(semid, 0, IPC_RMID) == -1) {
-        perror("semctl IPC_RMID");
-        exit(EXIT_FAILURE);
     }
 }
 
@@ -297,41 +206,6 @@ void Clean(int msgIdDispenser, int msgIdOperator, int msgIdUser, int semID, int 
     semCleanUp(semID);
     SharedMemoryCleanConfig(shmID, config);
     SharedMemoryCleanStats(shmIdStat, stats);
-    
-}
-
-void CalculateFinalStats(Stats* stats, int semID) {
-    struct sembuf sops;
-
-    // acquisisco il lock
-    sops.sem_num = 4;
-    sops.sem_op = -1;
-    if (semop(semID, &sops, 1) == -1) {
-        printf("[Direttore] Errore durante l'acquisizione del lock per le statistiche.\n");
-    }
-
-    // Calcoliamo le statistiche finali
-    stats->utenti_serviti_avg = (double)stats->utenti_serviti_tot_sim / (double)stats->durata_simulazione;
-    stats->servizi_erogati_avg = (double)stats->servizi_erogati_tot_sim / (double)stats->durata_simulazione;
-    stats->servizi_non_erogati_avg = (double)stats->servizi_non_erogati_tot_sim / (double)stats->durata_simulazione;
-    stats->pause_effettuate_avg = (double)stats->pause_effettuate_tot_sim / (double)stats->durata_simulazione;
-
-    stats->tempo_attesa_utenti_sim = (double)stats->tempo_attesa_utenti_sim / (double)stats->utenti_serviti_tot_sim;
-    stats->tempo_erogazione_servizi_sim = (double)stats->tempo_erogazione_servizi_sim / (double)stats->servizi_erogati_tot_sim;
-
-    // Calcoliamo le medie suddivise per i servizi
-    for (int i = 0; i < NUM_SERVIZI; i++) {
-        stats->utenti_serviti_avg_services[i] = (double)stats->utenti_serviti_tot_sim_services[i] / (double)stats->durata_simulazione;
-        stats->servizi_erogati_avg_services[i] = (double)stats->servizi_erogati_tot_sim_services[i] / (double)stats->durata_simulazione;
-        stats->servizi_non_erogati_avg_services[i] = (double)stats->servizi_non_erogati_tot_sim_services[i] / (double)stats->durata_simulazione;
-    }
-
-    // rilascio il lock
-    sops.sem_num = 4;
-    sops.sem_op = 1;
-    if (semop(semID, &sops, 1) == -1) {
-        printf("[Direttore] Errore durante il rilascio del lock per le statistiche.\n");
-    }
 }
 
 int main(int argc, char *argv[]) {
@@ -339,6 +213,7 @@ int main(int argc, char *argv[]) {
 
     readConfig(argv[1], argv[2], argv[3], argv[4], argv[5], argv[6], argv[7]);
 
+    char* direttoreID = "Direttore";
     char* csvPath = "Stats.csv";
 
     // Inizializza il generatore di numeri casuali
@@ -361,14 +236,14 @@ int main(int argc, char *argv[]) {
 
     // creiamo la memoria condivisa e colleghiamoci
     int shmID = SharedMemoryCreate(sizeof(DailyConfig));
-    DailyConfig* config = SharedMemoryAttach(shmID, "Direttore");
+    DailyConfig* config = SharedMemoryAttach(shmID, direttoreID);
 
     int shmIdStats = SharedMemoryCreate(sizeof(Stats));
-    Stats* stats = SharedMemoryAttachStats(shmIdStats, "Direttore");
+    Stats* stats = SharedMemoryAttachStats(shmIdStats, direttoreID);
     
     // creiamo il semaforo e inizializziamolo
-    int semID = semCreate();
-    semInizialize(semID);
+    int semID = semCreate(NUM_OF_SEM, direttoreID);
+    semInizialize(semID, TOTAL_PROCESSES, 1, NUM_SPORTELLI, 1, 1, direttoreID);
     
     // inizializziamo le statistiche
     StatsInitialize(stats, semID);
@@ -387,7 +262,7 @@ int main(int argc, char *argv[]) {
     createAllSubProcess(shmID, shmIdStats, semID, msgIdDispenser, msgIdOperator, msgIdUser);
 
     // aspettiamo che tutti i figli siano pronti e diamogli il via
-    MasterNotifyAndWait(semID, sops, config, stats, true, false, false, csvPath);
+    MasterNotifyAndWait(semID, sops, config, stats, true, false, false, csvPath, direttoreID);
 
     bool endSim = false;
 
@@ -399,7 +274,7 @@ int main(int argc, char *argv[]) {
         ResetStatsDaily(stats, semID);
 
         // Diamo il tempo ai figli per configurarsi per il nuovo giorno
-        MasterNotifyAndWait(semID, sops, config, stats, false, false, false, csvPath);
+        MasterNotifyAndWait(semID, sops, config, stats, false, false, false, csvPath, direttoreID);
 
         // simulo il passare dei minuti
         printf("[Direttore] Giorno %d in corso (480 minuti)...\n", giorni);
@@ -419,7 +294,7 @@ int main(int argc, char *argv[]) {
         
         // Facciamo ripartire i figli per il nuovo giorno
         endSim = (giorni == SIM_DURATION);
-        MasterNotifyAndWait(semID, sops, config, stats, true, endSim, true, csvPath);
+        MasterNotifyAndWait(semID, sops, config, stats, true, endSim, true, csvPath, direttoreID);
     }
 
     // Fermiamo la simulazione

@@ -133,6 +133,40 @@ void CalculateDailyStats(Stats* stats, int semID) {
     }
 }
 
+void CalculateFinalStats(Stats* stats, int semID) {
+    struct sembuf sops;
+
+    // acquisisco il lock
+    sops.sem_num = 4;
+    sops.sem_op = -1;
+    if (semop(semID, &sops, 1) == -1) {
+        printf("[Direttore] Errore durante l'acquisizione del lock per le statistiche.\n");
+    }
+
+    // Calcoliamo le statistiche finali
+    stats->utenti_serviti_avg = (double)stats->utenti_serviti_tot_sim / (double)stats->durata_simulazione;
+    stats->servizi_erogati_avg = (double)stats->servizi_erogati_tot_sim / (double)stats->durata_simulazione;
+    stats->servizi_non_erogati_avg = (double)stats->servizi_non_erogati_tot_sim / (double)stats->durata_simulazione;
+    stats->pause_effettuate_avg = (double)stats->pause_effettuate_tot_sim / (double)stats->durata_simulazione;
+
+    stats->tempo_attesa_utenti_sim = (double)stats->tempo_attesa_utenti_sim / (double)stats->utenti_serviti_tot_sim;
+    stats->tempo_erogazione_servizi_sim = (double)stats->tempo_erogazione_servizi_sim / (double)stats->servizi_erogati_tot_sim;
+
+    // Calcoliamo le medie suddivise per i servizi
+    for (int i = 0; i < NUM_SERVIZI; i++) {
+        stats->utenti_serviti_avg_services[i] = (double)stats->utenti_serviti_tot_sim_services[i] / (double)stats->durata_simulazione;
+        stats->servizi_erogati_avg_services[i] = (double)stats->servizi_erogati_tot_sim_services[i] / (double)stats->durata_simulazione;
+        stats->servizi_non_erogati_avg_services[i] = (double)stats->servizi_non_erogati_tot_sim_services[i] / (double)stats->durata_simulazione;
+    }
+
+    // rilascio il lock
+    sops.sem_num = 4;
+    sops.sem_op = 1;
+    if (semop(semID, &sops, 1) == -1) {
+        printf("[Direttore] Errore durante il rilascio del lock per le statistiche.\n");
+    }
+}
+
 void PrintDailyStats(Stats* stats) {
     printf("[Direttore] STATISTICHE GIORNALIERE:\n");
     printf("Utenti serviti giornalmente: %d\n", stats->utenti_serviti_tot_day);
