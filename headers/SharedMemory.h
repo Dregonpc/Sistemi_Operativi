@@ -84,6 +84,22 @@ DailyConfig* SharedMemoryAttach(int shmID, char* processName);
 Stats* SharedMemoryAttachStats(int shmID, char* processName);
 
 /**
+ * @brief Collega il processo alla memoria condivisa in modo generico.
+ * @param shmID L'ID della memoria condivisa.
+ * @param processName Il nome del processo che si sta collegando.
+ * @return Un puntatore void alla memoria condivisa.
+ */
+void* SharedMemoryAttachGeneral(int shmID, char* processName);
+
+/**
+ * 
+ * @brief Scollega la memoria condivisa dal processo.
+ * @param config Il puntatore alla struttura della memoria condivisa.
+ * @param processName Il nome del processo che si sta scollegando.
+ */
+void SharedMmemoryDeTouch(void* config, char* processName);
+
+/**
  * @brief Pulisce la memoria condivisa e la cancella.
  * @param shmID L'ID della memoria condivisa.
  * @param config Il puntatore alla struttura DailyConfig.

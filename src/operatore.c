@@ -4,7 +4,6 @@
 #include <stdbool.h>
 #include <signal.h>
 #include <sys/wait.h>
-#include <sys/shm.h>
 #include <sys/msg.h>
 #include <time.h>
 #include <errno.h>
@@ -230,8 +229,8 @@ int main(int argc, char *argv[]) {
     sigaction(SIGTERM, &sa_term, NULL);
 
     // colleghiamoci alla memoria condivisa
-    DailyConfig* config = SharedMemoryAttach(shmID, operatoreID);
-    Stats* stats = SharedMemoryAttachStats(shmIdStats, operatoreID);
+    DailyConfig* config = (DailyConfig*)SharedMemoryAttachGeneral(shmID, operatoreID);
+    Stats* stats = (Stats*)SharedMemoryAttachGeneral(shmIdStats, operatoreID);
 
     // barrier iniziale
     printf("[%s] Ready, aspetto il via.\n", operatoreID);
@@ -305,8 +304,8 @@ int main(int argc, char *argv[]) {
         }
     }
 
-    shmdt(config);
-    shmdt(stats);
+    SharedMmemoryDeTouch(config, operatoreID);
+    SharedMmemoryDeTouch(stats, operatoreID);
 
     return EXIT_SUCCESS;
 }

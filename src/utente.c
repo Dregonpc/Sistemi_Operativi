@@ -5,7 +5,6 @@
 #include <signal.h>
 #include <stdbool.h>
 #include <sys/wait.h>
-#include <sys/shm.h>
 #include <sys/msg.h>
 #include <time.h>
 #include <errno.h>
@@ -126,7 +125,7 @@ int main(int argc, char *argv[]) {
 
     char *utenteID = argv[0];
     int shmID = atoi(argv[1]);
-    int shmIddStats = atoi(argv[2]);
+    int shmIdStats = atoi(argv[2]);
     int semID = atoi(argv[3]);
     int msgIdDispenser = atoi(argv[4]);
     int msgIdUser = atoi(argv[5]);
@@ -152,8 +151,8 @@ int main(int argc, char *argv[]) {
     sigaction(SIGTERM, &sa_term, NULL);
 
     // colleghiamoci alla memoria condivisa
-    DailyConfig* config = SharedMemoryAttach(shmID, utenteID);
-    Stats* stats = SharedMemoryAttachStats(shmIddStats, utenteID);
+    DailyConfig* config = (DailyConfig*)SharedMemoryAttachGeneral(shmID, utenteID);
+    Stats* stats = (Stats*)SharedMemoryAttachGeneral(shmIdStats, utenteID);
 
     printf("[%s] Sono pronto, avviso il direttore e aspetto il via.\n", utenteID);
     SlaveNotifyAndWait(semID, sops);
@@ -250,8 +249,8 @@ int main(int argc, char *argv[]) {
         }
     }
 
-    shmdt(config);
-    shmdt(stats);
+    SharedMmemoryDeTouch(config, utenteID);
+    SharedMmemoryDeTouch(stats, utenteID);
 
     return EXIT_SUCCESS;
 }

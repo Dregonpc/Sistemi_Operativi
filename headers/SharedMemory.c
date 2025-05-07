@@ -10,8 +10,8 @@ int SharedMemoryCreate() {
     return shmID;
 }
 
-DailyConfig* SharedMemoryAttach(int shmID, char* processName) {
-    DailyConfig* config = (DailyConfig*)shmat(shmID, NULL, 0);
+void* SharedMemoryAttachGeneral(int shmID, char* processName) {
+    void* config = (void*)shmat(shmID, NULL, 0);
     if (config == (void *) -1) {
         printf("[%s] Collegamento alla memoria condivisa fallita.\n", processName);
     }
@@ -19,13 +19,10 @@ DailyConfig* SharedMemoryAttach(int shmID, char* processName) {
     return config;
 }
 
-Stats* SharedMemoryAttachStats(int shmID, char* processName) {
-    Stats* stats = (Stats*)shmat(shmID, NULL, 0);
-    if (stats == (void *) -1) {
-        printf("[%s] Collegamento alla memoria condivisa fallita.\n", processName);
+void SharedMmemoryDeTouch(void* config, char* processName) {
+    if (shmdt(config) == -1) {
+        printf("[%s] Errore durante la disconnessione dalla memoria condivisa.\n", processName);
     }
-
-    return stats;
 }
 
 void SharedMemoryCleanConfig(int shmID, DailyConfig* config) {

@@ -9,7 +9,6 @@
 #include <sys/sem.h>
 #include <sys/msg.h>
 #include "../headers/messaggi.h"
-#include "../headers/SharedMemory.h"
 
 // flag globali gestite dai signal handler
 static volatile sig_atomic_t endDay = 0;
