@@ -118,13 +118,20 @@ void createAllSubProcess(int shmID, int shmIdStats, int semID, int msgIdDispense
     }
 }
 
-void MasterNotifyAndWait(int semID, struct sembuf sops, DailyConfig* config, Stats* stats, bool endDay, bool endSim, bool printStats, char* csvPath, char* direttoreID) {
+bool CheckThreshold(Stats* stats) {
+    if (stats->servizi_non_erogati_tot_day > EXPLODE_THRESHOLD) {
+        stats->termine_simulazione = "EXPLODE_THRESHOLD";
+        printf("[Direttore] Il numero di utenti in attesa a fine giornata è maggiore della soglia prevista, termino la simulazione.\n");
+        return true;
+    }
+
+    return false;
+}
+
+void MasterNotifyAndWait(int semID, struct sembuf sops, DailyConfig* config, Stats* stats, bool endDay, bool* endSim, bool printStats, char* csvPath, char* direttoreID) {
     // aspettiamo che arrivi a 0 (ovvero tutti i figli sono pronti e hanno decrementato il semaforo)
     ExecuteSemop(semID, sops, 0, 0);
     
-    // Possibile lettura delle statistiche qui
-    // TODO: check explode threshold
-
     if (printStats) {
         CalculateDailyStats(stats, semID);
         PrintDailyStats(stats);
@@ -132,16 +139,22 @@ void MasterNotifyAndWait(int semID, struct sembuf sops, DailyConfig* config, Sta
     }
 
     if (endDay) {
+        // Check explode threshold
+        if (CheckThreshold(stats)) {
+            *endSim = true;
+            return;
+        }
+
         // Resettiamo il semaforo tra operatori e utenti
         SemRestart(semID, sops, NUM_SPORTELLI, 1, 1, direttoreID);
     }
     
-    if (endDay && !endSim) {
+    if (endDay && !(*endSim)) {
         // configuriamo gli sportelli
         ConfigurePostOffices(config, stats);
     }
 
-    if (!endSim) {
+    if (!(*endSim)) {
         // avvisiamo i figli che possono partire
         ExecuteSemop(semID, sops, 1, -1);
     }
@@ -221,20 +234,20 @@ int main(int argc, char *argv[]) {
     // creiamo tutti i figli
     createAllSubProcess(shmID, shmIdStats, semID, msgIdDispenser, msgIdOperator, msgIdUser);
 
-    // aspettiamo che tutti i figli siano pronti e diamogli il via
-    MasterNotifyAndWait(semID, sops, config, stats, true, false, false, csvPath, direttoreID);
-
     bool endSim = false;
+    
+    // aspettiamo che tutti i figli siano pronti e diamogli il via
+    MasterNotifyAndWait(semID, sops, config, stats, true, &endSim, false, csvPath, direttoreID);
 
     // Scorriamo i giorni e avvisiamo ogni volta i figli quando finisce un giorno
-    for (int giorni = 1; giorni <= SIM_DURATION; giorni++) {
+    for (int giorni = 1; giorni <= SIM_DURATION && !endSim; giorni++) {
         printf("[Direttore] Inizio del giorno %d...\n", giorni);
 
         // La simulazione continua, resettiamo le statistiche daily
         ResetStatsDaily(stats, semID);
 
         // Diamo il tempo ai figli per configurarsi per il nuovo giorno
-        MasterNotifyAndWait(semID, sops, config, stats, false, false, false, csvPath, direttoreID);
+        MasterNotifyAndWait(semID, sops, config, stats, false, &endSim, false, csvPath, direttoreID);
 
         // simulo il passare dei minuti
         printf("[Direttore] Giorno %d in corso (480 minuti)...\n", giorni);
@@ -254,7 +267,7 @@ int main(int argc, char *argv[]) {
         
         // Facciamo ripartire i figli per il nuovo giorno
         endSim = (giorni == SIM_DURATION);
-        MasterNotifyAndWait(semID, sops, config, stats, true, endSim, true, csvPath, direttoreID);
+        MasterNotifyAndWait(semID, sops, config, stats, true, &endSim, true, csvPath, direttoreID);
     }
 
     // Fermiamo la simulazione

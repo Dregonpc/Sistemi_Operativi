@@ -58,6 +58,8 @@ typedef struct {
     int operatori_disponibili_services[NUM_SERVIZI];
     int sportelli_esistenti_services[NUM_SERVIZI];
     double rapporto_operatori_sportelli_services[NUM_SERVIZI]; // operatori servizio / sportelli servizio
+
+    char* termine_simulazione;
 } Stats;
 
 /**

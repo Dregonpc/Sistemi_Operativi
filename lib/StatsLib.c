@@ -57,6 +57,8 @@ void StatsInitialize(Stats* stats, int semID) {
         stats->rapporto_operatori_sportelli_services[i] = 0.0;
     }
 
+    stats->termine_simulazione = "SIM_DURATION";
+
     // rilascio il lock
     if (ReleaseLock(semID, sops, 4) == -1) {
         printf("[Direttore] Errore durante il rilascio del lock per le statistiche.\n");
@@ -177,6 +179,7 @@ void PrintDailyStats(Stats* stats) {
 
 void PrintFinalStats(Stats* stats) {
     printf("[Direttore] STATISTICHE FINALI:\n");
+    printf("Motivo termine simulazione: %s\n", stats->termine_simulazione);
     printf("Utenti serviti totali: %d\n", stats->utenti_serviti_tot_sim);
     printf("Utenti NON serviti totali: %d\n", stats->utenti_non_serviti_tot_sim);
     printf("Servizi erogati totali: %d\n", stats->servizi_erogati_tot_sim);
@@ -243,6 +246,7 @@ void WriteFinalStatsCSV(const char *filename, Stats* stats) {
 
     // Intestazione generale
     fprintf(f, "STATISTICHE_FINALI\n");
+    fprintf(f, "motivo_termine_simulazione;%s\n", stats->termine_simulazione);
     fprintf(f, "utenti_serviti_tot_sim;%d\n", stats->utenti_serviti_tot_sim);
     fprintf(f, "utenti_non_serviti_tot_sim;%d\n", stats->utenti_non_serviti_tot_sim);
     fprintf(f, "servizi_erogati_tot_sim;%d\n", stats->servizi_erogati_tot_sim);
