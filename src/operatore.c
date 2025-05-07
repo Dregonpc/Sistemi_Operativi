@@ -7,7 +7,6 @@
 #include <sys/msg.h>
 #include <time.h>
 #include <errno.h>
-#include "../headers/GlobalVars.h"
 #include "../headers/SemsLib.h"
 #include "../headers/messaggi.h"
 #include "../headers/SharedMemory.h"
@@ -208,6 +207,8 @@ int main(int argc, char *argv[]) {
     int msgIdOperator = atoi(argv[4]);
     int msgIdUser = atoi(argv[5]);
     int indexServizio = atoi(argv[6]);
+    int NOF_PAUSE = atoi(argv[7]);
+    int SIMULATED_MINUTE = atoi(argv[8]);
 
     int pause_effettuate = 0;
     bool alreadyNotifiedStart = false;

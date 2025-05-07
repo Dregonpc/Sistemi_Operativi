@@ -8,7 +8,6 @@
 #include <sys/msg.h>
 #include <time.h>
 #include <errno.h>
-#include "../headers/GlobalVars.h"
 #include "../headers/SemsLib.h"
 #include "../headers/messaggi.h"
 #include "../headers/SharedMemory.h"
@@ -130,7 +129,9 @@ int main(int argc, char *argv[]) {
     int semID = atoi(argv[3]);
     int msgIdDispenser = atoi(argv[4]);
     int msgIdUser = atoi(argv[5]);
-    int timeDay = atoi(argv[6]);
+    int P_SERV_MIN = atoi(argv[6]);
+    int P_SERV_MAX = atoi(argv[7]);
+    int timeDay = atoi(argv[8]);
     int P_SERV = 0;
     int myPID = getpid();
     bool served = false;
