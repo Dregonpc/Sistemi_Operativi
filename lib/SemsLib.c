@@ -1,8 +1,8 @@
 #include "../headers/SemsLib.h"
 
 // Creazione dei semafori
-int semCreate(int quantity, char* processName) {
-    int semID = semget(IPC_PRIVATE, quantity, IPC_CREAT | 0666);
+int semCreate(int flag, char* processName) {
+    int semID = semget(IPC_PRIVATE, NUM_OF_SEM, IPC_CREAT | flag);
     if (semID < 0) {
         printf("[%s] Creazione del semaforo fallita.\n", processName);
         exit(EXIT_FAILURE);

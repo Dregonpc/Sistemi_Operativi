@@ -15,14 +15,17 @@ default: all
 all: $(BIN)/main $(BIN)/direttore $(BIN)/erogatore_ticket $(BIN)/operatore $(BIN)/utente
 
 # main
-$(BIN)/main: $(BLD)/main.o
+$(BIN)/main: $(BLD)/GlobalVars.o $(BLD)/main.o
 	$(CC) $(CFLAGS) $^ -o $@
+
+$(BLD)/GlobalVars.o: $(LIB)/GlobalVars.c
+	$(CC) $(CFLAGS) -c $< -o $@
 
 $(BLD)/main.o: $(SRC)/main.c
 	$(CC) $(CFLAGS) -c $< -o $@
 
 # direttore
-$(BIN)/direttore: $(BLD)/servizi.o $(BLD)/SemsLib.o $(BLD)/SharedMemory.o $(BLD)/MessageQueueLib.o $(BLD)/StatsLib.o $(BLD)/direttore.o
+$(BIN)/direttore: $(BLD)/GlobalVars.o $(BLD)/servizi.o $(BLD)/SemsLib.o $(BLD)/SharedMemory.o $(BLD)/MessageQueueLib.o $(BLD)/StatsLib.o $(BLD)/direttore.o
 	$(CC) $(CFLAGS) $^ -o $@
 
 $(BLD)/servizi.o: $(LIB)/servizi.c
@@ -51,14 +54,14 @@ $(BLD)/erogatore_ticket.o: $(SRC)/erogatore_ticket.c
 	$(CC) $(CFLAGS) -c $< -o $@
 
 # operatore
-$(BIN)/operatore: $(BLD)/servizi.o $(BLD)/SemsLib.o $(BLD)/SharedMemory.o $(BLD)/StatsLib.o $(BLD)/operatore.o
+$(BIN)/operatore: $(BLD)/GlobalVars.o $(BLD)/servizi.o $(BLD)/SemsLib.o $(BLD)/SharedMemory.o $(BLD)/StatsLib.o $(BLD)/operatore.o
 	$(CC) $(CFLAGS) $^ -o $@
 
 $(BLD)/operatore.o: $(SRC)/operatore.c
 	$(CC) $(CFLAGS) -c $< -o $@
 
 # utente
-$(BIN)/utente: $(BLD)/SemsLib.o $(BLD)/StatsLib.o $(BLD)/SharedMemory.o $(BLD)/utente.o
+$(BIN)/utente: $(BLD)/GlobalVars.o $(BLD)/SemsLib.o $(BLD)/StatsLib.o $(BLD)/SharedMemory.o $(BLD)/utente.o
 	$(CC) $(CFLAGS) $^ -o $@
 
 $(BLD)/utente.o: $(SRC)/utente.c

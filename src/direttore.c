@@ -8,48 +8,15 @@
 #include <sys/time.h>
 #include <stdbool.h>
 #include <errno.h>
+#include "../headers/GlobalVars.h"
 #include "../headers/SemsLib.h"
 #include "../headers/SharedMemory.h"
 #include "../headers/MessageQueueLib.h"
 #include "../headers/StatsLib.h"
 
-/*  Global Var  */
-int NUM_OF_WORKERS;
-int NUM_OF_USERS;
-int TOTAL_PROCESSES;
-int TOTAL_PROCESSES_DIR;
-
-int NOF_PAUSE;  // Numero di pause che un operatore può fare in tutta la simulazione
-
-// Probabilità per l'utente
-int P_SERV_MIN;
-int P_SERV_MAX;
-
-int SIM_DURATION; // Durata della simulazione in giorni
-int EXPLODE_THRESHOLD;  // max numero di utenti a fine giornata che non sono stati serviti --> se supera la soglia termina la simulazione
-
-#define NUM_OF_SEM 5
-
-#define MINUTES_FOR_DAY 480 // 480 minuti = 8 ore
-#define SIMULATED_MINUTE 4000000 // 4 milioni di nanosecondi = 4ms
-// 4ms * 480 = 1,92 secondi
-
 // Handler per tutti i segnali
 static void signalHandler(int signo) {
     // Do nothing
-}
-
-void readConfig(char *numOfWorkers, char *numOfUsers, char *nofPause, char *pServMin, char *pServMax, char *simDuration, char *explodeThreshold) {
-    NUM_OF_WORKERS = atoi(numOfWorkers);
-    NUM_OF_USERS = atoi(numOfUsers);
-    NOF_PAUSE = atoi(nofPause);
-    P_SERV_MIN = atoi(pServMin);
-    P_SERV_MAX = atoi(pServMax);
-    SIM_DURATION = atoi(simDuration);
-    EXPLODE_THRESHOLD = atoi(explodeThreshold);
-
-    TOTAL_PROCESSES = 1 + NUM_OF_WORKERS + NUM_OF_USERS;
-    TOTAL_PROCESSES_DIR = 1 + TOTAL_PROCESSES;
 }
 
 int RandomizeService() {
@@ -116,30 +83,21 @@ void createAllSubProcess(int shmID, int shmIdStats, int semID, int msgIdDispense
     sprintf(shmIdStats_str, "%d", shmIdStats);
     char random_service[10];
 
-    char p_serv_min_str[10];
-    sprintf(p_serv_min_str, "%d", P_SERV_MIN);
-    char p_serv_max_str[10];
-    sprintf(p_serv_max_str, "%d", P_SERV_MAX);
     char timeDay[20];
     sprintf(timeDay, "%d", CalculateTimeDayUser());
-    char simulated_minute_str[20];
-    sprintf(simulated_minute_str, "%d", SIMULATED_MINUTE);
-
-    char nof_pause_str[3];
-    sprintf(nof_pause_str, "%d", NOF_PAUSE);
 
     // Creiamo tutti gli operatori
     for (i = 0; i < NUM_OF_WORKERS; i++) {
         sprintf(id_buffer, "Operator_%d", i);
         sprintf(random_service, "%d", RandomizeService());
-        char *operatore_args[] = {id_buffer, shmID_str, shmIdStats_str, semID_str, msgIdOperator_str, msgIdUser_str, random_service, nof_pause_str, simulated_minute_str, NULL};
+        char *operatore_args[] = {id_buffer, shmID_str, shmIdStats_str, semID_str, msgIdOperator_str, msgIdUser_str, random_service, NULL};
         CreateProcess("./bin/operatore", operatore_args);
     }
 
     // Creiamo tutti gli utenti
     for (i = 0; i < NUM_OF_USERS; i++) {
         sprintf(id_buffer, "User_%d", i);
-        char *utente_args[] = {id_buffer, shmID_str, shmIdStats_str, semID_str, msgIdDispenser_str, msgIdUser_str, p_serv_min_str, p_serv_max_str, timeDay, NULL};
+        char *utente_args[] = {id_buffer, shmID_str, shmIdStats_str, semID_str, msgIdDispenser_str, msgIdUser_str, timeDay, NULL};
         CreateProcess("./bin/utente", utente_args);
     }
 }
@@ -197,8 +155,6 @@ void Clean(int msgIdDispenser, int msgIdOperator, int msgIdUser, int semID, int 
 int main(int argc, char *argv[]) {
     struct sembuf sops;
 
-    readConfig(argv[1], argv[2], argv[3], argv[4], argv[5], argv[6], argv[7]);
-
     char* direttoreID = "Direttore";
     char* csvPath = "Stats.csv";
 
@@ -228,7 +184,7 @@ int main(int argc, char *argv[]) {
     Stats* stats = (Stats*)SharedMemoryAttachGeneral(shmIdStats, direttoreID);
     
     // creiamo il semaforo e inizializziamolo
-    int semID = semCreate(NUM_OF_SEM, direttoreID);
+    int semID = semCreate(0666, direttoreID);
     semInizialize(semID, TOTAL_PROCESSES, 1, NUM_SPORTELLI, 1, 1, direttoreID);
     
     // inizializziamo le statistiche
