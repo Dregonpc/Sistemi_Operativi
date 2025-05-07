@@ -22,7 +22,7 @@ $(BLD)/main.o: $(SRC)/main.c
 	$(CC) $(CFLAGS) -c $< -o $@
 
 # direttore
-$(BIN)/direttore: $(BLD)/servizi.o $(BLD)/SemsLib.o $(BLD)/SharedMemory.o $(BLD)/StatsLib.o $(BLD)/direttore.o
+$(BIN)/direttore: $(BLD)/servizi.o $(BLD)/SemsLib.o $(BLD)/SharedMemory.o $(BLD)/MessageQueueLib.o $(BLD)/StatsLib.o $(BLD)/direttore.o
 	$(CC) $(CFLAGS) $^ -o $@
 
 $(BLD)/servizi.o: $(HDR)/servizi.c
@@ -32,6 +32,9 @@ $(BLD)/SemsLib.o: $(LIB)/SemsLib.c
 	$(CC) $(CFLAGS) -c $< -o $@
 
 $(BLD)/SharedMemory.o: $(HDR)/SharedMemory.c
+	$(CC) $(CFLAGS) -c $< -o $@
+
+$(BLD)/MessageQueueLib.o: $(LIB)/MessageQueueLib.c
 	$(CC) $(CFLAGS) -c $< -o $@
 
 $(BLD)/StatsLib.o: $(LIB)/StatsLib.c

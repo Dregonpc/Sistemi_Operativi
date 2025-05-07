@@ -3,7 +3,6 @@
 #include <unistd.h>
 #include <sys/wait.h>
 #include <sys/types.h>
-#include <sys/msg.h>
 #include <signal.h>
 #include <time.h>
 #include <sys/time.h>
@@ -11,6 +10,7 @@
 #include <errno.h>
 #include "../lib/SemsLib.h"
 #include "../headers/SharedMemory.h"
+#include "../lib/MessageQueueLib.h"
 #include "../lib/StatsLib.h"
 
 /*  Global Var  */
@@ -50,16 +50,6 @@ void readConfig(char *numOfWorkers, char *numOfUsers, char *nofPause, char *pSer
 
     TOTAL_PROCESSES = 1 + NUM_OF_WORKERS + NUM_OF_USERS;
     TOTAL_PROCESSES_DIR = 1 + TOTAL_PROCESSES;
-}
-
-int messageQueueCreate() {
-    int msgID = msgget(IPC_PRIVATE, IPC_CREAT | 0666);
-    if (msgID < 0) {
-        perror("[Direttore] Errore durante la creazione della coda dei messaggi.\n");
-        exit(EXIT_FAILURE);
-    }
-
-    return msgID;
 }
 
 int RandomizeService() {
@@ -194,10 +184,6 @@ void waitFinishAllSubProcess() {
     }
 }
 
-void messageQueueClean(int msgId) {
-    msgctl(msgId, IPC_RMID, NULL);
-}
-
 void Clean(int msgIdDispenser, int msgIdOperator, int msgIdUser, int semID, int shmID, DailyConfig* config, int shmIdStat, Stats* stats) {
     messageQueueClean(msgIdDispenser);
     messageQueueClean(msgIdOperator);
@@ -250,13 +236,13 @@ int main(int argc, char *argv[]) {
 
     // creiamo le due code per i messaggi per la comunicazione tra utente-erogatore e erogatore-operatore
     // Coda utente --> erogatore
-    int msgIdDispenser = messageQueueCreate();
+    int msgIdDispenser = messageQueueCreate(0666, direttoreID);
 
     // Coda erogatore --> operatore
-    int msgIdOperator = messageQueueCreate();
+    int msgIdOperator = messageQueueCreate(0666, direttoreID);
 
     // Coda operatore --> utente
-    int msgIdUser = messageQueueCreate();
+    int msgIdUser = messageQueueCreate(0666, direttoreID);
 
     // creiamo tutti i figli
     createAllSubProcess(shmID, shmIdStats, semID, msgIdDispenser, msgIdOperator, msgIdUser);
