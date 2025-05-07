@@ -215,18 +215,18 @@ void WriteDailyStatsCSV(const char *filename, Stats* stats) {
     }
 
     // Intestazione generale giornaliera
-    fprintf(f, "STATISTICHE_GIORNO, %d\n", stats->durata_simulazione);
-    fprintf(f, "utenti_serviti_tot_day, %d\n", stats->utenti_serviti_tot_day);
-    fprintf(f, "utenti_non_serviti_tot_day, %d\n", stats->utenti_non_serviti_tot_day);
-    fprintf(f, "servizi_erogati_tot_day, %d\n", stats->servizi_erogati_tot_day);
-    fprintf(f, "servizi_non_erogati_tot_day, %d\n", stats->servizi_non_erogati_tot_day);
-    fprintf(f, "operatori_attivi_day, %d\n", stats->operatori_attivi_day);
-    fprintf(f, "pause_effettuate_tot_day, %d\n", stats->pause_effettuate_tot_day);
-    fprintf(f, "tempo_attesa_utenti_day_ns, %.0f\n", stats->tempo_attesa_utenti_day);
-    fprintf(f, "tempo_erogazione_servizi_day_ns, %.0f\n", stats->tempo_erogazione_servizi_day);
+    fprintf(f, "STATISTICHE_GIORNO;%d\n", stats->durata_simulazione);
+    fprintf(f, "utenti_serviti_tot_day;%d\n", stats->utenti_serviti_tot_day);
+    fprintf(f, "utenti_non_serviti_tot_day;%d\n", stats->utenti_non_serviti_tot_day);
+    fprintf(f, "servizi_erogati_tot_day;%d\n", stats->servizi_erogati_tot_day);
+    fprintf(f, "servizi_non_erogati_tot_day;%d\n", stats->servizi_non_erogati_tot_day);
+    fprintf(f, "operatori_attivi_day;%d\n", stats->operatori_attivi_day);
+    fprintf(f, "pause_effettuate_tot_day;%d\n", stats->pause_effettuate_tot_day);
+    fprintf(f, "tempo_attesa_utenti_day_ns;%.0f\n", stats->tempo_attesa_utenti_day);
+    fprintf(f, "tempo_erogazione_servizi_day_ns;%.0f\n", stats->tempo_erogazione_servizi_day);
 
     // Intestazione per array giornalieri
-    fprintf(f, "service_index,tempo_attesa_utenti_day_ns,tempo_erogazione_servizi_day_ns,rapporto_operatori_sportelli\n");
+    fprintf(f, "service_index;tempo_attesa_utenti_day_ns;tempo_erogazione_servizi_day_ns;rapporto_operatori_sportelli\n");
     for (int i = 0; i < NUM_SERVIZI; i++) {
         fprintf(f, "%d,%.0f,%.0f,%.0f\n", i, stats->tempo_attesa_utenti_day_services[i], stats->tempo_erogazione_servizi_day_services[i], stats->rapporto_operatori_sportelli_services[i]);
     }
@@ -243,34 +243,34 @@ void WriteFinalStatsCSV(const char *filename, Stats* stats) {
 
     // Intestazione generale
     fprintf(f, "STATISTICHE_FINALI\n");
-    fprintf(f, "utenti_serviti_tot_sim, %d\n", stats->utenti_serviti_tot_sim);
-    fprintf(f, "utenti_non_serviti_tot_sim, %d\n", stats->utenti_non_serviti_tot_sim);
-    fprintf(f, "servizi_erogati_tot_sim, %d\n", stats->servizi_erogati_tot_sim);
-    fprintf(f, "servizi_non_erogati_tot_sim, %d\n", stats->servizi_non_erogati_tot_sim);
-    fprintf(f, "operatori_attivi_sim, %d\n", stats->operatori_attivi_sim);
-    fprintf(f, "pause_effettuate_tot_sim, %d\n", stats->pause_effettuate_tot_sim);
-    fprintf(f, "durata_simulazione, %d\n", stats->durata_simulazione);
-    fprintf(f, "utenti_serviti_avg, %.4f\n", stats->utenti_serviti_avg);
-    fprintf(f, "servizi_erogati_avg, %.4f\n", stats->servizi_erogati_avg);
-    fprintf(f, "servizi_non_erogati_avg, %.4f\n", stats->servizi_non_erogati_avg);
-    fprintf(f, "pause_effettuate_avg, %.4f\n", stats->pause_effettuate_avg);
-    fprintf(f, "tempo_attesa_utenti_sim_ns, %.0f\n", stats->tempo_attesa_utenti_sim);
-    fprintf(f, "tempo_erogazione_servizi_sim_ns, %.0f\n", stats->tempo_erogazione_servizi_sim);
+    fprintf(f, "utenti_serviti_tot_sim;%d\n", stats->utenti_serviti_tot_sim);
+    fprintf(f, "utenti_non_serviti_tot_sim;%d\n", stats->utenti_non_serviti_tot_sim);
+    fprintf(f, "servizi_erogati_tot_sim;%d\n", stats->servizi_erogati_tot_sim);
+    fprintf(f, "servizi_non_erogati_tot_sim;%d\n", stats->servizi_non_erogati_tot_sim);
+    fprintf(f, "operatori_attivi_sim;%d\n", stats->operatori_attivi_sim);
+    fprintf(f, "pause_effettuate_tot_sim;%d\n", stats->pause_effettuate_tot_sim);
+    fprintf(f, "durata_simulazione;%d\n", stats->durata_simulazione);
+    fprintf(f, "utenti_serviti_avg;%.4f\n", stats->utenti_serviti_avg);
+    fprintf(f, "servizi_erogati_avg;%.4f\n", stats->servizi_erogati_avg);
+    fprintf(f, "servizi_non_erogati_avg;%.4f\n", stats->servizi_non_erogati_avg);
+    fprintf(f, "pause_effettuate_avg;%.4f\n", stats->pause_effettuate_avg);
+    fprintf(f, "tempo_attesa_utenti_sim_ns;%.0f\n", stats->tempo_attesa_utenti_sim);
+    fprintf(f, "tempo_erogazione_servizi_sim_ns;%.0f\n", stats->tempo_erogazione_servizi_sim);
 
     // Intestazione per array dei servizi totali
-    fprintf(f, "service_index,utenti_serviti_tot,servizi_erogati_tot,servizi_non_erogati_tot\n");
+    fprintf(f, "service_index;utenti_serviti_tot;servizi_erogati_tot;servizi_non_erogati_tot\n");
     for (int i = 0; i < NUM_SERVIZI; i++) {
         fprintf(f, "%d,%d,%d,%d\n", i, stats->utenti_serviti_tot_sim_services[i], stats->servizi_erogati_tot_sim_services[i], stats->servizi_non_erogati_tot_sim_services[i]);
     }
 
     // Intestazione per array dei servizi avg
-    fprintf(f, "service_index,utenti_serviti_avg,servizi_erogati_avg,servizi_non_erogati_avg\n");
+    fprintf(f, "service_index;utenti_serviti_avg;servizi_erogati_avg;servizi_non_erogati_avg\n");
     for (int i = 0; i < NUM_SERVIZI; i++) {
         fprintf(f, "%d,%.2f,%.2f,%.2f\n", i, stats->utenti_serviti_avg_services[i], stats->servizi_erogati_avg_services[i], stats->servizi_non_erogati_avg_services[i]);
     }
 
     // Intestazione per tempi
-    fprintf(f, "service_index,tempo_attesa_utenti_sim_ns,tempo_erogazione_servizi_sim_ns\n");
+    fprintf(f, "service_index;tempo_attesa_utenti_sim_ns;tempo_erogazione_servizi_sim_ns\n");
     for (int i = 0; i < NUM_SERVIZI; i++) {
         fprintf(f, "%d,%.0f,%.0f\n", i, stats->tempo_attesa_utenti_sim_services[i], stats->tempo_erogazione_servizi_sim_services[i]);
     }
