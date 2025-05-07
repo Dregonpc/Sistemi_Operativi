@@ -8,10 +8,10 @@
 #include <sys/time.h>
 #include <stdbool.h>
 #include <errno.h>
-#include "../lib/SemsLib.h"
+#include "../headers/SemsLib.h"
 #include "../headers/SharedMemory.h"
-#include "../lib/MessageQueueLib.h"
-#include "../lib/StatsLib.h"
+#include "../headers/MessageQueueLib.h"
+#include "../headers/StatsLib.h"
 
 /*  Global Var  */
 int NUM_OF_WORKERS;
@@ -211,7 +211,7 @@ int main(int argc, char *argv[]) {
     struct sigaction sa_end = {0};
     sa_end.sa_handler = signalHandler;
     sigemptyset(&sa_end.sa_mask);
-    sa_end.sa_flags = 0;                // senza SA_RESTART
+    sa_end.sa_flags = 0;
     sigaction(SIGUSR2, &sa_end, NULL);
 
     struct sigaction sa_term = {0};
@@ -221,10 +221,10 @@ int main(int argc, char *argv[]) {
     sigaction(SIGTERM, &sa_term, NULL);
 
     // creiamo la memoria condivisa e colleghiamoci
-    int shmID = SharedMemoryCreate(sizeof(DailyConfig));
+    int shmID = SharedMemoryCreate(sizeof(DailyConfig), 0666, direttoreID);
     DailyConfig* config = (DailyConfig*)SharedMemoryAttachGeneral(shmID, direttoreID);
 
-    int shmIdStats = SharedMemoryCreate(sizeof(Stats));
+    int shmIdStats = SharedMemoryCreate(sizeof(Stats), 0666, direttoreID);
     Stats* stats = (Stats*)SharedMemoryAttachGeneral(shmIdStats, direttoreID);
     
     // creiamo il semaforo e inizializziamolo

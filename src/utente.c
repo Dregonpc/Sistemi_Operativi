@@ -8,10 +8,10 @@
 #include <sys/msg.h>
 #include <time.h>
 #include <errno.h>
-#include "../lib/SemsLib.h"
+#include "../headers/SemsLib.h"
 #include "../headers/messaggi.h"
 #include "../headers/SharedMemory.h"
-#include "../lib/StatsLib.h"
+#include "../headers/StatsLib.h"
 
 static volatile sig_atomic_t endDay = 0;
 static volatile sig_atomic_t endSimulation = 0;
@@ -141,7 +141,7 @@ int main(int argc, char *argv[]) {
     struct sigaction sa_end = {0};
     sa_end.sa_handler = signalHandler;
     sigemptyset(&sa_end.sa_mask);
-    sa_end.sa_flags = 0;                // senza SA_RESTART
+    sa_end.sa_flags = 0;
     sigaction(SIGUSR2, &sa_end, NULL);
 
     struct sigaction sa_term = {0};

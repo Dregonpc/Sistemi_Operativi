@@ -2,7 +2,7 @@
 #define STATSLIB_H
 
 #include "../headers/SharedMemory.h"
-#include "../lib/SemsLib.h"
+#include "../headers/SemsLib.h"
 #include <stdio.h>
 
 /**

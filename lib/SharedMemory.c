@@ -1,9 +1,9 @@
-#include "SharedMemory.h"
+#include "../headers/SharedMemory.h"
 
-int SharedMemoryCreate() {
-    int shmID = shmget(IPC_PRIVATE, sizeof(DailyConfig), IPC_CREAT | 0666);
+int SharedMemoryCreate(size_t size, int flag, char* processName) {
+    int shmID = shmget(IPC_PRIVATE, size, IPC_CREAT | flag);
     if (shmID < 0) {
-        printf("[Direttore] Creazione della memoria condivisa fallita.\n");
+        printf("[%s] Creazione della memoria condivisa fallita.\n", processName);
     }
     
     return shmID;

@@ -4,9 +4,7 @@
 #include "sportelli.h"
 #include "servizi.h"
 #include <sys/types.h>
-#include <sys/ipc.h>
 #include <sys/shm.h>
-#include <sys/sem.h>
 #include <stdio.h>
 #include <stdlib.h>
 
@@ -66,7 +64,7 @@ typedef struct {
  * @brief Crea la memoria condivisa per la configurazione giornaliera.
  * @return L'ID della memoria condivisa.
  */
-int SharedMemoryCreate();
+int SharedMemoryCreate(size_t size, int flag, char* processName);
 
 /**
  * @brief Collega il processo alla memoria condivisa.

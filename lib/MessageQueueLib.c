@@ -1,4 +1,4 @@
-#include "MessageQueueLib.h"
+#include "../headers/MessageQueueLib.h"
 
 int messageQueueCreate(int flag, char* processName) {
     int msgID = msgget(IPC_PRIVATE, IPC_CREAT | flag);

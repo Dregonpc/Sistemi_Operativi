@@ -1,4 +1,4 @@
-#include "SemsLib.h"
+#include "../headers/SemsLib.h"
 
 // Creazione dei semafori
 int semCreate(int quantity, char* processName) {
