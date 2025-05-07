@@ -6,9 +6,7 @@ void StatsInitialize(Stats* stats, int semID) {
     struct sembuf sops;
 
     // acquisisco il lock
-    sops.sem_num = 4;
-    sops.sem_op = -1;
-    if (semop(semID, &sops, 1) == -1) {
+    if (CaptureLock(semID, sops, 4) == -1) {
         printf("[Direttore] Errore durante l'acquisizione del lock per le statistiche.\n");
     }
 
@@ -60,9 +58,7 @@ void StatsInitialize(Stats* stats, int semID) {
     }
 
     // rilascio il lock
-    sops.sem_num = 4;
-    sops.sem_op = 1;
-    if (semop(semID, &sops, 1) == -1) {
+    if (ReleaseLock(semID, sops, 4) == -1) {
         printf("[Direttore] Errore durante il rilascio del lock per le statistiche.\n");
     }
 }
@@ -71,9 +67,7 @@ void ResetStatsDaily(Stats* stats, int semID) {
     struct sembuf sops;
 
     // acquisisco il lock
-    sops.sem_num = 4;
-    sops.sem_op = -1;
-    if (semop(semID, &sops, 1) == -1) {
+    if (CaptureLock(semID, sops, 4) == -1) {
         printf("[Direttore] Errore durante l'acquisizione del lock per le statistiche.\n");
     }
 
@@ -98,9 +92,7 @@ void ResetStatsDaily(Stats* stats, int semID) {
     }
 
     // rilascio il lock
-    sops.sem_num = 4;
-    sops.sem_op = 1;
-    if (semop(semID, &sops, 1) == -1) {
+    if (ReleaseLock(semID, sops, 4) == -1) {
         printf("[Direttore] Errore durante il rilascio del lock per le statistiche.\n");
     }
 }
@@ -109,9 +101,7 @@ void CalculateDailyStats(Stats* stats, int semID) {
     struct sembuf sops;
 
     // acquisisco il lock
-    sops.sem_num = 4;
-    sops.sem_op = -1;
-    if (semop(semID, &sops, 1) == -1) {
+    if (CaptureLock(semID, sops, 4) == -1) {
         printf("[Direttore] Errore durante l'acquisizione del lock per le statistiche.\n");
     }
 
@@ -126,9 +116,7 @@ void CalculateDailyStats(Stats* stats, int semID) {
     }
 
     // rilascio il lock
-    sops.sem_num = 4;
-    sops.sem_op = 1;
-    if (semop(semID, &sops, 1) == -1) {
+    if (ReleaseLock(semID, sops, 4) == -1) {
         printf("[Direttore] Errore durante il rilascio del lock per le statistiche.\n");
     }
 }
@@ -137,9 +125,7 @@ void CalculateFinalStats(Stats* stats, int semID) {
     struct sembuf sops;
 
     // acquisisco il lock
-    sops.sem_num = 4;
-    sops.sem_op = -1;
-    if (semop(semID, &sops, 1) == -1) {
+    if (CaptureLock(semID, sops, 4) == -1) {
         printf("[Direttore] Errore durante l'acquisizione del lock per le statistiche.\n");
     }
 
@@ -160,9 +146,7 @@ void CalculateFinalStats(Stats* stats, int semID) {
     }
 
     // rilascio il lock
-    sops.sem_num = 4;
-    sops.sem_op = 1;
-    if (semop(semID, &sops, 1) == -1) {
+    if (ReleaseLock(semID, sops, 4) == -1) {
         printf("[Direttore] Errore durante il rilascio del lock per le statistiche.\n");
     }
 }
@@ -298,9 +282,7 @@ void WriteFinalStatsCSV(const char *filename, Stats* stats) {
 
 void UpdateStatsOperators(int semID, struct sembuf sops, Stats* stats, char *operatoreId, int IndexServizio, int* servizi_erogati, int* operatori_attivi, int* counter_pause, double* tempo_erogazione) {
     // acquisisco il lock
-    sops.sem_num = 4;
-    sops.sem_op = -1;
-    if (semop(semID, &sops, 1) == -1) {
+    if (CaptureLock(semID, sops, 4) == -1) {
         printf("[%s] Errore durante l'acquisizione del lock per le statistiche.\n", operatoreId);
     }
 
@@ -323,9 +305,7 @@ void UpdateStatsOperators(int semID, struct sembuf sops, Stats* stats, char *ope
     stats->operatori_disponibili_services[IndexServizio] += 1;
 
     // rilascio il lock
-    sops.sem_num = 4;
-    sops.sem_op = 1;
-    if (semop(semID, &sops, 1) == -1) {
+    if (ReleaseLock(semID, sops, 4) == -1) {
         printf("[%s] Errore durante il rilascio del lock per le statistiche.\n", operatoreId);
     }
 }
@@ -334,9 +314,7 @@ void UpdateStatsOperators(int semID, struct sembuf sops, Stats* stats, char *ope
 
 void UpdateStatsUsers(int semID, struct sembuf sops, Stats* stats, char *utenteId, int IndexServizioRichiesto,  int* utenti_serviti, int* utenti_non_serviti_day, long* time_total, int* servizi_non_erogati) {
     // acquisisco il lock
-    sops.sem_num = 4;
-    sops.sem_op = -1;
-    if (semop(semID, &sops, 1) == -1) {
+    if (CaptureLock(semID, sops, 4) == -1) {
         printf("[%s] Errore durante l'acquisizione del lock per le statistiche.\n", utenteId);
     }
 
@@ -359,9 +337,7 @@ void UpdateStatsUsers(int semID, struct sembuf sops, Stats* stats, char *utenteI
     stats->tempo_attesa_utenti_day += *time_total;
     
     // rilascio il lock
-    sops.sem_num = 4;
-    sops.sem_op = 1;
-    if (semop(semID, &sops, 1) == -1) {
+    if (ReleaseLock(semID, sops, 4) == -1) {
         printf("[%s] Errore durante il rilascio del lock per le statistiche.\n", utenteId);
     }
 }

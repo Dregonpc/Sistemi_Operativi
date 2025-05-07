@@ -2,8 +2,8 @@
 #define STATSLIB_H
 
 #include "../headers/SharedMemory.h"
+#include "../lib/SemsLib.h"
 #include <stdio.h>
-#include <sys/sem.h>
 
 /**
  * @brief Inizializzazione delle statistiche a 0
