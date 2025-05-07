@@ -6,13 +6,15 @@
 #include <semaphore.h>
 #include <sys/sem.h>
 
+#define NUM_OF_SEM 5
+
 /**
  * @brief Crea una collezione di semaforo
- * @param quantity Numero di semafori da creare
+ * @param flag Flag da assegnare al set di semafori
  * @param processName Nome del processo che crea i semafori
  * @return ID del semaforo creato
  */
-int semCreate(int quantity, char* processName);
+int semCreate(int flag, char* processName);
 
 /**
  * @brief Inizializza i semafori

@@ -62,6 +62,9 @@ typedef struct {
 
 /**
  * @brief Crea la memoria condivisa per la configurazione giornaliera.
+ * @param size Dimensione della memroia da creare.
+ * @param flag Flag da assegnare alla memoria.
+ * @param processName Il nome del processo che si sta collegando.
  * @return L'ID della memoria condivisa.
  */
 int SharedMemoryCreate(size_t size, int flag, char* processName);

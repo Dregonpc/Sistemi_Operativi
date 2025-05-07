@@ -18,17 +18,11 @@ int NUM_OF_WORKERS;
 int NUM_OF_USERS;
 int TOTAL_PROCESSES;
 int TOTAL_PROCESSES_DIR;
-
 int NOF_PAUSE;  // Numero di pause che un operatore può fare in tutta la simulazione
-
-// Probabilità per l'utente
-int P_SERV_MIN;
-int P_SERV_MAX;
-
+int P_SERV_MIN; // Probabilità per l'utente
+int P_SERV_MAX; // Probabilità per l'utente
 int SIM_DURATION; // Durata della simulazione in giorni
 int EXPLODE_THRESHOLD;  // max numero di utenti a fine giornata che non sono stati serviti --> se supera la soglia termina la simulazione
-
-#define NUM_OF_SEM 5
 
 #define MINUTES_FOR_DAY 480 // 480 minuti = 8 ore
 #define SIMULATED_MINUTE 4000000 // 4 milioni di nanosecondi = 4ms
@@ -47,7 +41,6 @@ void readConfig(char *numOfWorkers, char *numOfUsers, char *nofPause, char *pSer
     P_SERV_MAX = atoi(pServMax);
     SIM_DURATION = atoi(simDuration);
     EXPLODE_THRESHOLD = atoi(explodeThreshold);
-
     TOTAL_PROCESSES = 1 + NUM_OF_WORKERS + NUM_OF_USERS;
     TOTAL_PROCESSES_DIR = 1 + TOTAL_PROCESSES;
 }
@@ -91,45 +84,26 @@ void CreateProcess(const char *path, char *const argv[]) {
 }
 
 void createAllSubProcess(int shmID, int shmIdStats, int semID, int msgIdDispenser, int msgIdOperator, int msgIdUser) {
-    // Creiamo l'erogatore dei ticket
-    char semID_str[15];
+    // Creiamo le stringhe da passare ai figli
+    char semID_str[15], msgIdDispenser_str[15], msgIdOperator_str[15], msgIdUser_str[15], id_buffer[50], shmID_str[15], shmIdStats_str[15], random_service[10], p_serv_min_str[10], p_serv_max_str[10], timeDay[20], simulated_minute_str[20], nof_pause_str[3];
     sprintf(semID_str, "%d", semID);
-
-    char msgIdDispenser_str[15];
     sprintf(msgIdDispenser_str, "%d", msgIdDispenser);
-
-    char msgIdOperator_str[15];
     sprintf(msgIdOperator_str, "%d", msgIdOperator);
-
-    char msgIdUser_str[15];
     sprintf(msgIdUser_str, "%d", msgIdUser);
+    sprintf(shmID_str, "%d", shmID);
+    sprintf(shmIdStats_str, "%d", shmIdStats);
+    sprintf(p_serv_min_str, "%d", P_SERV_MIN);
+    sprintf(p_serv_max_str, "%d", P_SERV_MAX);
+    sprintf(timeDay, "%d", CalculateTimeDayUser());
+    sprintf(simulated_minute_str, "%d", SIMULATED_MINUTE);
+    sprintf(nof_pause_str, "%d", NOF_PAUSE);
 
     // Creiamo l'erogatore per i ticket
     char *erogatore_ticket_args[] = {"Erogatore_ticket", semID_str, msgIdDispenser_str, msgIdOperator_str, NULL};
     CreateProcess("./bin/erogatore_ticket", erogatore_ticket_args);
 
-    int i;
-    char id_buffer[50];  // Buffer per gli ID dinamici
-    char shmID_str[15];
-    sprintf(shmID_str, "%d", shmID);
-    char shmIdStats_str[15];
-    sprintf(shmIdStats_str, "%d", shmIdStats);
-    char random_service[10];
-
-    char p_serv_min_str[10];
-    sprintf(p_serv_min_str, "%d", P_SERV_MIN);
-    char p_serv_max_str[10];
-    sprintf(p_serv_max_str, "%d", P_SERV_MAX);
-    char timeDay[20];
-    sprintf(timeDay, "%d", CalculateTimeDayUser());
-    char simulated_minute_str[20];
-    sprintf(simulated_minute_str, "%d", SIMULATED_MINUTE);
-
-    char nof_pause_str[3];
-    sprintf(nof_pause_str, "%d", NOF_PAUSE);
-
     // Creiamo tutti gli operatori
-    for (i = 0; i < NUM_OF_WORKERS; i++) {
+    for (int i = 0; i < NUM_OF_WORKERS; i++) {
         sprintf(id_buffer, "Operator_%d", i);
         sprintf(random_service, "%d", RandomizeService());
         char *operatore_args[] = {id_buffer, shmID_str, shmIdStats_str, semID_str, msgIdOperator_str, msgIdUser_str, random_service, nof_pause_str, simulated_minute_str, NULL};
@@ -137,7 +111,7 @@ void createAllSubProcess(int shmID, int shmIdStats, int semID, int msgIdDispense
     }
 
     // Creiamo tutti gli utenti
-    for (i = 0; i < NUM_OF_USERS; i++) {
+    for (int i = 0; i < NUM_OF_USERS; i++) {
         sprintf(id_buffer, "User_%d", i);
         char *utente_args[] = {id_buffer, shmID_str, shmIdStats_str, semID_str, msgIdDispenser_str, msgIdUser_str, p_serv_min_str, p_serv_max_str, timeDay, NULL};
         CreateProcess("./bin/utente", utente_args);
@@ -228,7 +202,7 @@ int main(int argc, char *argv[]) {
     Stats* stats = (Stats*)SharedMemoryAttachGeneral(shmIdStats, direttoreID);
     
     // creiamo il semaforo e inizializziamolo
-    int semID = semCreate(NUM_OF_SEM, direttoreID);
+    int semID = semCreate(0666, direttoreID);
     semInizialize(semID, TOTAL_PROCESSES, 1, NUM_SPORTELLI, 1, 1, direttoreID);
     
     // inizializziamo le statistiche
