@@ -78,7 +78,6 @@ void SemRestart(int semID, struct sembuf sops, int quantity2, int quantity3, int
 }
 
 void semCleanUp(int semID) {
-    // Rimuovi il set di semafori
     if (semctl(semID, 0, IPC_RMID) == -1) {
         perror("semctl IPC_RMID");
         exit(EXIT_FAILURE);

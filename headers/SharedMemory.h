@@ -97,7 +97,7 @@ void* SharedMemoryAttachGeneral(int shmID, char* processName);
  * @param config Il puntatore alla struttura della memoria condivisa.
  * @param processName Il nome del processo che si sta scollegando.
  */
-void SharedMmemoryDeTouch(void* config, char* processName);
+void SharedMmemoryDetach(void* config, char* processName);
 
 /**
  * @brief Pulisce la memoria condivisa e la cancella.

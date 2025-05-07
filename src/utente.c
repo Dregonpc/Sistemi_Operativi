@@ -249,8 +249,8 @@ int main(int argc, char *argv[]) {
         }
     }
 
-    SharedMmemoryDeTouch(config, utenteID);
-    SharedMmemoryDeTouch(stats, utenteID);
+    SharedMmemoryDetach(config, utenteID);
+    SharedMmemoryDetach(stats, utenteID);
 
     return EXIT_SUCCESS;
 }

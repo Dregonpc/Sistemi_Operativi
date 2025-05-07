@@ -5,10 +5,9 @@
 #include <signal.h>
 #include <errno.h>
 #include <sys/wait.h>
-#include <semaphore.h>
-#include <sys/sem.h>
 #include <sys/msg.h>
 #include "../headers/messaggi.h"
+#include "../lib/SemsLib.h"
 
 // flag globali gestite dai signal handler
 static volatile sig_atomic_t endDay = 0;
@@ -30,14 +29,10 @@ static void signalHandler(int signo) {
 
 void SlaveNotifyAndWait(int semID, struct sembuf sops) {
     // avviso il direttore che sono pronto
-    sops.sem_num = 0;
-    sops.sem_op = -1;
-    semop(semID, &sops, 1);
+    ExecuteSemop(semID, sops, 0, -1);
     
     // aspetto che arrivi a 0 (ovvero il direttore mi da il via)
-    sops.sem_num = 1;
-    sops.sem_op = 0;
-    semop(semID, &sops, 1);
+    ExecuteSemop(semID, sops, 1, 0);
 }
 
 void ReceiveAndSendMessage(int msgIdDispenser, int msgIdOperator, char *erogatoreID, int semID, struct sembuf sops) {
@@ -58,7 +53,6 @@ void ReceiveAndSendMessage(int msgIdDispenser, int msgIdOperator, char *erogator
         }
         if (n < 0) {
             perror("msgrcv");
-            //exit(EXIT_FAILURE);
         }
 
         msg.ticket_id = ticket_number++;
@@ -68,7 +62,6 @@ void ReceiveAndSendMessage(int msgIdDispenser, int msgIdOperator, char *erogator
 
         if (msgsnd(msgIdOperator, &msg, sizeof(Messaggio) - sizeof(long), 0) < 0) {
             perror("msgsnd");
-            //exit(EXIT_FAILURE);
         }
 
         printf("[%s] Ticket %d inviato all'operatore.\n", erogatoreID, msg.ticket_id);

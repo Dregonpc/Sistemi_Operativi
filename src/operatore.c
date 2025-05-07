@@ -304,8 +304,8 @@ int main(int argc, char *argv[]) {
         }
     }
 
-    SharedMmemoryDeTouch(config, operatoreID);
-    SharedMmemoryDeTouch(stats, operatoreID);
+    SharedMmemoryDetach(config, operatoreID);
+    SharedMmemoryDetach(stats, operatoreID);
 
     return EXIT_SUCCESS;
 }

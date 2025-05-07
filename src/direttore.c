@@ -236,10 +236,10 @@ int main(int argc, char *argv[]) {
 
     // creiamo la memoria condivisa e colleghiamoci
     int shmID = SharedMemoryCreate(sizeof(DailyConfig));
-    DailyConfig* config = (DailyConfig*)SharedMemoryAttachGeneral(shmID, "Direttore");
+    DailyConfig* config = (DailyConfig*)SharedMemoryAttachGeneral(shmID, direttoreID);
 
     int shmIdStats = SharedMemoryCreate(sizeof(Stats));
-    Stats* stats = (Stats*)SharedMemoryAttachGeneral(shmIdStats, "Direttore");
+    Stats* stats = (Stats*)SharedMemoryAttachGeneral(shmIdStats, direttoreID);
     
     // creiamo il semaforo e inizializziamolo
     int semID = semCreate(NUM_OF_SEM, direttoreID);

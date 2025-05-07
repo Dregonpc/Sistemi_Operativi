@@ -1,6 +1,5 @@
 #include "SharedMemory.h"
 
-
 int SharedMemoryCreate() {
     int shmID = shmget(IPC_PRIVATE, sizeof(DailyConfig), IPC_CREAT | 0666);
     if (shmID < 0) {
@@ -19,7 +18,7 @@ void* SharedMemoryAttachGeneral(int shmID, char* processName) {
     return config;
 }
 
-void SharedMmemoryDeTouch(void* config, char* processName) {
+void SharedMmemoryDetach(void* config, char* processName) {
     if (shmdt(config) == -1) {
         printf("[%s] Errore durante la disconnessione dalla memoria condivisa.\n", processName);
     }

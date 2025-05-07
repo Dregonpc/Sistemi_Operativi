@@ -48,7 +48,7 @@ void SemBarrierRestart(int semID, struct sembuf sops, int quantity0, int quantit
 void SemRestart(int semID, struct sembuf sops, int quantity2, int quantity3, int quantity4, char* processName);
 
 /**
- * @brief Rimuove i semafori
+ * @brief Rimuove il set di semafori
  * @param semID ID del semaforo
  */
 void semCleanUp(int semID);
