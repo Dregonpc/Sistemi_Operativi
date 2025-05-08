@@ -14,7 +14,7 @@ void cleanMsgQueue(int msgId) {
     Messaggio msg;
     ssize_t n;
 
-    /* Leggi finché ci sono messaggi; IPC_NOWAIT fa tornare subito ENOMSG se è vuota */
+    // Leggi finché ci sono messaggi; IPC_NOWAIT fa tornare subito ENOMSG se è vuota
     while (1) {
         n = msgrcv(msgId, &msg, sizeof(Messaggio) - sizeof(long), 0, IPC_NOWAIT);
         if (n >= 0) {
@@ -26,7 +26,7 @@ void cleanMsgQueue(int msgId) {
             break;
         }
         // altro errore
-        perror("ClearMsgQueue: msgrcv");
+        perror("CleanMsgQueue: msgrcv");
         break;
     }
 }

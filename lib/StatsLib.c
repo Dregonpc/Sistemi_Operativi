@@ -284,7 +284,9 @@ void WriteFinalStatsCSV(const char *filename, Stats* stats) {
 
 // FUNCTION FOR OPERATORS
 
-void UpdateStatsOperators(int semID, struct sembuf sops, Stats* stats, char *operatoreId, int IndexServizio, int* servizi_erogati, int* operatori_attivi, int* counter_pause, double* tempo_erogazione) {
+void UpdateStatsOperators(int semID, Stats* stats, char *operatoreId, int IndexServizio, int* servizi_erogati, int* operatori_attivi, int* counter_pause, double* tempo_erogazione) {
+    struct sembuf sops;
+    
     // acquisisco il lock
     if (CaptureLock(semID, sops, 4) == -1) {
         printf("[%s] Errore durante l'acquisizione del lock per le statistiche.\n", operatoreId);
@@ -316,7 +318,9 @@ void UpdateStatsOperators(int semID, struct sembuf sops, Stats* stats, char *ope
 
 // FUNCTION FOR USERS
 
-void UpdateStaticStatsUsers(int semID, struct sembuf sops, Stats* stats, char *utenteId, int* utenti_serviti, int* utenti_non_serviti_day, long* time_total, int* servizi_non_erogati) {
+void UpdateStaticStatsUsers(int semID, Stats* stats, char *utenteId, int* utenti_serviti, int* utenti_non_serviti_day, long* time_total, int* servizi_non_erogati) {
+    struct sembuf sops;
+    
     // acquisisco il lock
     if (CaptureLock(semID, sops, 4) == -1) {
         printf("[%s] Errore durante l'acquisizione del lock per le statistiche.\n", utenteId);
@@ -341,7 +345,9 @@ void UpdateStaticStatsUsers(int semID, struct sembuf sops, Stats* stats, char *u
     }
 }
 
-void UpdateDynamicStatsUsers(int semID, struct sembuf sops, Stats* stats, char *utenteId, int IndexServizioRichiesto,  int* utenti_serviti, int* utenti_non_serviti_day, long* time_total, int* servizi_non_erogati) {
+void UpdateDynamicStatsUsers(int semID, Stats* stats, char *utenteId, int IndexServizioRichiesto,  int* utenti_serviti, int* utenti_non_serviti_day, long* time_total, int* servizi_non_erogati) {
+    struct sembuf sops;
+    
     // acquisisco il lock
     if (CaptureLock(semID, sops, 4) == -1) {
         printf("[%s] Errore durante l'acquisizione del lock per le statistiche.\n", utenteId);

@@ -37,16 +37,16 @@ static void signalHandler(int signo) {
     }
 }
 
+int Randomizer(int value) {
+    return rand() % value;
+}
+
 void SlaveNotifyAndWait(int semID, struct sembuf sops) {
     // avviso il direttore che sono pronto
     ExecuteSemop(semID, sops, 0, -1);
     
     // aspetto che arrivi a 0 (ovvero il direttore mi da il via)
     ExecuteSemop(semID, sops, 1, 0);
-}
-
-int RandomizeProbabilityUser(int p_serv_min, int p_serv_max) {
-    return (rand() % ((p_serv_max - p_serv_min + 1) + p_serv_min));
 }
 
 bool ChoosePresence(int p_serv, char* utenteId) {
@@ -59,19 +59,6 @@ bool ChoosePresence(int p_serv, char* utenteId) {
         printf("[%s] Ho deciso di NON presentarmi.\n", utenteId);
         return false;
     }
-}
-
-int RandomizeRequest(int N_REQUEST) {
-    return rand() % N_REQUEST;
-}
-
-int RandomizeService() {
-    return rand() % NUM_SERVIZI;
-    // return 1; // Per testare il servizio 1
-}
-
-int CalculateTimeToGo(int timeDay) {
-    return rand() % timeDay;
 }
 
 bool CheckPresenceRequiredService(DailyConfig* config, int IndexServizioRichiesto, char* utenteID) {
@@ -202,11 +189,12 @@ int main(int argc, char *argv[]) {
         endDay = 0;
 
         // Calcoliamo la probabilità per decidere se presentarsi all'ufficio postale oppure no
-        P_SERV = RandomizeProbabilityUser(P_SERV_MIN, P_SERV_MAX);
+        int userProbability = ((P_SERV_MAX - P_SERV_MIN + 1) + P_SERV_MIN);
+        P_SERV = Randomizer(userProbability);
 
         if (ChoosePresence(P_SERV, utenteID)) {
             // scelgo quanti servizi richiedere
-            n_request_rand = RandomizeRequest(N_REQUEST);
+            n_request_rand = Randomizer(N_REQUEST);
             printf("[%s] Ho deciso di richiedere %d servizi\n", utenteID, n_request_rand);
 
             request = malloc(n_request_rand * sizeof(int));
@@ -216,7 +204,7 @@ int main(int argc, char *argv[]) {
 
             for (int i = 0; i < n_request_rand; i++) {
                 // scelgo il servizio
-                request[i] = RandomizeService();
+                request[i] = Randomizer(NUM_SERVIZI);
             }
 
             for (int i = 0; i < n_request_rand && !endDay; i++) {
@@ -225,7 +213,7 @@ int main(int argc, char *argv[]) {
                 // verifico presenza
                 if (CheckPresenceRequiredService(config, request[i], utenteID) && !endDay) {
                     // Stabiliamo un orario in cui presentarci
-                    int timeToGo = CalculateTimeToGo(timeDay);
+                    int timeToGo = Randomizer(timeDay);
                     printf("[%s] Ho deciso di presentarmi tra %d nanosecondi.\n", utenteID, timeToGo);
                     struct timespec req;
                     req.tv_sec  = 0;
@@ -280,9 +268,9 @@ int main(int argc, char *argv[]) {
         }
 
         // Aggiorna le statistiche
-        UpdateStaticStatsUsers(semID, sops, stats, utenteID, &utenti_serviti, &utenti_non_serviti_day, &time_total, &servizi_non_erogati);
+        UpdateStaticStatsUsers(semID, stats, utenteID, &utenti_serviti, &utenti_non_serviti_day, &time_total, &servizi_non_erogati);
         for (int i = 0; i < NUM_SERVIZI; i++) {
-            UpdateDynamicStatsUsers(semID, sops, stats, utenteID, i, &localCounters[i].utenti_serviti, &localCounters[i].utenti_non_serviti, &localCounters[i].time_total, &localCounters[i].servizi_non_erogati);
+            UpdateDynamicStatsUsers(semID, stats, utenteID, i, &localCounters[i].utenti_serviti, &localCounters[i].utenti_non_serviti, &localCounters[i].time_total, &localCounters[i].servizi_non_erogati);
         }
 
         // loop riparte per il giorno successivo
