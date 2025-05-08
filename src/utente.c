@@ -130,9 +130,10 @@ int main(int argc, char *argv[]) {
     int semID = atoi(argv[3]);
     int msgIdDispenser = atoi(argv[4]);
     int msgIdUser = atoi(argv[5]);
-    int P_SERV_MIN = atoi(argv[6]);
-    int P_SERV_MAX = atoi(argv[7]);
-    int timeDay = atoi(argv[8]);
+    int N_REQUEST = atoi(argv[6]);
+    int P_SERV_MIN = atoi(argv[7]);
+    int P_SERV_MAX = atoi(argv[8]);
+    int timeDay = atoi(argv[9]);
     int P_SERV = 0;
     int myPID = getpid();
     bool served = false;

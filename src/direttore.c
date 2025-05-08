@@ -20,6 +20,7 @@ int NUM_SPORTELLI;
 int TOTAL_PROCESSES;
 int TOTAL_PROCESSES_DIR;
 int NOF_PAUSE;  // Numero di pause che un operatore può fare in tutta la simulazione
+int N_REQUEST;
 int P_SERV_MIN; // Probabilità per l'utente
 int P_SERV_MAX; // Probabilità per l'utente
 int SIM_DURATION; // Durata della simulazione in giorni
@@ -34,11 +35,12 @@ static void signalHandler(int signo) {
     // Do nothing
 }
 
-void readConfig(char *numOfWorkers, char *numOfUsers, char *numSportelli, char *nofPause, char *pServMin, char *pServMax, char *simDuration, char *explodeThreshold) {
+void readConfig(char *numOfWorkers, char *numOfUsers, char *numSportelli, char *nofPause, char *nRequest, char *pServMin, char *pServMax, char *simDuration, char *explodeThreshold) {
     NUM_OF_WORKERS = atoi(numOfWorkers);
     NUM_OF_USERS = atoi(numOfUsers);
     NUM_SPORTELLI = atoi(numSportelli);
     NOF_PAUSE = atoi(nofPause);
+    N_REQUEST = atoi(nRequest);
     P_SERV_MIN = atoi(pServMin);
     P_SERV_MAX = atoi(pServMax);
     SIM_DURATION = atoi(simDuration);
@@ -87,13 +89,14 @@ void CreateProcess(const char *path, char *const argv[]) {
 
 void createAllSubProcess(int shmID, int shmIdStats, int semID, int msgIdDispenser, int msgIdOperator, int msgIdUser) {
     // Creiamo le stringhe da passare ai figli
-    char semID_str[15], msgIdDispenser_str[15], msgIdOperator_str[15], msgIdUser_str[15], id_buffer[50], shmID_str[15], shmIdStats_str[15], random_service[10], p_serv_min_str[10], p_serv_max_str[10], timeDay[20], simulated_minute_str[20], nof_pause_str[3];
+    char semID_str[15], msgIdDispenser_str[15], msgIdOperator_str[15], msgIdUser_str[15], id_buffer[50], shmID_str[15], shmIdStats_str[15], random_service[10], n_request_str[10], p_serv_min_str[10], p_serv_max_str[10], timeDay[20], simulated_minute_str[20], nof_pause_str[3];
     sprintf(semID_str, "%d", semID);
     sprintf(msgIdDispenser_str, "%d", msgIdDispenser);
     sprintf(msgIdOperator_str, "%d", msgIdOperator);
     sprintf(msgIdUser_str, "%d", msgIdUser);
     sprintf(shmID_str, "%d", shmID);
     sprintf(shmIdStats_str, "%d", shmIdStats);
+    sprintf(n_request_str, "%d", N_REQUEST);
     sprintf(p_serv_min_str, "%d", P_SERV_MIN);
     sprintf(p_serv_max_str, "%d", P_SERV_MAX);
     sprintf(timeDay, "%d", CalculateTimeDayUser());
@@ -115,7 +118,7 @@ void createAllSubProcess(int shmID, int shmIdStats, int semID, int msgIdDispense
     // Creiamo tutti gli utenti
     for (int i = 0; i < NUM_OF_USERS; i++) {
         sprintf(id_buffer, "User_%d", i);
-        char *utente_args[] = {id_buffer, shmID_str, shmIdStats_str, semID_str, msgIdDispenser_str, msgIdUser_str, p_serv_min_str, p_serv_max_str, timeDay, NULL};
+        char *utente_args[] = {id_buffer, shmID_str, shmIdStats_str, semID_str, msgIdDispenser_str, msgIdUser_str, n_request_str, p_serv_min_str, p_serv_max_str, timeDay, NULL};
         CreateProcess("./bin/utente", utente_args);
     }
 }
@@ -186,7 +189,7 @@ void Clean(int msgIdDispenser, int msgIdOperator, int msgIdUser, int semID, int 
 int main(int argc, char *argv[]) {
     struct sembuf sops;
 
-    readConfig(argv[1], argv[2], argv[3], argv[4], argv[5], argv[6], argv[7], argv[8]);
+    readConfig(argv[1], argv[2], argv[3], argv[4], argv[5], argv[6], argv[7], argv[8], argv[9]);
 
     char* direttoreID = "Direttore";
     char* csvPath = "Stats.csv";
