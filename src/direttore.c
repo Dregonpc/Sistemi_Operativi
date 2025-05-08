@@ -133,7 +133,7 @@ bool CheckThreshold(Stats* stats) {
     return false;
 }
 
-void MasterNotifyAndWait(int semID, struct sembuf sops, DailyConfig* config, Stats* stats, bool endDay, bool* endSim, bool printStats, char* csvPath, char* direttoreID) {
+void MasterNotifyAndWait(int semID, struct sembuf sops, DailyConfig* config, Stats* stats, bool endDay, bool* endSim, bool printStats, char* csvPath, char* direttoreID, int msgIdDispenser, int msgIdOperator, int msgIdUser) {
     // aspettiamo che arrivi a 0 (ovvero tutti i figli sono pronti e hanno decrementato il semaforo)
     ExecuteSemop(semID, sops, 0, 0);
     
@@ -152,6 +152,11 @@ void MasterNotifyAndWait(int semID, struct sembuf sops, DailyConfig* config, Sta
 
         // Resettiamo il semaforo tra operatori e utenti
         SemRestart(semID, sops, NUM_SPORTELLI, 1, 1, direttoreID);
+
+        // Puliamo le code di messaggi per il nuovo giorno
+        cleanMsgQueue(msgIdDispenser);
+        cleanMsgQueue(msgIdOperator);
+        cleanMsgQueue(msgIdUser);
     }
     
     if (endDay && !(*endSim)) {
@@ -177,9 +182,9 @@ void waitFinishAllSubProcess() {
 }
 
 void Clean(int msgIdDispenser, int msgIdOperator, int msgIdUser, int semID, int shmID, DailyConfig* config, int shmIdStat, Stats* stats) {
-    messageQueueClean(msgIdDispenser);
-    messageQueueClean(msgIdOperator);
-    messageQueueClean(msgIdUser);
+    messageQueueRemove(msgIdDispenser);
+    messageQueueRemove(msgIdOperator);
+    messageQueueRemove(msgIdUser);
 
     semCleanUp(semID);
     SharedMemoryCleanConfig(shmID, config);
@@ -244,7 +249,7 @@ int main(int argc, char *argv[]) {
     bool endSim = false;
     
     // aspettiamo che tutti i figli siano pronti e diamogli il via
-    MasterNotifyAndWait(semID, sops, config, stats, true, &endSim, false, csvPath, direttoreID);
+    MasterNotifyAndWait(semID, sops, config, stats, true, &endSim, false, csvPath, direttoreID, msgIdDispenser, msgIdOperator, msgIdUser);
 
     // Scorriamo i giorni e avvisiamo ogni volta i figli quando finisce un giorno
     for (int giorni = 1; giorni <= SIM_DURATION && !endSim; giorni++) {
@@ -254,7 +259,7 @@ int main(int argc, char *argv[]) {
         ResetStatsDaily(stats, semID);
 
         // Diamo il tempo ai figli per configurarsi per il nuovo giorno
-        MasterNotifyAndWait(semID, sops, config, stats, false, &endSim, false, csvPath, direttoreID);
+        MasterNotifyAndWait(semID, sops, config, stats, false, &endSim, false, csvPath, direttoreID, msgIdDispenser, msgIdOperator, msgIdUser);
 
         // simulo il passare dei minuti
         printf("[Direttore] Giorno %d in corso (480 minuti)...\n", giorni);
@@ -274,7 +279,7 @@ int main(int argc, char *argv[]) {
         
         // Facciamo ripartire i figli per il nuovo giorno
         endSim = (giorni == SIM_DURATION);
-        MasterNotifyAndWait(semID, sops, config, stats, true, &endSim, true, csvPath, direttoreID);
+        MasterNotifyAndWait(semID, sops, config, stats, true, &endSim, true, csvPath, direttoreID, msgIdDispenser, msgIdOperator, msgIdUser);
     }
 
     // Fermiamo la simulazione

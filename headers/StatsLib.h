@@ -88,6 +88,8 @@ void UpdateStatsOperators(int semID, struct sembuf sops, Stats* stats, char *ope
  * @param time_total puntatore al tempo totale di attesa
  * @param servizi_non_erogati puntatore al numero di servizi non erogati
  */
-void UpdateStatsUsers(int semID, struct sembuf sops, Stats* stats, char *utenteId, int IndexServizioRichiesto,  int* utenti_serviti, int* utenti_non_serviti_day, long* time_total, int* servizi_non_erogati);
+void UpdateStaticStatsUsers(int semID, struct sembuf sops, Stats* stats, char *utenteId, int* utenti_serviti, int* utenti_non_serviti_day, long* time_total, int* servizi_non_erogati);
+
+void UpdateDynamicStatsUsers(int semID, struct sembuf sops, Stats* stats, char *utenteId, int IndexServizioRichiesto,  int* utenti_serviti, int* utenti_non_serviti_day, long* time_total, int* servizi_non_erogati);
 
 #endif // STATSLIB_H

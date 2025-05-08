@@ -316,7 +316,7 @@ void UpdateStatsOperators(int semID, struct sembuf sops, Stats* stats, char *ope
 
 // FUNCTION FOR USERS
 
-void UpdateStatsUsers(int semID, struct sembuf sops, Stats* stats, char *utenteId, int IndexServizioRichiesto,  int* utenti_serviti, int* utenti_non_serviti_day, long* time_total, int* servizi_non_erogati) {
+void UpdateStaticStatsUsers(int semID, struct sembuf sops, Stats* stats, char *utenteId, int* utenti_serviti, int* utenti_non_serviti_day, long* time_total, int* servizi_non_erogati) {
     // acquisisco il lock
     if (CaptureLock(semID, sops, 4) == -1) {
         printf("[%s] Errore durante l'acquisizione del lock per le statistiche.\n", utenteId);
@@ -332,13 +332,26 @@ void UpdateStatsUsers(int semID, struct sembuf sops, Stats* stats, char *utenteI
     stats->servizi_non_erogati_tot_sim += *servizi_non_erogati;
     stats->servizi_non_erogati_tot_day += *servizi_non_erogati;
     
+    stats->tempo_attesa_utenti_sim += *time_total;
+    stats->tempo_attesa_utenti_day += *time_total;
+    
+    // rilascio il lock
+    if (ReleaseLock(semID, sops, 4) == -1) {
+        printf("[%s] Errore durante il rilascio del lock per le statistiche.\n", utenteId);
+    }
+}
+
+void UpdateDynamicStatsUsers(int semID, struct sembuf sops, Stats* stats, char *utenteId, int IndexServizioRichiesto,  int* utenti_serviti, int* utenti_non_serviti_day, long* time_total, int* servizi_non_erogati) {
+    // acquisisco il lock
+    if (CaptureLock(semID, sops, 4) == -1) {
+        printf("[%s] Errore durante l'acquisizione del lock per le statistiche.\n", utenteId);
+    }
+    
     stats->utenti_serviti_day_sim_services[IndexServizioRichiesto] += *utenti_serviti;
     stats->utenti_serviti_tot_sim_services[IndexServizioRichiesto] += *utenti_serviti;
     stats->servizi_non_erogati_tot_sim_services[IndexServizioRichiesto] += *servizi_non_erogati;
     stats->tempo_attesa_utenti_day_services[IndexServizioRichiesto] += *time_total;
     stats->tempo_attesa_utenti_sim_services[IndexServizioRichiesto] += *time_total;
-    stats->tempo_attesa_utenti_sim += *time_total;
-    stats->tempo_attesa_utenti_day += *time_total;
     
     // rilascio il lock
     if (ReleaseLock(semID, sops, 4) == -1) {

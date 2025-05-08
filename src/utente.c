@@ -13,6 +13,13 @@
 #include "../headers/SharedMemory.h"
 #include "../headers/StatsLib.h"
 
+typedef struct {
+    int utenti_serviti;
+    int utenti_non_serviti;
+    int servizi_non_erogati;
+    long time_total;
+} localStats;
+
 static volatile sig_atomic_t endDay = 0;
 static volatile sig_atomic_t endSimulation = 0;
 
@@ -54,9 +61,17 @@ bool ChoosePresence(int p_serv, char* utenteId) {
     }
 }
 
+int RandomizeRequest(int N_REQUEST) {
+    return rand() % N_REQUEST;
+}
+
 int RandomizeService() {
     return rand() % NUM_SERVIZI;
     // return 1; // Per testare il servizio 1
+}
+
+int CalculateTimeToGo(int timeDay) {
+    return rand() % timeDay;
 }
 
 bool CheckPresenceRequiredService(DailyConfig* config, int IndexServizioRichiesto, char* utenteID) {
@@ -70,10 +85,6 @@ bool CheckPresenceRequiredService(DailyConfig* config, int IndexServizioRichiest
     
     printf("[%s] Non ho trovato un operatore che può svolgere la mia richiesta (%d)...\n", utenteID, IndexServizioRichiesto);
     return false;
-}
-
-int CalculateTimeToGo(int timeDay) {
-    return (rand() % timeDay);
 }
 
 void SendMessageToErogatore(int msgID, char* utenteID, int IndexServizioRichiesto, int myPID) {
@@ -113,11 +124,18 @@ bool ReceiveMessageFromOperator(int msgID, int myPID, char* utenteID, long* time
     return true;
 }
 
-void ResetCounters(int* utenti_serviti, int* utenti_non_serviti_day, int* servizi_non_erogati, bool* served) {
+void ResetCounters(int* utenti_serviti, int* utenti_non_serviti_day, int* servizi_non_erogati, bool* served, localStats stats[]) {
     *utenti_serviti = 0;
     *utenti_non_serviti_day = 0;
     *servizi_non_erogati = 0;
     *served = false;
+
+    for(int i = 0; i < NUM_SERVIZI; i++) {
+        stats[i].utenti_serviti = 0;
+        stats[i].utenti_non_serviti = 0;
+        stats[i].servizi_non_erogati = 0;
+        stats[i].time_total = 0;
+    }
 }
 
 int main(int argc, char *argv[]) {
@@ -137,6 +155,9 @@ int main(int argc, char *argv[]) {
     int P_SERV = 0;
     int myPID = getpid();
     bool served = false;
+
+    localStats localCounters[NUM_SERVIZI];
+
     printf("[%s] Avvio in corso. PID = %d\n", utenteID, myPID);
 
     // Installa i signal handler
@@ -170,9 +191,10 @@ int main(int argc, char *argv[]) {
     int servizi_non_erogati = 0;
 
     while (1) {
-        int IndexServizioRichiesto = -1;
+        int n_request_rand = -1;
         long time_total = 0.0;
-        ResetCounters(&utenti_serviti, &utenti_non_serviti_day, &servizi_non_erogati, &served);
+        int* request = NULL;
+        ResetCounters(&utenti_serviti, &utenti_non_serviti_day, &servizi_non_erogati, &served, localCounters);
         
         SlaveNotifyAndWait(semID, sops);
 
@@ -182,53 +204,72 @@ int main(int argc, char *argv[]) {
         // Calcoliamo la probabilità per decidere se presentarsi all'ufficio postale oppure no
         P_SERV = RandomizeProbabilityUser(P_SERV_MIN, P_SERV_MAX);
 
-        if (ChoosePresence(P_SERV, utenteID)) {    
-            // scelgo il servizio
-            IndexServizioRichiesto = RandomizeService();
-            
-            // verifico presenza
-            if (CheckPresenceRequiredService(config, IndexServizioRichiesto, utenteID) && !endDay) {
-                // Stabiliamo un orario in cui presentarci
-                int timeToGo = CalculateTimeToGo(timeDay);
-                printf("[%s] Ho deciso di presentarmi tra %d nanosecondi.\n", utenteID, timeToGo);
-                struct timespec req;
-                req.tv_sec  = 0;
-                req.tv_nsec = timeToGo;
-                nanosleep(&req, NULL);
+        if (ChoosePresence(P_SERV, utenteID)) {
+            // scelgo quanti servizi richiedere
+            n_request_rand = RandomizeRequest(N_REQUEST);
+            printf("[%s] Ho deciso di richiedere %d servizi\n", utenteID, n_request_rand);
 
-                long timeExecution = 0.0;
-                
-                // Contiamo il tempo che ci vuole per essere serviti
-                struct timespec time_start, time_end;
-                clock_gettime(CLOCK_MONOTONIC, &time_start);
+            request = malloc(n_request_rand * sizeof(int));
+            if (!request) {
+                printf("[%s] Errore durante la malloc\n", utenteID);
+            }
 
-                // invio richiesta e aspetto
-                SendMessageToErogatore(msgIdDispenser, utenteID, IndexServizioRichiesto, myPID);
-                served = ReceiveMessageFromOperator(msgIdUser, myPID, utenteID, &timeExecution);
+            for (int i = 0; i < n_request_rand; i++) {
+                // scelgo il servizio
+                request[i] = RandomizeService();
+            }
 
-                clock_gettime(CLOCK_MONOTONIC, &time_end);
-                long sec = time_end.tv_sec - time_start.tv_sec;
-                long nsec = time_end.tv_nsec - time_start.tv_nsec;
-                if (nsec < 0) {
-                    sec--;
-                    nsec += (long)1000000000;
+            for (int i = 0; i < n_request_rand && !endDay; i++) {
+                served = false;
+
+                // verifico presenza
+                if (CheckPresenceRequiredService(config, request[i], utenteID) && !endDay) {
+                    // Stabiliamo un orario in cui presentarci
+                    int timeToGo = CalculateTimeToGo(timeDay);
+                    printf("[%s] Ho deciso di presentarmi tra %d nanosecondi.\n", utenteID, timeToGo);
+                    struct timespec req;
+                    req.tv_sec  = 0;
+                    req.tv_nsec = timeToGo;
+                    nanosleep(&req, NULL);
+
+                    long timeExecution = 0.0;
+                    
+                    // Contiamo il tempo che ci vuole per essere serviti
+                    struct timespec time_start, time_end;
+                    clock_gettime(CLOCK_MONOTONIC, &time_start);
+
+                    // invio richiesta e aspetto
+                    SendMessageToErogatore(msgIdDispenser, utenteID, request[i], myPID);
+                    served = ReceiveMessageFromOperator(msgIdUser, myPID, utenteID, &timeExecution);
+
+                    clock_gettime(CLOCK_MONOTONIC, &time_end);
+                    long sec = time_end.tv_sec - time_start.tv_sec;
+                    long nsec = time_end.tv_nsec - time_start.tv_nsec;
+                    if (nsec < 0) {
+                        sec--;
+                        nsec += (long)1000000000;
+                    }
+
+                    // Sottraiammo al tempo totale il tempo che ci ha messo l'operatore per servirmi per trovare il tempo di attesa in coda
+                    localCounters[request[i]].time_total = nsec - timeExecution;
+                    time_total += localCounters[request[i]].time_total;
+                    
+                    // Se siamo qui e served è false, significa che abbiamo richiesto un servizio ma l'operatore non l'ha erogato
+                    if (!served) {
+                        servizi_non_erogati++;
+                        localCounters[request[i]].servizi_non_erogati++;
+                    }
                 }
 
-                // Sottraiammo al tempo totale il tempo che ci ha messo l'operatore per servirmi per trovare il tempo di attesa in coda
-                time_total = nsec - timeExecution;
-                
-                // Se siamo qui e served è false, significa che abbiamo richiesto un servizio ma l'operatore non l'ha erogato
-                if (!served) {
-                    servizi_non_erogati++;
+                if (served) {
+                    utenti_serviti++;
+                    localCounters[request[i]].utenti_serviti++;
+                }
+                else {
+                    utenti_non_serviti_day++;
+                    localCounters[request[i]].utenti_non_serviti++;
                 }
             }
-        }
-
-        if (served) {
-            utenti_serviti++;
-        }
-        else {
-            utenti_non_serviti_day++;
         }
 
         // se servito o giornata finita, torno a casa
@@ -239,10 +280,15 @@ int main(int argc, char *argv[]) {
         }
 
         // Aggiorna le statistiche
-        UpdateStatsUsers(semID, sops, stats, utenteID, IndexServizioRichiesto, &utenti_serviti, &utenti_non_serviti_day, &time_total, &servizi_non_erogati);
+        UpdateStaticStatsUsers(semID, sops, stats, utenteID, &utenti_serviti, &utenti_non_serviti_day, &time_total, &servizi_non_erogati);
+        for (int i = 0; i < NUM_SERVIZI; i++) {
+            UpdateDynamicStatsUsers(semID, sops, stats, utenteID, i, &localCounters[i].utenti_serviti, &localCounters[i].utenti_non_serviti, &localCounters[i].time_total, &localCounters[i].servizi_non_erogati);
+        }
 
         // loop riparte per il giorno successivo
         printf("[%s] Fine giornata, ci vediamo domani!\n", utenteID);
+
+        free(request);
 
         SlaveNotifyAndWait(semID, sops);
 
