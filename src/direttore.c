@@ -16,6 +16,7 @@
 /*  Global Var  */
 int NUM_OF_WORKERS;
 int NUM_OF_USERS;
+int NUM_SPORTELLI;
 int TOTAL_PROCESSES;
 int TOTAL_PROCESSES_DIR;
 int NOF_PAUSE;  // Numero di pause che un operatore può fare in tutta la simulazione
@@ -33,9 +34,10 @@ static void signalHandler(int signo) {
     // Do nothing
 }
 
-void readConfig(char *numOfWorkers, char *numOfUsers, char *nofPause, char *pServMin, char *pServMax, char *simDuration, char *explodeThreshold) {
+void readConfig(char *numOfWorkers, char *numOfUsers, char *numSportelli, char *nofPause, char *pServMin, char *pServMax, char *simDuration, char *explodeThreshold) {
     NUM_OF_WORKERS = atoi(numOfWorkers);
     NUM_OF_USERS = atoi(numOfUsers);
+    NUM_SPORTELLI = atoi(numSportelli);
     NOF_PAUSE = atoi(nofPause);
     P_SERV_MIN = atoi(pServMin);
     P_SERV_MAX = atoi(pServMax);
@@ -184,7 +186,7 @@ void Clean(int msgIdDispenser, int msgIdOperator, int msgIdUser, int semID, int 
 int main(int argc, char *argv[]) {
     struct sembuf sops;
 
-    readConfig(argv[1], argv[2], argv[3], argv[4], argv[5], argv[6], argv[7]);
+    readConfig(argv[1], argv[2], argv[3], argv[4], argv[5], argv[6], argv[7], argv[8]);
 
     char* direttoreID = "Direttore";
     char* csvPath = "Stats.csv";
@@ -208,8 +210,10 @@ int main(int argc, char *argv[]) {
     sigaction(SIGTERM, &sa_term, NULL);
 
     // creiamo la memoria condivisa e colleghiamoci
-    int shmID = SharedMemoryCreate(sizeof(DailyConfig), 0666, direttoreID);
+    size_t size = sizeof(DailyConfig) + NUM_SPORTELLI * sizeof(Sportello);
+    int shmID = SharedMemoryCreate(size, 0666, direttoreID);
     DailyConfig* config = (DailyConfig*)SharedMemoryAttachGeneral(shmID, direttoreID);
+    config->num_sportelli = NUM_SPORTELLI;
 
     int shmIdStats = SharedMemoryCreate(sizeof(Stats), 0666, direttoreID);
     Stats* stats = (Stats*)SharedMemoryAttachGeneral(shmIdStats, direttoreID);

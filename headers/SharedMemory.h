@@ -9,7 +9,8 @@
 #include <stdlib.h>
 
 typedef struct {
-    Sportello sportelli[NUM_SPORTELLI];
+    int num_sportelli;
+    Sportello sportelli[];
 } DailyConfig;
 
 typedef struct {

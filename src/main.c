@@ -24,6 +24,7 @@ void trim(char *s) {
 
 int NUM_OF_WORKERS = 0;
 int NUM_OF_USERS = 0;
+int NUM_SPORTELLI = 0;
 int NOF_PAUSE = 0;
 int P_SERV_MIN = 0;
 int P_SERV_MAX = 0;
@@ -54,6 +55,8 @@ void read_config(char *filename) {
             NUM_OF_WORKERS = atoi(value);
         } else if (strcmp(key, "NUM_OF_USERS") == 0) {
             NUM_OF_USERS = atoi(value);
+        } else if (strcmp(key, "NUM_SPORTELLI") == 0) {
+            NUM_SPORTELLI = atoi(value);
         } else if (strcmp(key, "NOF_PAUSE") == 0) {
             NOF_PAUSE = atoi(value);
         } else if (strcmp(key, "P_SERV_MIN") == 0) {
@@ -94,6 +97,9 @@ int main(int argc, char *argv[]) {
     char str_num_of_users[15];
     sprintf(str_num_of_users, "%d", NUM_OF_USERS);
 
+    char str_num_sportelli[15];
+    sprintf(str_num_sportelli, "%d", NUM_SPORTELLI);
+
     char str_nof_pause[15];
     sprintf(str_nof_pause, "%d", NOF_PAUSE);
 
@@ -111,6 +117,7 @@ int main(int argc, char *argv[]) {
 
     printf("[Main] Numero di operatori: %d\n", NUM_OF_WORKERS);
     printf("[Main] Numero di utenti: %d\n", NUM_OF_USERS);
+    printf("[Main] Numero degli sportelli: %d\n", NUM_SPORTELLI);
     printf("[Main] Numero di pause: %d\n", NOF_PAUSE);
     printf("[Main] Tempo di servizio minimo: %d\n", P_SERV_MIN);
     printf("[Main] Tempo di servizio massimo: %d\n", P_SERV_MAX);
@@ -118,7 +125,7 @@ int main(int argc, char *argv[]) {
     printf("[Main] Soglia di esplosione: %d\n", EXPLODE_THRESHOLD);
         
     // Passa i parametri al direttore
-    char* direttore_args[] = {"Direttore", str_num_of_workers, str_num_of_users, str_nof_pause, str_p_serv_min, str_p_serv_max, str_sim_duration, str_explode_threshold, NULL};
+    char* direttore_args[] = {"Direttore", str_num_of_workers, str_num_of_users, str_num_sportelli, str_nof_pause, str_p_serv_min, str_p_serv_max, str_sim_duration, str_explode_threshold, NULL};
 
     execve("./bin/direttore", direttore_args, NULL);
 

@@ -60,7 +60,8 @@ int RandomizeService() {
 }
 
 bool CheckPresenceRequiredService(DailyConfig* config, int IndexServizioRichiesto, char* utenteID) {
-    for (int i = 0; i < NUM_SPORTELLI; i++) {
+    int N = config->num_sportelli;
+    for (int i = 0; i < N; i++) {
         if (!config->sportelli[i].disponibile && config->sportelli[i].indexServizioOfferto == IndexServizioRichiesto) { // Se lo sportello non è disponibile significa che qualche operatore l'ha occupato, si potrebbe sostituire con config->sportelli[i].idOperatore != ""
             printf("[%s] Ho trovato un operatore che può svolgere la mia richiesta (%d)\n", utenteID, IndexServizioRichiesto);
             return true;

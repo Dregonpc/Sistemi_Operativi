@@ -30,7 +30,8 @@ static void signalHandler(int signo) {
 }
 
 bool CheckDailyService(DailyConfig* config, int indexServizioOperatore, char* operatoreId) {
-    for (int i = 0; i < NUM_SPORTELLI; i++) {
+    int N = config->num_sportelli;
+    for (int i = 0; i < N; i++) {
         if (config->sportelli[i].indexServizioOfferto == indexServizioOperatore) {
             printf("[%s] Ho controllato gli sportelli è c'è il servizio che offro io (%d).\n", operatoreId, indexServizioOperatore);
             return true;
@@ -73,8 +74,10 @@ bool TakeUpPostOffice(DailyConfig* config, int semID, struct sembuf sops, int in
         if (CaptureLock(semID, sops, 3) == -1) {
             printf("[%s] Errore durante l'acquisizione del lock per gli sportelli.\n", operatoreId);
         }
+
+        int N = config->num_sportelli;
     
-        for (int i = 0; i < NUM_SPORTELLI; i++) {
+        for (int i = 0; i < N; i++) {
             if (config->sportelli[i].disponibile && config->sportelli[i].indexServizioOfferto == indexServizioOperatore) {
                 config->sportelli[i].idOperatore = operatoreId;
                 config->sportelli[i].disponibile = 0;
@@ -102,7 +105,9 @@ void releasePostOffice(DailyConfig* config, int semID, struct sembuf sops, char*
         printf("[%s] Errore durante l'acquisizione del lock per gli sportelli.\n", operatoreId);
     }
 
-    for (int i = 0; i < NUM_SPORTELLI; i++) {
+    int N = config->num_sportelli;
+
+    for (int i = 0; i < N; i++) {
         if (config->sportelli[i].idOperatore == operatoreId) {
             config->sportelli[i].idOperatore = "";
             config->sportelli[i].disponibile = 1;
