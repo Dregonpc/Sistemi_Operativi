@@ -139,6 +139,7 @@ int main(int argc, char *argv[]) {
     int P_SERV_MIN = atoi(argv[7]);
     int P_SERV_MAX = atoi(argv[8]);
     int timeDay = atoi(argv[9]);
+    int IsNormalUser = atoi(argv[10]);
     int P_SERV = 0;
     int myPID = getpid();
     bool served = false;
@@ -164,8 +165,10 @@ int main(int argc, char *argv[]) {
     DailyConfig* config = (DailyConfig*)SharedMemoryAttachGeneral(shmID, utenteID);
     Stats* stats = (Stats*)SharedMemoryAttachGeneral(shmIdStats, utenteID);
 
-    printf("[%s] Sono pronto, avviso il direttore e aspetto il via.\n", utenteID);
-    SlaveNotifyAndWait(semID, sops);
+    if (IsNormalUser) {
+        printf("[%s] Sono pronto, avviso il direttore e aspetto il via.\n", utenteID);
+        SlaveNotifyAndWait(semID, sops);
+    }
 
     // Posso iniziare a lavorare
     printf("[%s] Inizio a lavorare.\n", utenteID);

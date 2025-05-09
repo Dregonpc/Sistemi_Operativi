@@ -13,7 +13,7 @@ int main(int argc, char *argv[]) {
     int n = atoi(argv[1]);
 
     if (n <= 0 || n > MAX_NEW_USERS) {
-        printf("[addUsers] Errore: il numero inserito deve essere compreso tra 1 e 20.\n");
+        printf("[addUsers] Errore: il numero inserito deve essere compreso tra 1 e %d.\n", MAX_NEW_USERS);
         return EXIT_FAILURE;
     }
 

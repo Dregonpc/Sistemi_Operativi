@@ -87,6 +87,29 @@ void CreateProcess(const char *path, char *const argv[]) {
     }
 }
 
+void CreateUsers(int shmID, int shmIdStats, int semID, int msgIdDispenser, int msgIdUser, int counter, int oldUser, int IsNormalUser) {
+    // Creiamo le stringhe da passare ai figli
+    char id_buffer[50], shmID_str[15], shmIdStats_str[15], semID_str[15], msgIdDispenser_str[15], msgIdUser_str[15], n_request_str[10], p_serv_min_str[10], p_serv_max_str[10], timeDay[20], IsNormalUser_str[2];
+    sprintf(semID_str, "%d", semID);
+    sprintf(msgIdDispenser_str, "%d", msgIdDispenser);
+    sprintf(msgIdUser_str, "%d", msgIdUser);
+    sprintf(shmID_str, "%d", shmID);
+    sprintf(shmIdStats_str, "%d", shmIdStats);
+    sprintf(n_request_str, "%d", N_REQUEST);
+    sprintf(p_serv_min_str, "%d", P_SERV_MIN);
+    sprintf(p_serv_max_str, "%d", P_SERV_MAX);
+    sprintf(timeDay, "%d", CalculateTimeDayUser());
+    sprintf(IsNormalUser_str, "%d", IsNormalUser);
+
+    // Creiamo tutti gli utenti
+    for (int i = 0; i < counter; i++) {
+        int j = i + oldUser;
+        sprintf(id_buffer, "User_%d", j);
+        char *utente_args[] = {id_buffer, shmID_str, shmIdStats_str, semID_str, msgIdDispenser_str, msgIdUser_str, n_request_str, p_serv_min_str, p_serv_max_str, timeDay, IsNormalUser_str, NULL};
+        CreateProcess("./bin/utente", utente_args);
+    }
+}
+
 void createAllSubProcess(int shmID, int shmIdStats, int semID, int msgIdDispenser, int msgIdOperator, int msgIdUser) {
     // Creiamo le stringhe da passare ai figli
     char semID_str[15], msgIdDispenser_str[15], msgIdOperator_str[15], msgIdUser_str[15], id_buffer[50], shmID_str[15], shmIdStats_str[15], random_service[10], n_request_str[10], p_serv_min_str[10], p_serv_max_str[10], timeDay[20], simulated_minute_str[20], nof_pause_str[3];
@@ -116,24 +139,40 @@ void createAllSubProcess(int shmID, int shmIdStats, int semID, int msgIdDispense
     }
 
     // Creiamo tutti gli utenti
-    for (int i = 0; i < NUM_OF_USERS; i++) {
-        sprintf(id_buffer, "User_%d", i);
-        char *utente_args[] = {id_buffer, shmID_str, shmIdStats_str, semID_str, msgIdDispenser_str, msgIdUser_str, n_request_str, p_serv_min_str, p_serv_max_str, timeDay, NULL};
-        CreateProcess("./bin/utente", utente_args);
-    }
+    CreateUsers(shmID, shmIdStats, semID, msgIdDispenser, msgIdUser, NUM_OF_USERS, 0, 1);
 }
 
-void CheckNewUsers(int msgID) {
+void CheckNewUsers(int msgIdNewUsers, int shmID, int shmIdStats, int semID, int msgIdDispenser, int msgIdUser) {
     NewUserMsg msg;
     int counter_new_users = 0;
     ssize_t n;
 
-    while ((n = msgrcv(msgID, &msg, sizeof(msg.new_users), 0, IPC_NOWAIT)) >= 0) {
+    while ((n = msgrcv(msgIdNewUsers, &msg, sizeof(msg.new_users), 0, IPC_NOWAIT)) >= 0) {
         counter_new_users += msg.new_users;
     }
 
     if (counter_new_users > 0) {
+        // Sistemo i contatori
+        int oldUser = NUM_OF_USERS;
+        NUM_OF_USERS += counter_new_users;
+        TOTAL_PROCESSES = 1 + NUM_OF_WORKERS + NUM_OF_USERS;
+        TOTAL_PROCESSES_DIR = 1 + TOTAL_PROCESSES;
+
+        struct sembuf sops;
+
+        // Se dobbiamo creare nuovi utenti, dobbiamo sincronizzarli con tutti gli altri processi
+        // Per farlo, aggiungiamo al semaforo dei figli il nuovo valore, cosi lo andranno a decrementare e si metteranno in wait
+        ExecuteSemop(semID, sops, 0, counter_new_users);
+
         // Crea nuovi utenti
+        // Facciamo skippare il primo SlaveNotifyAndWait in modo da fargli iniziare subito la giornata e metterli in pari con tutti gli altri
+        CreateUsers(shmID, shmIdStats, semID, msgIdDispenser, msgIdUser, counter_new_users, oldUser, 0);
+
+        printf("[Direttore] Ho creato %d nuovi utenti.\n", counter_new_users);
+
+        // Mettiamo in wait il direttore in modo da aspettare tutti i nuovi utenti
+        ExecuteSemop(semID, sops, 0, 0);
+        // Continuiamo con il flusso normale
     }
 }
 
@@ -147,7 +186,7 @@ bool CheckThreshold(Stats* stats) {
     return false;
 }
 
-void MasterNotifyAndWait(int semID, struct sembuf sops, DailyConfig* config, Stats* stats, bool endDay, bool* endSim, bool printStats, char* csvPath, char* direttoreID, int msgIdDispenser, int msgIdOperator, int msgIdUser, int msgIdNewUsers) {
+void MasterNotifyAndWait(int semID, struct sembuf sops, DailyConfig* config, Stats* stats, bool endDay, bool* endSim, bool printStats, char* csvPath, char* direttoreID, int msgIdDispenser, int msgIdOperator, int msgIdUser, int msgIdNewUsers, int shmID, int shmIdStats, bool CheckUsers) {
     // aspettiamo che arrivi a 0 (ovvero tutti i figli sono pronti e hanno decrementato il semaforo)
     ExecuteSemop(semID, sops, 0, 0);
     
@@ -172,13 +211,15 @@ void MasterNotifyAndWait(int semID, struct sembuf sops, DailyConfig* config, Sta
         cleanMsgQueue(msgIdOperator);
         cleanMsgQueue(msgIdUser);
     }
-    
-    if (endDay && !(*endSim)) {
-        // configuriamo gli sportellil'inizio giornata
-        ConfigurePostOffices(config, stats);
 
+    if (CheckUsers) {
         // Cotrolliamo se dobbiamo inserire nuovi utenti
-        CheckNewUsers(msgIdNewUsers);
+        CheckNewUsers(msgIdNewUsers, shmID, shmIdStats, semID, msgIdDispenser, msgIdUser);
+    }
+
+    if (endDay && !(*endSim)) {
+        // configuriamo gli sportelli per l'inizio giornata
+        ConfigurePostOffices(config, stats);
     }
 
     if (!(*endSim)) {
@@ -270,7 +311,7 @@ int main(int argc, char *argv[]) {
     bool endSim = false;
     
     // aspettiamo che tutti i figli siano pronti e diamogli il via
-    MasterNotifyAndWait(semID, sops, config, stats, true, &endSim, false, csvPath, direttoreID, msgIdDispenser, msgIdOperator, msgIdUser, msgIdNewUsers);
+    MasterNotifyAndWait(semID, sops, config, stats, true, &endSim, false, csvPath, direttoreID, msgIdDispenser, msgIdOperator, msgIdUser, msgIdNewUsers, shmID, shmIdStats, false);
 
     // Scorriamo i giorni e avvisiamo ogni volta i figli quando finisce un giorno
     for (int giorni = 1; giorni <= SIM_DURATION && !endSim; giorni++) {
@@ -280,7 +321,7 @@ int main(int argc, char *argv[]) {
         ResetStatsDaily(stats, semID);
 
         // Diamo il tempo ai figli per configurarsi per il nuovo giorno
-        MasterNotifyAndWait(semID, sops, config, stats, false, &endSim, false, csvPath, direttoreID, msgIdDispenser, msgIdOperator, msgIdUser, msgIdNewUsers);
+        MasterNotifyAndWait(semID, sops, config, stats, false, &endSim, false, csvPath, direttoreID, msgIdDispenser, msgIdOperator, msgIdUser, msgIdNewUsers, shmID, shmIdStats, true);
 
         // simulo il passare dei minuti
         printf("[Direttore] Giorno %d in corso (480 minuti)...\n", giorni);
@@ -300,7 +341,7 @@ int main(int argc, char *argv[]) {
         
         // Facciamo ripartire i figli per il nuovo giorno
         endSim = (giorni == SIM_DURATION);
-        MasterNotifyAndWait(semID, sops, config, stats, true, &endSim, true, csvPath, direttoreID, msgIdDispenser, msgIdOperator, msgIdUser, msgIdNewUsers);
+        MasterNotifyAndWait(semID, sops, config, stats, true, &endSim, true, csvPath, direttoreID, msgIdDispenser, msgIdOperator, msgIdUser, msgIdNewUsers, shmID, shmIdStats, false);
     }
 
     // Fermiamo la simulazione
