@@ -12,7 +12,7 @@ $(shell mkdir -p $(BIN) $(BLD))
 
 default: all
 
-all: $(BIN)/main $(BIN)/direttore $(BIN)/erogatore_ticket $(BIN)/operatore $(BIN)/utente
+all: $(BIN)/main $(BIN)/direttore $(BIN)/erogatore_ticket $(BIN)/operatore $(BIN)/utente $(BIN)/addUsers
 
 # main
 $(BIN)/main: $(BLD)/main.o
@@ -62,6 +62,13 @@ $(BIN)/utente: $(BLD)/SemsLib.o $(BLD)/StatsLib.o $(BLD)/SharedMemory.o $(BLD)/u
 	$(CC) $(CFLAGS) $^ -o $@
 
 $(BLD)/utente.o: $(SRC)/utente.c
+	$(CC) $(CFLAGS) -c $< -o $@
+
+# addUsers
+$(BIN)/addUsers: $(BLD)/MessageQueueLib.o $(BLD)/addUsers.o
+	$(CC) $(CFLAGS) $^ -o $@
+
+$(BLD)/addUsers.o: $(SRC)/addUsers.c
 	$(CC) $(CFLAGS) -c $< -o $@
 
 clean:

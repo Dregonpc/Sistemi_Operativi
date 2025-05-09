@@ -13,7 +13,7 @@
  * @param processName nome del processo chiamante
  * @return L'ID assegnato alla coda di messaggi
  */
-int messageQueueCreate(int flag, char* processName);
+int messageQueueCreate(int key, int flag, char* processName);
 
 /**
  * @brief Pulisce una coda di messaggi
