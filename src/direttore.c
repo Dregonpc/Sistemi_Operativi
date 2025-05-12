@@ -239,13 +239,14 @@ void waitFinishAllSubProcess() {
     }
 }
 
-void Clean(int msgIdDispenser, int msgIdOperator, int msgIdUser, int msgIdNewUser, int semID, int shmID, DailyConfig* config, int shmIdStat, Stats* stats) {
+void Clean(int msgIdDispenser, int msgIdOperator, int msgIdUser, int msgIdNewUser, int semID, int semMessageQueueID, int shmID, DailyConfig* config, int shmIdStat, Stats* stats) {
     messageQueueRemove(msgIdDispenser);
     messageQueueRemove(msgIdOperator);
     messageQueueRemove(msgIdUser);
     messageQueueRemove(msgIdNewUser);
 
     semCleanUp(semID);
+    semCleanUp(semMessageQueueID);
     SharedMemoryCleanConfig(shmID, config);
     SharedMemoryCleanStats(shmIdStat, stats);
 }
@@ -286,8 +287,11 @@ int main(int argc, char *argv[]) {
     Stats* stats = (Stats*)SharedMemoryAttachGeneral(shmIdStats, direttoreID);
     
     // creiamo il semaforo e inizializziamolo
-    int semID = semCreate(0666, direttoreID);
+    int semID = semCreate(0666, NUM_OF_SEM, direttoreID);
     semInizialize(semID, TOTAL_PROCESSES, 1, NUM_SPORTELLI, 1, 1, direttoreID);
+
+    int semMessageQueueID = semCreate(0666, NUM_SERVIZI, direttoreID);
+    semMessageInitialize(semMessageQueueID, NUM_SERVIZI, direttoreID);
     
     // inizializziamo le statistiche
     StatsInitialize(stats, semID);
@@ -358,7 +362,7 @@ int main(int argc, char *argv[]) {
     WriteFinalStatsCSV(csvPath, stats);
     
     // Pulizia
-    Clean(msgIdDispenser, msgIdOperator, msgIdUser, msgIdNewUsers, semID, shmID, config, shmIdStats, stats);
+    Clean(msgIdDispenser, msgIdOperator, msgIdUser, msgIdNewUsers, semID, semMessageQueueID, shmID, config, shmIdStats, stats);
 
     printf("[Direttore] Fine della simulazione.\n");
 

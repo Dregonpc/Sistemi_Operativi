@@ -1,7 +1,7 @@
 #include "../headers/SemsLib.h"
 
-int semCreate(int flag, char* processName) {
-    int semID = semget(IPC_PRIVATE, NUM_OF_SEM, IPC_CREAT | flag);
+int semCreate(int flag, int numOfSem, char* processName) {
+    int semID = semget(IPC_PRIVATE, numOfSem, IPC_CREAT | flag);
     if (semID < 0) {
         printf("[%s] Creazione del semaforo fallita.\n", processName);
         exit(EXIT_FAILURE);
@@ -44,6 +44,15 @@ void semInizialize(int semID, int quantity0, int quantity1, int quantity2, int q
     if (semctl(semID, 4, SETVAL, quantity4) < 0) {
         printf("[%s] Errore durante la semctl del semaforo per il lock delle statistiche.\n", processName);
         exit(EXIT_FAILURE);
+    }   
+}
+
+void semMessageInitialize(int semID, int NUM_OF_SERVICE, char* processName){
+    for (int i = 0; i < NUM_OF_SERVICE; i++) {
+        if (semctl(semID, i, SETVAL, 0) < 0) {
+            printf("[%s] Errore durante la semctl del semaforo dedicato alla coda di messaggi del servizio: %d.\n", processName, i);
+            exit(EXIT_FAILURE);
+        }
     }
 }
 

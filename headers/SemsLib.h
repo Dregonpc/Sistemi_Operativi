@@ -11,10 +11,11 @@
 /**
  * @brief Crea una collezione di semaforo
  * @param flag Flag da assegnare al set di semafori
+ * @param numOfSem numero di semafori da creare nla collezione
  * @param processName Nome del processo che crea i semafori
  * @return ID del semaforo creato
  */
-int semCreate(int flag, char* processName);
+int semCreate(int flag, int numOfSem, char* processName);
 
 /**
  * @brief Inizializza i semafori
@@ -27,6 +28,14 @@ int semCreate(int flag, char* processName);
  * @param processName Nome del processo che inizializza i semafori
  */
 void semInizialize(int semID, int quantity0, int quantity1, int quantity2, int quantity3, int quantity4, char* processName);
+
+/**
+ * @brief Inizializza i semafori per la gestione delle code di messaggi
+ * @param semID ID del semaforo
+ * @param numOfService Numero dei servizi => numero di semafori nella collezione
+ * @param processName Nome del processo che inizializza i semafori
+ */
+void semMessageInitialize(int semID, int numOfServices, char* processName);
 
 /**
  * @brief Inizializza i semafori per la barriera
