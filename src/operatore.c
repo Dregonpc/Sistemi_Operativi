@@ -142,54 +142,73 @@ int CalculateTimeExecution(int IndexServizio, int simulated_minute) {
     return durataCasuale * simulated_minute;
 }
 
-void ReceiveTicketAndExecute(int msgIdOperator, int msgIdUser, int IndexServizio, char *operatoreID, int NOF_PAUSE, int* pause_effettuate, int simulated_minute, int* servizi_erogati, int* counter_pause, double* tempo_erogazione) {
+void ReceiveTicketAndExecute(int msgIdOperator, int msgIdUser, int IndexServizio, char *operatoreID, int NOF_PAUSE, int* pause_effettuate, int simulated_minute, int* servizi_erogati, int* counter_pause, double* tempo_erogazione, int semIdOperators, int myIndex, int semIdUsers) {
+    struct sembuf sops;
+
     while (!endDay) {
         Messaggio msg;
         ssize_t n;
 
-        // ricevo finché non ottengo un messaggio valido o endDay
-        do {
-            n = msgrcv(msgIdOperator, &msg, sizeof(Messaggio) - sizeof(long), IndexServizio + 1, 0);
-        } while (n < 0 && errno == EINTR && !endDay);
-
-        if (endDay) {
-            printf("[%s] Fine giornata rilevata, interrompo ricezione.\n", operatoreID);
+        // Controllo se è arrivato endDay
+        if (msgrcv(msgIdOperator, &msg, sizeof(Messaggio) - sizeof(long), EOD_mtype, IPC_NOWAIT) >= 0) {
+            endDay = true;
             break;
         }
+        
+        // Se non è arrivato, mi metto in attesa che qualcuno mi svegli
+        CaptureLock(semIdOperators, sops, myIndex);
+        
+        // Qualcuno mi ha svegliato, controllo se è endDay
+        if (msgrcv(msgIdOperator, &msg, sizeof(Messaggio) - sizeof(long), EOD_mtype, IPC_NOWAIT) >= 0) {
+            endDay = true;
+            break;
+        }
+
+        // Significa che ho un ticket da servire
+        n = msgrcv(msgIdOperator, &msg, sizeof(Messaggio) - sizeof(long), IndexServizio + 1, IPC_NOWAIT);
+
         if (n < 0) {
-            perror("msgrcv");
+            if (errno == ENOMSG) {
+                if (endDay) break;
+                continue;
+            }
+            perror("msgrcv operatore");
         }
+        else {
+            msg.mtype--;
 
-        msg.mtype--;
+            printf("[%s] Servo il ticket %d per l'utente '%s' (servizio %ld).\n", operatoreID, msg.ticket_id, msg.text, msg.mtype);
 
-        printf("[%s] Servo il ticket %d per l'utente '%s' (servizio %ld).\n", operatoreID, msg.ticket_id, msg.text, msg.mtype);
+            // Eseguo il servizio
+            int tempo = CalculateTimeExecution(IndexServizio, simulated_minute);
+            struct timespec req;
+            req.tv_sec  = 0;
+            req.tv_nsec = tempo;
+            nanosleep(&req, NULL);
 
-        // Eseguo il servizio
-        int tempo = CalculateTimeExecution(IndexServizio, simulated_minute);
-        struct timespec req;
-        req.tv_sec  = 0;
-        req.tv_nsec = tempo;
-        nanosleep(&req, NULL);
+            *tempo_erogazione = tempo;
 
-        *tempo_erogazione = tempo;
+            // Manda risposta all'utente usando il suo PID come "destinatario"
+            msg.mtype = msg.user_id;
+            msg.time_for_execution = tempo;
+            if (msgsnd(msgIdUser, &msg, sizeof(Messaggio) - sizeof(long), 0) < 0) {
+                perror("msgsnd");
+            }
 
-        // Manda risposta all'utente usando il suo PID come "destinatario"
-        msg.mtype = msg.user_id;
-        msg.time_for_execution = tempo;
-        if (msgsnd(msgIdUser, &msg, sizeof(Messaggio) - sizeof(long), 0) < 0) {
-            perror("msgsnd");
-        }
+            // Sveglio l'utente interessato
+            ExecuteSemop(semIdUsers, sops, msg.user_index, 1);
 
-        // Aumentiamo i contatori
-        (*servizi_erogati)++;
+            // Aumentiamo i contatori
+            (*servizi_erogati)++;
 
-        printf("[%s] Ho finito di servire %ld. Ci ho impiegato %d nanosecondi.\n", operatoreID, msg.mtype, tempo);
+            printf("[%s] Ho finito di servire %ld. Ci ho impiegato %d nanosecondi.\n", operatoreID, msg.mtype, tempo);
 
-        if ((*pause_effettuate) < NOF_PAUSE && breakCondition(*servizi_erogati)) {
-            (*pause_effettuate)++;
-            (*counter_pause)++;
-            printf("[%s] Posso andare in pausa, termino la mia giornata.\n", operatoreID);
-            break;
+            if ((*pause_effettuate) < NOF_PAUSE && breakCondition(*servizi_erogati)) {
+                (*pause_effettuate)++;
+                (*counter_pause)++;
+                printf("[%s] Posso andare in pausa, termino la mia giornata.\n", operatoreID);
+                break;
+            }
         }
     }
 }
@@ -216,6 +235,7 @@ int main(int argc, char *argv[]) {
     int SIMULATED_MINUTE = atoi(argv[8]);
     int semIdOperators = atoi(argv[9]);
     int myIndex = atoi(argv[10]);
+    int semIdUsers = atoi(argv[11]);
 
     int pause_effettuate = 0;
     bool alreadyNotifiedStart = false;
@@ -279,7 +299,7 @@ int main(int argc, char *argv[]) {
                 printf("[%s] Inizio turno (servizio %d)\n", operatoreID, indexServizio);
         
                 // Mi metto a ricevere i ticket e ad eseguirli
-                ReceiveTicketAndExecute(msgIdOperator, msgIdUser, indexServizio, operatoreID, NOF_PAUSE, &pause_effettuate, SIMULATED_MINUTE, &servizi_erogati, &counter_pause, &tempo_erogazione);
+                ReceiveTicketAndExecute(msgIdOperator, msgIdUser, indexServizio, operatoreID, NOF_PAUSE, &pause_effettuate, SIMULATED_MINUTE, &servizi_erogati, &counter_pause, &tempo_erogazione, semIdOperators, myIndex, semIdUsers);
         
                 // rilascio lo sportello
                 releasePostOffice(config, semID, sops, operatoreID);
@@ -290,12 +310,12 @@ int main(int argc, char *argv[]) {
             SlaveNotifyAndWait(semID, sops);
         }
 
-        // Aspetto fine giornata se non già arrivata (per gli operatori che vanno in pausa)
+        // Aspetto fine giornata se non è già arrivata (per gli operatori che vanno in pausa)
         if (!endDay || !CheckService) {
             printf("[%s] Attendo SIGUSR2 (fine giornata)...\n", operatoreID);
-            while (!endDay) {
-                pause();
-            }
+            // while (!endDay) {
+            //     pause();
+            // }
         }
 
         // Aggiorna le statistiche
