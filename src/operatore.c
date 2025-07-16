@@ -142,7 +142,7 @@ int CalculateTimeExecution(int IndexServizio, int simulated_minute) {
     return durataCasuale * simulated_minute;
 }
 
-void ReceiveTicketAndExecute(int msgIdOperator, int msgIdUser, int IndexServizio, char *operatoreID, int NOF_PAUSE, int* pause_effettuate, int simulated_minute, int* servizi_erogati, int* counter_pause, double* tempo_erogazione, int semIdOperators, int myIndex, int semIdUsers) {
+void ReceiveTicketAndExecute(int msgIdOperator, int msgIdUser, int IndexServizio, char *operatoreID, int NOF_PAUSE, int* pause_effettuate, int simulated_minute, int* servizi_erogati, int* counter_pause, double* tempo_erogazione, int semIdOperators, int myIndex, int semIdUsers, int msgIdEOD) {
     struct sembuf sops;
 
     while (!endDay) {
@@ -150,7 +150,7 @@ void ReceiveTicketAndExecute(int msgIdOperator, int msgIdUser, int IndexServizio
         ssize_t n;
 
         // Controllo se è arrivato endDay
-        if (msgrcv(msgIdOperator, &msg, sizeof(Messaggio) - sizeof(long), EOD_mtype, IPC_NOWAIT) >= 0) {
+        if (msgrcv(msgIdEOD, &msg, sizeof(Messaggio) - sizeof(long), EOD_mtype, IPC_NOWAIT) >= 0) {
             endDay = true;
             break;
         }
@@ -159,7 +159,7 @@ void ReceiveTicketAndExecute(int msgIdOperator, int msgIdUser, int IndexServizio
         CaptureLock(semIdOperators, sops, myIndex);
         
         // Qualcuno mi ha svegliato, controllo se è endDay
-        if (msgrcv(msgIdOperator, &msg, sizeof(Messaggio) - sizeof(long), EOD_mtype, IPC_NOWAIT) >= 0) {
+        if (msgrcv(msgIdEOD, &msg, sizeof(Messaggio) - sizeof(long), EOD_mtype, IPC_NOWAIT) >= 0) {
             endDay = true;
             break;
         }
@@ -236,6 +236,7 @@ int main(int argc, char *argv[]) {
     int semIdOperators = atoi(argv[9]);
     int myIndex = atoi(argv[10]);
     int semIdUsers = atoi(argv[11]);
+    int msgIdEOD = atoi(argv[12]);
 
     int pause_effettuate = 0;
     bool alreadyNotifiedStart = false;
@@ -299,7 +300,7 @@ int main(int argc, char *argv[]) {
                 printf("[%s] Inizio turno (servizio %d)\n", operatoreID, indexServizio);
         
                 // Mi metto a ricevere i ticket e ad eseguirli
-                ReceiveTicketAndExecute(msgIdOperator, msgIdUser, indexServizio, operatoreID, NOF_PAUSE, &pause_effettuate, SIMULATED_MINUTE, &servizi_erogati, &counter_pause, &tempo_erogazione, semIdOperators, myIndex, semIdUsers);
+                ReceiveTicketAndExecute(msgIdOperator, msgIdUser, indexServizio, operatoreID, NOF_PAUSE, &pause_effettuate, SIMULATED_MINUTE, &servizi_erogati, &counter_pause, &tempo_erogazione, semIdOperators, myIndex, semIdUsers, msgIdEOD);
         
                 // rilascio lo sportello
                 releasePostOffice(config, semID, sops, operatoreID);
