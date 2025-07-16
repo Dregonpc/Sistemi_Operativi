@@ -214,6 +214,8 @@ int main(int argc, char *argv[]) {
     int indexServizio = atoi(argv[6]);
     int NOF_PAUSE = atoi(argv[7]);
     int SIMULATED_MINUTE = atoi(argv[8]);
+    int semIdOperators = atoi(argv[9]);
+    int myIndex = atoi(argv[10]);
 
     int pause_effettuate = 0;
     bool alreadyNotifiedStart = false;
