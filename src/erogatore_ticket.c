@@ -76,7 +76,6 @@ int main(int argc, char *argv[]) {
     int semID = atoi(argv[1]);
     int msgIdDispenser = atoi(argv[2]);
     int msgIdOperator = atoi(argv[3]);
-    int semIdDispenser = atoi(argv[4]);
     printf("[%s] Avvio in corso. PID = %d\n", erogatoreID, getpid());
 
     // Installa i signal handler

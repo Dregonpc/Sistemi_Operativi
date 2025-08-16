@@ -140,8 +140,6 @@ int main(int argc, char *argv[]) {
     int P_SERV_MAX = atoi(argv[8]);
     int timeDay = atoi(argv[9]);
     int IsNormalUser = atoi(argv[10]);
-    int semIdUsers = atoi(argv[11]);
-    int myIndex = atoi(argv[12]);
     int P_SERV = 0;
     int myPID = getpid();
     bool served = false;
