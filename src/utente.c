@@ -74,67 +74,36 @@ bool CheckPresenceRequiredService(DailyConfig* config, int IndexServizioRichiest
     return false;
 }
 
-void SendMessageToErogatore(int msgID, char* utenteID, int IndexServizioRichiesto, int myPID, int myIndex, int semIdDispenser) {
+void SendMessageToErogatore(int msgID, char* utenteID, int IndexServizioRichiesto, int myPID) {
     Messaggio msg;
-    struct sembuf sops;
 
     // Dobbiamo incrementarlo di 1 perchè il tipo del messaggio deve essere > 0, e quindi non potremmo passare il servizio 0.
     msg.mtype = IndexServizioRichiesto + 1;
     msg.ticket_id = -1;
     msg.user_id = myPID;
-    msg.user_index = myIndex;
     snprintf(msg.text, MAX_TEXT, "%s", utenteID);
 
     if (msgsnd(msgID, &msg, sizeof(Messaggio) - sizeof(long), 0) < 0) {
         printf("[%s] Errore durante l'invio del messaggio all'erogatore.\n", utenteID);
     }
 
-    // Sveglio l'erogatore
-    ExecuteSemop(semIdDispenser, sops, 0, 1);
-
     printf("[%s] Ho richiesto un ticket per il servizio %d.\n", utenteID, IndexServizioRichiesto);
 }
 
-bool ReceiveMessageFromOperator(int msgID, int myPID, char* utenteID, long* timeExecution, int semIdUsers, int myIndex) {
+bool ReceiveMessageFromOperator(int msgID, int myPID, char* utenteID, long* timeExecution) {
     Messaggio msg;
     ssize_t n;
-    struct sembuf sops = { .sem_num = 0, .sem_op = 0, .sem_flg = 0 };
 
-    // Controllo se è arrivato endDay
-    if (msgrcv(msgID, &msg, sizeof(Messaggio) - sizeof(long), EOD_mtype, IPC_NOWAIT) >= 0) {
-        endDay = true;
+    do {
+        n = msgrcv(msgID, &msg, sizeof(Messaggio) - sizeof(long), myPID, 0);
+    } while(n < 0 && errno == EINTR && !endDay);
+
+    if (endDay) {
         printf("[%s] Fine giornata prima di essere servito: rinuncio\n", utenteID);
         return false;
     }
-    
-    // Se non è arrivato, mi metto in attesa che qualcuno mi svegli
-    CaptureLock(semIdUsers, sops, myIndex);
-    
-    // Qualcuno mi ha svegliato, controllo se è endDay
-    if (msgrcv(msgID, &msg, sizeof(Messaggio) - sizeof(long), EOD_mtype, IPC_NOWAIT) >= 0) {
-        endDay = true;
-        printf("[%s] Fine giornata prima di essere servito: rinuncio\n", utenteID);
-        return false;
-    }
-
-    // Significa che ho un ticket da servire
-    n = msgrcv(msgID, &msg, sizeof(Messaggio) - sizeof(long), myPID, IPC_NOWAIT);
-
-    // do {
-    //     n = msgrcv(msgID, &msg, sizeof(Messaggio) - sizeof(long), myPID, 0);
-    // } while(n < 0 && errno == EINTR && !endDay);
-
-    // if (endDay) {
-    //     printf("[%s] Fine giornata prima di essere servito: rinuncio\n", utenteID);
-    //     return false;
-    // }
     if (n < 0) {
-        if (errno == ENOMSG) {
-            if (endDay) return false;
-        }
-        printf("[%s] ", utenteID);
         perror("msgrcv");
-        return false;
     }
 
     *timeExecution = msg.time_for_execution;
@@ -173,7 +142,6 @@ int main(int argc, char *argv[]) {
     int IsNormalUser = atoi(argv[10]);
     int semIdUsers = atoi(argv[11]);
     int myIndex = atoi(argv[12]);
-    int semIdDispenser = atoi(argv[13]);
     int P_SERV = 0;
     int myPID = getpid();
     bool served = false;
@@ -264,8 +232,8 @@ int main(int argc, char *argv[]) {
                     clock_gettime(CLOCK_MONOTONIC, &time_start);
 
                     // invio richiesta e aspetto
-                    SendMessageToErogatore(msgIdDispenser, utenteID, request[i], myPID, myIndex, semIdDispenser);
-                    served = ReceiveMessageFromOperator(msgIdUser, myPID, utenteID, &timeExecution, semIdUsers, myIndex);
+                    SendMessageToErogatore(msgIdDispenser, utenteID, request[i], myPID);
+                    served = ReceiveMessageFromOperator(msgIdUser, myPID, utenteID, &timeExecution);
 
                     clock_gettime(CLOCK_MONOTONIC, &time_end);
                     long sec = time_end.tv_sec - time_start.tv_sec;
@@ -300,9 +268,9 @@ int main(int argc, char *argv[]) {
         // se servito o giornata finita, torno a casa
         // poi aspetto fine giornata per i prossimi giorni
         printf("[%s] %s, aspetto fine giornata.\n", utenteID, served ? "Servito" : "Non servito");
-        // while (!endDay) {
-        //     pause();
-        // }
+        while (!endDay) {
+            pause();
+        }
 
         // Aggiorna le statistiche
         UpdateStaticStatsUsers(semID, stats, utenteID, &utenti_serviti, &utenti_non_serviti_day, &time_total, &servizi_non_erogati);

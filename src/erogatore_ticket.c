@@ -35,65 +35,36 @@ void SlaveNotifyAndWait(int semID, struct sembuf sops) {
     ExecuteSemop(semID, sops, 1, 0);
 }
 
-void ReceiveAndSendMessage(int msgIdDispenser, int msgIdOperator, char *erogatoreID, int semID, struct sembuf sops, int semIdDispenser, int semIdOperators) {
+void ReceiveAndSendMessage(int msgIdDispenser, int msgIdOperator, char *erogatoreID, int semID, struct sembuf sops) {
     int ticket_number = 1;
 
     while (!endDay) {
         Messaggio msg;
         ssize_t n;
 
-        // Controllo se è arrivato endDay
-        if (msgrcv(msgIdDispenser, &msg, sizeof(Messaggio) - sizeof(long), EOD_mtype, IPC_NOWAIT) >= 0) {
-            endDay = true;
-            break;
-        }
-        
-        // Se non è arrivato, mi metto in attesa che qualcuno mi svegli
-        CaptureLock(semIdDispenser, sops, 0);
-        
-        // Qualcuno mi ha svegliato, controllo se è endDay
-        if (msgrcv(msgIdDispenser, &msg, sizeof(Messaggio) - sizeof(long), EOD_mtype, IPC_NOWAIT) >= 0) {
-            endDay = true;
-            break;
-        }
-
-        // Significa che ho un ticket da servire
-        n = msgrcv(msgIdDispenser, &msg, sizeof(Messaggio) - sizeof(long), 0, IPC_NOWAIT);
-
         // ricevo finché non ottengo un messaggio valido o endDay
-        // do {
-        //     n = msgrcv(msgIdDispenser, &msg, sizeof(Messaggio) - sizeof(long), 0, 0);
-        // } while (n < 0 && errno == EINTR && !endDay);
+        do {
+            n = msgrcv(msgIdDispenser, &msg, sizeof(Messaggio) - sizeof(long), 0, 0);
+        } while (n < 0 && errno == EINTR && !endDay);
 
-        // if (endDay) {
-        //     printf("[%s] Fine giornata rilevata, interrompo ricezione.\n", erogatoreID);
-        //     break;
-        // }
+        if (endDay) {
+            printf("[%s] Fine giornata rilevata, interrompo ricezione.\n", erogatoreID);
+            break;
+        }
         if (n < 0) {
-            if (errno == ENOMSG) {
-                if (endDay) break;
-                continue;
-            }
             perror("msgrcv");
         }
-        else {
-            msg.ticket_id = ticket_number++;
 
-            long realService = msg.mtype - 1;
-            printf("[%s] Ticket %d assegnato all'utente '%s' per il servizio %ld.\n", erogatoreID, msg.ticket_id, msg.text, realService);
+        msg.ticket_id = ticket_number++;
 
-            if (msgsnd(msgIdOperator, &msg, sizeof(Messaggio) - sizeof(long), 0) < 0) {
-                perror("msgsnd");
-            }
+        long realService = msg.mtype - 1;
+        printf("[%s] Ticket %d assegnato all'utente '%s' per il servizio %ld.\n", erogatoreID, msg.ticket_id, msg.text, realService);
 
-            // TO DO: DA SOSTITUIRE 6 CON NUM_WORKERS
-            // Sveglio tutti gli operatori così uno può prendere il servizio in carico
-            for (int i = 0; i < 6; i++) {
-                ExecuteSemop(semIdOperators, sops, i, 1);
-            }
-
-            printf("[%s] Ticket %d inviato all'operatore.\n", erogatoreID, msg.ticket_id);
+        if (msgsnd(msgIdOperator, &msg, sizeof(Messaggio) - sizeof(long), 0) < 0) {
+            perror("msgsnd");
         }
+
+        printf("[%s] Ticket %d inviato all'operatore.\n", erogatoreID, msg.ticket_id);
     }
 }
 
@@ -106,7 +77,6 @@ int main(int argc, char *argv[]) {
     int msgIdDispenser = atoi(argv[2]);
     int msgIdOperator = atoi(argv[3]);
     int semIdDispenser = atoi(argv[4]);
-    int semIdOperators = atoi(argv[5]);
     printf("[%s] Avvio in corso. PID = %d\n", erogatoreID, getpid());
 
     // Installa i signal handler
@@ -134,7 +104,7 @@ int main(int argc, char *argv[]) {
         printf("[%s] Inizio giornata.\n", erogatoreID);
 
         // Mi metto in ricezione
-        ReceiveAndSendMessage(msgIdDispenser, msgIdOperator, erogatoreID, semID, sops, semIdDispenser, semIdOperators);
+        ReceiveAndSendMessage(msgIdDispenser, msgIdOperator, erogatoreID, semID, sops);
 
         // Scrivo statistiche
 
