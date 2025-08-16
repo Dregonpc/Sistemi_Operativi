@@ -116,7 +116,7 @@ void CreateUsers(int shmID, int shmIdStats, int semID, int msgIdDispenser, int m
 
 void createAllSubProcess(int shmID, int shmIdStats, int semID, int msgIdDispenser, int msgIdOperator, int msgIdUser, int semIdOperators, int semIdUsers, int semIdDispenser, int msgIdEOD) {
     // Creiamo le stringhe da passare ai figli
-    char semID_str[15], msgIdDispenser_str[15], msgIdOperator_str[15], msgIdUser_str[15], id_buffer[50], shmID_str[15], shmIdStats_str[15], random_service[10], n_request_str[10], p_serv_min_str[10], p_serv_max_str[10], timeDay[20], simulated_minute_str[20], nof_pause_str[3], semIdOperators_str[15], semIdUsers_str[15], semIdDispenser_str[15], index_str[15], msgIdEOD_str[15], NUM_WORKERS_str[15];
+    char semID_str[15], msgIdDispenser_str[15], msgIdOperator_str[15], msgIdUser_str[15], id_buffer[50], shmID_str[15], shmIdStats_str[15], random_service[10], n_request_str[10], p_serv_min_str[10], p_serv_max_str[10], timeDay[20], simulated_minute_str[20], nof_pause_str[3], semIdOperators_str[15], semIdUsers_str[15], semIdDispenser_str[15], index_str[15], msgIdEOD_str[15];
     sprintf(semID_str, "%d", semID);
     sprintf(msgIdDispenser_str, "%d", msgIdDispenser);
     sprintf(msgIdOperator_str, "%d", msgIdOperator);
@@ -133,10 +133,9 @@ void createAllSubProcess(int shmID, int shmIdStats, int semID, int msgIdDispense
     sprintf(semIdOperators_str, "%d", semIdUsers);
     sprintf(semIdDispenser_str, "%d", semIdDispenser);
     sprintf(msgIdEOD_str, "%d", msgIdEOD);
-    sprintf(NUM_WORKERS_str, "%d", NUM_OF_WORKERS);
 
     // Creiamo l'erogatore per i ticket
-    char *erogatore_ticket_args[] = {"Erogatore_ticket", semID_str, msgIdDispenser_str, msgIdOperator_str, semIdDispenser_str, semIdOperators_str, msgIdEOD_str, NUM_WORKERS_str, NULL};
+    char *erogatore_ticket_args[] = {"Erogatore_ticket", semID_str, msgIdDispenser_str, msgIdOperator_str, semIdDispenser_str, semIdOperators_str, msgIdEOD_str, NULL};
     CreateProcess("./bin/erogatore_ticket", erogatore_ticket_args);
 
     // Creiamo tutti gli operatori

@@ -35,7 +35,7 @@ void SlaveNotifyAndWait(int semID, struct sembuf sops) {
     ExecuteSemop(semID, sops, 1, 0);
 }
 
-void ReceiveAndSendMessage(int msgIdDispenser, int msgIdOperator, char *erogatoreID, int semID, struct sembuf sops, int semIdDispenser, int semIdOperators, int msgIdEOD, int NUM_WORKERS) {
+void ReceiveAndSendMessage(int msgIdDispenser, int msgIdOperator, char *erogatoreID, int semID, struct sembuf sops, int semIdDispenser, int semIdOperators, int msgIdEOD) {
     int ticket_number = 1;
 
     while (!endDay) {
@@ -86,8 +86,9 @@ void ReceiveAndSendMessage(int msgIdDispenser, int msgIdOperator, char *erogator
                 perror("msgsnd");
             }
 
+            // TO DO: DA SOSTITUIRE 6 CON NUM_WORKERS
             // Sveglio tutti gli operatori così uno può prendere il servizio in carico
-            for (int i = 0; i < NUM_WORKERS; i++) {
+            for (int i = 0; i < 6; i++) {
                 ExecuteSemop(semIdOperators, sops, i, 1);
             }
 
@@ -107,7 +108,6 @@ int main(int argc, char *argv[]) {
     int semIdDispenser = atoi(argv[4]);
     int semIdOperators = atoi(argv[5]);
     int msgIdEOD = atoi(argv[6]);
-    int NUM_WORKERS = atoi(argv[7]);
     printf("[%s] Avvio in corso. PID = %d\n", erogatoreID, getpid());
 
     // Installa i signal handler
@@ -135,7 +135,7 @@ int main(int argc, char *argv[]) {
         printf("[%s] Inizio giornata.\n", erogatoreID);
 
         // Mi metto in ricezione
-        ReceiveAndSendMessage(msgIdDispenser, msgIdOperator, erogatoreID, semID, sops, semIdDispenser, semIdOperators, msgIdEOD, NUM_WORKERS);
+        ReceiveAndSendMessage(msgIdDispenser, msgIdOperator, erogatoreID, semID, sops, semIdDispenser, semIdOperators, msgIdEOD);
 
         // Scrivo statistiche
 
