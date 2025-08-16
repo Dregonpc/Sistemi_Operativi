@@ -95,13 +95,13 @@ void SendMessageToErogatore(int msgID, char* utenteID, int IndexServizioRichiest
     printf("[%s] Ho richiesto un ticket per il servizio %d.\n", utenteID, IndexServizioRichiesto);
 }
 
-bool ReceiveMessageFromOperator(int msgID, int myPID, char* utenteID, long* timeExecution, int semIdUsers, int myIndex, int msgIdEOD) {
+bool ReceiveMessageFromOperator(int msgID, int myPID, char* utenteID, long* timeExecution, int semIdUsers, int myIndex) {
     Messaggio msg;
     ssize_t n;
     struct sembuf sops = { .sem_num = 0, .sem_op = 0, .sem_flg = 0 };
 
     // Controllo se è arrivato endDay
-    if (msgrcv(msgIdEOD, &msg, sizeof(Messaggio) - sizeof(long), EOD_mtype, IPC_NOWAIT) >= 0) {
+    if (msgrcv(msgID, &msg, sizeof(Messaggio) - sizeof(long), EOD_mtype, IPC_NOWAIT) >= 0) {
         endDay = true;
         printf("[%s] Fine giornata prima di essere servito: rinuncio\n", utenteID);
         return false;
@@ -111,7 +111,7 @@ bool ReceiveMessageFromOperator(int msgID, int myPID, char* utenteID, long* time
     CaptureLock(semIdUsers, sops, myIndex);
     
     // Qualcuno mi ha svegliato, controllo se è endDay
-    if (msgrcv(msgIdEOD, &msg, sizeof(Messaggio) - sizeof(long), EOD_mtype, IPC_NOWAIT) >= 0) {
+    if (msgrcv(msgID, &msg, sizeof(Messaggio) - sizeof(long), EOD_mtype, IPC_NOWAIT) >= 0) {
         endDay = true;
         printf("[%s] Fine giornata prima di essere servito: rinuncio\n", utenteID);
         return false;
@@ -174,7 +174,6 @@ int main(int argc, char *argv[]) {
     int semIdUsers = atoi(argv[11]);
     int myIndex = atoi(argv[12]);
     int semIdDispenser = atoi(argv[13]);
-    int msgIdEOD = atoi(argv[14]);
     int P_SERV = 0;
     int myPID = getpid();
     bool served = false;
@@ -266,7 +265,7 @@ int main(int argc, char *argv[]) {
 
                     // invio richiesta e aspetto
                     SendMessageToErogatore(msgIdDispenser, utenteID, request[i], myPID, myIndex, semIdDispenser);
-                    served = ReceiveMessageFromOperator(msgIdUser, myPID, utenteID, &timeExecution, semIdUsers, myIndex, msgIdEOD);
+                    served = ReceiveMessageFromOperator(msgIdUser, myPID, utenteID, &timeExecution, semIdUsers, myIndex);
 
                     clock_gettime(CLOCK_MONOTONIC, &time_end);
                     long sec = time_end.tv_sec - time_start.tv_sec;

@@ -35,7 +35,7 @@ void SlaveNotifyAndWait(int semID, struct sembuf sops) {
     ExecuteSemop(semID, sops, 1, 0);
 }
 
-void ReceiveAndSendMessage(int msgIdDispenser, int msgIdOperator, char *erogatoreID, int semID, struct sembuf sops, int semIdDispenser, int semIdOperators, int msgIdEOD) {
+void ReceiveAndSendMessage(int msgIdDispenser, int msgIdOperator, char *erogatoreID, int semID, struct sembuf sops, int semIdDispenser, int semIdOperators) {
     int ticket_number = 1;
 
     while (!endDay) {
@@ -43,7 +43,7 @@ void ReceiveAndSendMessage(int msgIdDispenser, int msgIdOperator, char *erogator
         ssize_t n;
 
         // Controllo se è arrivato endDay
-        if (msgrcv(msgIdEOD, &msg, sizeof(Messaggio) - sizeof(long), EOD_mtype, IPC_NOWAIT) >= 0) {
+        if (msgrcv(msgIdDispenser, &msg, sizeof(Messaggio) - sizeof(long), EOD_mtype, IPC_NOWAIT) >= 0) {
             endDay = true;
             break;
         }
@@ -52,12 +52,12 @@ void ReceiveAndSendMessage(int msgIdDispenser, int msgIdOperator, char *erogator
         CaptureLock(semIdDispenser, sops, 0);
         
         // Qualcuno mi ha svegliato, controllo se è endDay
-        if (msgrcv(msgIdEOD, &msg, sizeof(Messaggio) - sizeof(long), EOD_mtype, IPC_NOWAIT) >= 0) {
+        if (msgrcv(msgIdDispenser, &msg, sizeof(Messaggio) - sizeof(long), EOD_mtype, IPC_NOWAIT) >= 0) {
             endDay = true;
             break;
         }
 
-        // Significa che ho un ticket da inviare
+        // Significa che ho un ticket da servire
         n = msgrcv(msgIdDispenser, &msg, sizeof(Messaggio) - sizeof(long), 0, IPC_NOWAIT);
 
         // ricevo finché non ottengo un messaggio valido o endDay
@@ -107,7 +107,6 @@ int main(int argc, char *argv[]) {
     int msgIdOperator = atoi(argv[3]);
     int semIdDispenser = atoi(argv[4]);
     int semIdOperators = atoi(argv[5]);
-    int msgIdEOD = atoi(argv[6]);
     printf("[%s] Avvio in corso. PID = %d\n", erogatoreID, getpid());
 
     // Installa i signal handler
@@ -135,7 +134,7 @@ int main(int argc, char *argv[]) {
         printf("[%s] Inizio giornata.\n", erogatoreID);
 
         // Mi metto in ricezione
-        ReceiveAndSendMessage(msgIdDispenser, msgIdOperator, erogatoreID, semID, sops, semIdDispenser, semIdOperators, msgIdEOD);
+        ReceiveAndSendMessage(msgIdDispenser, msgIdOperator, erogatoreID, semID, sops, semIdDispenser, semIdOperators);
 
         // Scrivo statistiche
 
