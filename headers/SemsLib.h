@@ -11,7 +11,7 @@
 /**
  * @brief Crea una collezione di semaforo
  * @param flag Flag da assegnare al set di semafori
- * @param numOfSem numero di semafori da creare nla collezione
+ * @param numOfSem Numero di semafori da creare nella collezione
  * @param processName Nome del processo che crea i semafori
  * @return ID del semaforo creato
  */
@@ -74,7 +74,7 @@ int SemGetVal(int semID, int semNum);
 /**
  * @brief Esegue un'operazione su un semaforo
  * @param semID ID del semaforo
- * @param sops struct per l'operazione da eseguire
+ * @param sops Struct per l'operazione da eseguire
  * @param semNum Numero del semaforo
  * @param semOp Operazione da eseguire
  */
@@ -83,7 +83,7 @@ int ExecuteSemop(int semID, struct sembuf sops, int semNum, int semOp);
 /**
  * @brief Acquisisce un lock su un semaforo
  * @param semID ID del semaforo
- * @param sops struct per l'operazione da eseguire
+ * @param sops Struct per l'operazione da eseguire
  * @param semNum Numero del semaforo
  */
 int CaptureLock(int semID, struct sembuf sops, int semNum);
@@ -91,7 +91,7 @@ int CaptureLock(int semID, struct sembuf sops, int semNum);
 /**
  * @brief Rilascia un lock su un semaforo
  * @param semID ID del semaforo
- * @param sops struct per l'operazione da eseguire
+ * @param sops Struct per l'operazione da eseguire
  * @param semNum Numero del semaforo
  */
 int ReleaseLock(int semID, struct sembuf sops, int semNum);

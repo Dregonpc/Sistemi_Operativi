@@ -9,8 +9,8 @@
 
 /**
  * @brief Crea una coda di messaggi
- * @param flag flag da assgenare alla coda di messaggi
- * @param processName nome del processo chiamante
+ * @param flag Flag da assgenare alla coda di messaggi
+ * @param processName Nome del processo chiamante
  * @return L'ID assegnato alla coda di messaggi
  */
 int messageQueueCreate(int key, int flag, char* processName);

@@ -13,7 +13,7 @@ typedef struct {
 } Messaggio;
 
 typedef struct {
-    long mtype; // deve essere > 0
+    long mtype; // Deve essere > 0
     int new_users;
 } NewUserMsg;
 
