@@ -156,6 +156,10 @@ void ReceiveTicketAndExecute(int msgIdOperator, int msgIdUser, int IndexServizio
             printf("[%s] Fine giornata rilevata, interrompo ricezione.\n", operatoreID);
             break;
         }
+        else if (errno == EIDRM) {
+            printf("[%s] La coda è stata cancellata, interrompo ricezione.\n", operatoreID);
+            break;
+        }
         if (n < 0) {
             perror("msgrcv");
         }
@@ -257,6 +261,10 @@ int main(int argc, char *argv[]) {
         printf("[%s] Inizio giornata.\n", operatoreID);
         endDay = 0;
 
+        // PROVA
+        msgIdOperator = config->idOperator;
+        msgIdUser = config->idUsers;
+
         // Controllo che il servizio di cui mi occupo è presente negli sportelli
         CheckService = CheckDailyService(config, indexServizio, operatoreID);
 
@@ -291,9 +299,10 @@ int main(int argc, char *argv[]) {
         // Aspetto fine giornata se non già arrivata (per gli operatori che vanno in pausa)
         if (!endDay || !CheckService) {
             printf("[%s] Attendo SIGUSR2 (fine giornata)...\n", operatoreID);
-            while (!endDay) {
-                pause();
-            }
+            // while (!endDay) {
+            //     pause();
+            // }
+            ExecuteSemop(semID, sops, 5, -1);
         }
 
         // Aggiorna le statistiche

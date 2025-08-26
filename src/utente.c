@@ -83,6 +83,9 @@ void SendMessageToErogatore(int msgID, char* utenteID, int IndexServizioRichiest
     msg.user_id = myPID;
     snprintf(msg.text, MAX_TEXT, "%s", utenteID);
 
+    // TO DO: DA FARE PIU' DECENTEMENTE
+    if (endDay) return;
+
     if (msgsnd(msgID, &msg, sizeof(Messaggio) - sizeof(long), 0) < 0) {
         printf("[%s] Errore durante l'invio del messaggio all'erogatore.\n", utenteID);
     }
@@ -100,6 +103,10 @@ bool ReceiveMessageFromOperator(int msgID, int myPID, char* utenteID, long* time
 
     if (endDay) {
         printf("[%s] Fine giornata prima di essere servito: rinuncio\n", utenteID);
+        return false;
+    }
+    else if (errno == EIDRM) {
+        printf("[%s] La coda è stata cancellata, interrompo ricezione.\n", utenteID);
         return false;
     }
     if (n < 0) {
@@ -191,6 +198,10 @@ int main(int argc, char *argv[]) {
         // reset flag
         endDay = 0;
 
+        // PROVA
+        msgIdDispenser = config->idDispenser;
+        msgIdUser = config->idUsers;
+
         // Calcoliamo la probabilità per decidere se presentarsi all'ufficio postale oppure no
         int userProbability = ((P_SERV_MAX - P_SERV_MIN + 1) + P_SERV_MIN);
         P_SERV = Randomizer(userProbability);
@@ -266,9 +277,10 @@ int main(int argc, char *argv[]) {
         // se servito o giornata finita, torno a casa
         // poi aspetto fine giornata per i prossimi giorni
         printf("[%s] %s, aspetto fine giornata.\n", utenteID, served ? "Servito" : "Non servito");
-        while (!endDay) {
-            pause();
-        }
+        // while (!endDay) {
+        //     pause();
+        // }
+        ExecuteSemop(semID, sops, 5, -1);
 
         // Aggiorna le statistiche
         UpdateStaticStatsUsers(semID, stats, utenteID, &utenti_serviti, &utenti_non_serviti_day, &time_total, &servizi_non_erogati);

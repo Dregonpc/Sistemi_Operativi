@@ -290,6 +290,7 @@ void UpdateStatsOperators(int semID, Stats* stats, char *operatoreId, int IndexS
     // acquisisco il lock
     if (CaptureLock(semID, sops, 4) == -1) {
         printf("[%s] Errore durante l'acquisizione del lock per le statistiche.\n", operatoreId);
+        return; // TO DO: DECIDERE SE RIPROVARE O LASCIAR STARE
     }
 
     printf("[%s] Aggiorno le statistiche...\n", operatoreId);

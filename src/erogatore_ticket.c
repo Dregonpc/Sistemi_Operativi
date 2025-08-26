@@ -8,6 +8,7 @@
 #include <sys/msg.h>
 #include "../headers/messaggi.h"
 #include "../headers/SemsLib.h"
+#include "../headers/SharedMemory.h"
 
 // flag globali gestite dai signal handler
 static volatile sig_atomic_t endDay = 0;
@@ -51,6 +52,10 @@ void ReceiveAndSendMessage(int msgIdDispenser, int msgIdOperator, char *erogator
             printf("[%s] Fine giornata rilevata, interrompo ricezione.\n", erogatoreID);
             break;
         }
+        else if (errno == EIDRM) {
+            printf("[%s] La coda è stata cancellata, interrompo ricezione.\n", erogatoreID);
+            break;
+        }
         if (n < 0) {
             perror("msgrcv");
         }
@@ -76,6 +81,7 @@ int main(int argc, char *argv[]) {
     int semID = atoi(argv[1]);
     int msgIdDispenser = atoi(argv[2]);
     int msgIdOperator = atoi(argv[3]);
+    int shmID = atoi(argv[4]);
     printf("[%s] Avvio in corso. PID = %d\n", erogatoreID, getpid());
 
     // Installa i signal handler
@@ -91,6 +97,9 @@ int main(int argc, char *argv[]) {
     sa_term.sa_flags = 0;
     sigaction(SIGTERM, &sa_term, NULL);
 
+    // colleghiamoci alla memoria condivisa
+    DailyConfig* config = (DailyConfig*)SharedMemoryAttachGeneral(shmID, erogatoreID);
+
     printf("[%s] Sono pronto, avviso il direttore e aspetto il via.\n", erogatoreID);
     SlaveNotifyAndWait(semID, sops);
     
@@ -99,8 +108,12 @@ int main(int argc, char *argv[]) {
         endDay = 0;
 
         SlaveNotifyAndWait(semID, sops);
-
+        
         printf("[%s] Inizio giornata.\n", erogatoreID);
+        
+        // PROVA
+        msgIdDispenser = config->idDispenser;
+        msgIdOperator = config->idOperator;
 
         // Mi metto in ricezione
         ReceiveAndSendMessage(msgIdDispenser, msgIdOperator, erogatoreID, semID, sops);
@@ -117,6 +130,8 @@ int main(int argc, char *argv[]) {
             break;
         }
     }
+
+    SharedMmemoryDetach(config, erogatoreID);
 
     return EXIT_SUCCESS;
 }

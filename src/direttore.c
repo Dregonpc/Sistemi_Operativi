@@ -127,7 +127,7 @@ void createAllSubProcess(int shmID, int shmIdStats, int semID, int msgIdDispense
     sprintf(nof_pause_str, "%d", NOF_PAUSE);
 
     // Creiamo l'erogatore per i ticket
-    char *erogatore_ticket_args[] = {"Erogatore_ticket", semID_str, msgIdDispenser_str, msgIdOperator_str, NULL};
+    char *erogatore_ticket_args[] = {"Erogatore_ticket", semID_str, msgIdDispenser_str, msgIdOperator_str, shmID_str, NULL};
     CreateProcess("./bin/erogatore_ticket", erogatore_ticket_args);
 
     // Creiamo tutti gli operatori
@@ -206,10 +206,28 @@ void MasterNotifyAndWait(int semID, struct sembuf sops, DailyConfig* config, Sta
         // Resettiamo il semaforo tra operatori e utenti
         SemRestart(semID, sops, NUM_SPORTELLI, 1, 1, direttoreID);
 
+        // SEMAFORO PER IL PAUSE. DA SISTEMARE
+        if (semctl(semID, 5, SETVAL, 0) < 0) {
+            printf("[%s] Errore durante la semctl del semaforo nuovo.\n", direttoreID);
+            exit(EXIT_FAILURE);
+        }
+
         // Puliamo le code di messaggi per il nuovo giorno
-        cleanMsgQueue(msgIdDispenser);
-        cleanMsgQueue(msgIdOperator);
-        cleanMsgQueue(msgIdUser);
+        // cleanMsgQueue(msgIdDispenser);
+        // cleanMsgQueue(msgIdOperator);
+        // cleanMsgQueue(msgIdUser);
+        // messageQueueRemove(msgIdDispenser);
+        // messageQueueRemove(msgIdOperator);
+        // messageQueueRemove(msgIdUser);
+        key_t idDis= ftok("src/main.c", 5001);
+        key_t idOpe = ftok("src/main.c", 5002);
+        key_t idUse = ftok("src/main.c", 5003);
+        msgIdDispenser = messageQueueCreate(idDis, 0666, direttoreID);
+        msgIdOperator = messageQueueCreate(idOpe, 0666, direttoreID);
+        msgIdUser = messageQueueCreate(idUse, 0666, direttoreID);
+        config->idDispenser = msgIdDispenser;
+        config->idOperator = msgIdOperator;
+        config->idUsers = msgIdUser;
     }
 
     if (CheckUsers) {
@@ -240,9 +258,9 @@ void waitFinishAllSubProcess() {
 }
 
 void Clean(int msgIdDispenser, int msgIdOperator, int msgIdUser, int msgIdNewUser, int semID, int semMessageQueueID, int shmID, DailyConfig* config, int shmIdStat, Stats* stats) {
-    messageQueueRemove(msgIdDispenser);
-    messageQueueRemove(msgIdOperator);
-    messageQueueRemove(msgIdUser);
+    // messageQueueRemove(msgIdDispenser);
+    // messageQueueRemove(msgIdOperator);
+    // messageQueueRemove(msgIdUser);
     messageQueueRemove(msgIdNewUser);
 
     semCleanUp(semID);
@@ -287,8 +305,14 @@ int main(int argc, char *argv[]) {
     Stats* stats = (Stats*)SharedMemoryAttachGeneral(shmIdStats, direttoreID);
     
     // creiamo il semaforo e inizializziamolo
-    int semID = semCreate(0666, NUM_OF_SEM, direttoreID);
+    int semID = semCreate(0666, NUM_OF_SEM + 1, direttoreID);
     semInizialize(semID, TOTAL_PROCESSES, 1, NUM_SPORTELLI, 1, 1, direttoreID);
+
+    // SEMAFORO PER IL PAUSE. DA SISTEMARE
+    if (semctl(semID, 5, SETVAL, 0) < 0) {
+        printf("[%s] Errore durante la semctl del semaforo nuovo.\n", direttoreID);
+        exit(EXIT_FAILURE);
+    }
 
     int semMessageQueueID = semCreate(0666, NUM_SERVIZI, direttoreID);
     semMessageInitialize(semMessageQueueID, NUM_SERVIZI, direttoreID);
@@ -296,15 +320,18 @@ int main(int argc, char *argv[]) {
     // inizializziamo le statistiche
     StatsInitialize(stats, semID);
 
-    // creiamo le due code per i messaggi per la comunicazione tra utente-erogatore e erogatore-operatore
+    // creiamo le tre code per i messaggi per la comunicazione tra utente-erogatore e erogatore-operatore
     // Coda utente --> erogatore
-    int msgIdDispenser = messageQueueCreate(IPC_PRIVATE, 0666, direttoreID);
+    //int msgIdDispenser = messageQueueCreate(IPC_PRIVATE, 0666, direttoreID);
+    int msgIdDispenser = 0;
 
     // Coda erogatore --> operatore
-    int msgIdOperator = messageQueueCreate(IPC_PRIVATE, 0666, direttoreID);
+    //int msgIdOperator = messageQueueCreate(IPC_PRIVATE, 0666, direttoreID);
+    int msgIdOperator = 0;
 
     // Coda operatore --> utente
-    int msgIdUser = messageQueueCreate(IPC_PRIVATE, 0666, direttoreID);
+    //int msgIdUser = messageQueueCreate(IPC_PRIVATE, 0666, direttoreID);
+    int msgIdUser = 0;
 
     // Coda per inserire nuovi utenti durante la simulazione
     int msgIdNewUsers = messageQueueCreate(PUBLIC_KEY, 0666, direttoreID);
@@ -342,6 +369,16 @@ int main(int argc, char *argv[]) {
 
         printf("[Direttore] Avviso i figli che è terminato il giorno %d...\n", giorni);
         kill(0, SIGUSR2); // Fine giornata
+
+        // SEMAFORO PER IL PAUSE. DA SISTEMARE
+        if (semctl(semID, 5, SETVAL, TOTAL_PROCESSES) < 0) {
+            printf("[%s] Errore durante la semctl del semaforo nuovo.\n", direttoreID);
+            exit(EXIT_FAILURE);
+        }
+        // PROVA
+        messageQueueRemove(config->idDispenser);
+        messageQueueRemove(config->idOperator);
+        messageQueueRemove(config->idUsers);
         
         // Facciamo ripartire i figli per il nuovo giorno
         endSim = (giorni == SIM_DURATION);
@@ -350,6 +387,10 @@ int main(int argc, char *argv[]) {
 
     // Fermiamo la simulazione
     printf("[Direttore] Simulazione finita, mando il segnale di terminazione a tutti i figli...\n");
+    // PROVA
+    messageQueueRemove(config->idDispenser);
+    messageQueueRemove(config->idOperator);
+    messageQueueRemove(config->idUsers);
     kill(0, SIGTERM); // Fine simulazione
 
     // aspettiamo che tutti i processi finiscano la loro esecuzione

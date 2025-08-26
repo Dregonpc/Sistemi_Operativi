@@ -32,5 +32,11 @@ void cleanMsgQueue(int msgId) {
 }
 
 void messageQueueRemove(int msgId) {
-    msgctl(msgId, IPC_RMID, NULL);
+    //msgctl(msgId, IPC_RMID, NULL);
+    if (msgctl(msgId, IPC_RMID, NULL) < 0) {
+        printf("Errore durante la rimozione di una coda errno: %d\n", errno);
+    }
+    else {
+        printf("Ho eliminato la coda con id: %d\n", msgId);
+    }
 }

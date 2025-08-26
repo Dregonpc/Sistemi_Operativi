@@ -44,7 +44,7 @@ $(BLD)/direttore.o: $(SRC)/direttore.c
 	$(CC) $(CFLAGS) -c $< -o $@
 
 # erogatore_ticket
-$(BIN)/erogatore_ticket: $(BLD)/SemsLib.o $(BLD)/erogatore_ticket.o
+$(BIN)/erogatore_ticket: $(BLD)/SemsLib.o $(BLD)/SharedMemory.o $(BLD)/erogatore_ticket.o
 	$(CC) $(CFLAGS) $^ -o $@
 
 $(BLD)/erogatore_ticket.o: $(SRC)/erogatore_ticket.c

@@ -10,6 +10,9 @@
 
 typedef struct {
     int num_sportelli;
+    int idDispenser; // TEMP
+    int idOperator; // TEMP
+    int idUsers; // TEMP
     Sportello sportelli[];
 } DailyConfig;
 
