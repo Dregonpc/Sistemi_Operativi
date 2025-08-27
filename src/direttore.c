@@ -158,11 +158,11 @@ void CheckNewUsers(int msgIdNewUsers, int shmID, int shmIdStats, int semID, int 
         TOTAL_PROCESSES = 1 + NUM_OF_WORKERS + NUM_OF_USERS;
         TOTAL_PROCESSES_DIR = 1 + TOTAL_PROCESSES;
 
-        struct sembuf sops;
+        struct sembuf sops = {0};
 
         // Se dobbiamo creare nuovi utenti, dobbiamo sincronizzarli con tutti gli altri processi
         // Per farlo, aggiungiamo al semaforo dei figli il nuovo valore, cosi lo andranno a decrementare e si metteranno in wait
-        ExecuteSemop(semID, sops, 0, counter_new_users);
+        ExecuteSemop(semID, &sops, 0, counter_new_users);
 
         // Crea nuovi utenti
         // Facciamo skippare il primo SlaveNotifyAndWait in modo da fargli iniziare subito la giornata e metterli in pari con tutti gli altri
@@ -171,7 +171,7 @@ void CheckNewUsers(int msgIdNewUsers, int shmID, int shmIdStats, int semID, int 
         printf("[Direttore] Ho creato %d nuovi utenti.\n", counter_new_users);
 
         // Mettiamo in wait il direttore in modo da aspettare tutti i nuovi utenti
-        ExecuteSemop(semID, sops, 0, 0);
+        ExecuteSemop(semID, &sops, 0, 0);
         // Continuiamo con il flusso normale
     }
 }
@@ -186,7 +186,7 @@ bool CheckThreshold(Stats* stats) {
     return false;
 }
 
-void MasterNotifyAndWait(int semID, struct sembuf sops, DailyConfig* config, Stats* stats, bool endDay, bool* endSim, bool printStats, char* csvPath, char* direttoreID, int msgIdDispenser, int msgIdOperator, int msgIdUser, int msgIdNewUsers, int shmID, int shmIdStats, bool CheckUsers) {
+void MasterNotifyAndWait(int semID, struct sembuf* sops, DailyConfig* config, Stats* stats, bool endDay, bool* endSim, bool printStats, char* csvPath, char* direttoreID, int msgIdDispenser, int msgIdOperator, int msgIdUser, int msgIdNewUsers, int shmID, int shmIdStats, bool CheckUsers) {
     // aspettiamo che arrivi a 0 (ovvero tutti i figli sono pronti e hanno decrementato il semaforo)
     ExecuteSemop(semID, sops, 0, 0);
     
@@ -270,7 +270,7 @@ void Clean(int msgIdDispenser, int msgIdOperator, int msgIdUser, int msgIdNewUse
 }
 
 int main(int argc, char *argv[]) {
-    struct sembuf sops;
+    struct sembuf sops = {0}; // Inizializza tutti i campi a 0
 
     readConfig(argv[1], argv[2], argv[3], argv[4], argv[5], argv[6], argv[7], argv[8], argv[9]);
 
@@ -342,7 +342,7 @@ int main(int argc, char *argv[]) {
     bool endSim = false;
     
     // aspettiamo che tutti i figli siano pronti e diamogli il via
-    MasterNotifyAndWait(semID, sops, config, stats, true, &endSim, false, csvPath, direttoreID, msgIdDispenser, msgIdOperator, msgIdUser, msgIdNewUsers, shmID, shmIdStats, false);
+    MasterNotifyAndWait(semID, &sops, config, stats, true, &endSim, false, csvPath, direttoreID, msgIdDispenser, msgIdOperator, msgIdUser, msgIdNewUsers, shmID, shmIdStats, false);
 
     // Scorriamo i giorni e avvisiamo ogni volta i figli quando finisce un giorno
     for (int giorni = 1; giorni <= SIM_DURATION && !endSim; giorni++) {
@@ -352,7 +352,7 @@ int main(int argc, char *argv[]) {
         ResetStatsDaily(stats, semID);
 
         // Diamo il tempo ai figli per configurarsi per il nuovo giorno
-        MasterNotifyAndWait(semID, sops, config, stats, false, &endSim, false, csvPath, direttoreID, msgIdDispenser, msgIdOperator, msgIdUser, msgIdNewUsers, shmID, shmIdStats, true);
+        MasterNotifyAndWait(semID, &sops, config, stats, false, &endSim, false, csvPath, direttoreID, msgIdDispenser, msgIdOperator, msgIdUser, msgIdNewUsers, shmID, shmIdStats, true);
 
         // simulo il passare dei minuti
         printf("[Direttore] Giorno %d in corso (480 minuti)...\n", giorni);
@@ -371,7 +371,7 @@ int main(int argc, char *argv[]) {
         kill(0, SIGUSR2); // Fine giornata
 
         // SEMAFORO PER IL PAUSE. DA SISTEMARE
-        if (semctl(semID, 5, SETVAL, TOTAL_PROCESSES) < 0) {
+        if (semctl(semID, 5, SETVAL, TOTAL_PROCESSES * 2) < 0) {
             printf("[%s] Errore durante la semctl del semaforo nuovo.\n", direttoreID);
             exit(EXIT_FAILURE);
         }
@@ -382,7 +382,7 @@ int main(int argc, char *argv[]) {
         
         // Facciamo ripartire i figli per il nuovo giorno
         endSim = (giorni == SIM_DURATION);
-        MasterNotifyAndWait(semID, sops, config, stats, true, &endSim, true, csvPath, direttoreID, msgIdDispenser, msgIdOperator, msgIdUser, msgIdNewUsers, shmID, shmIdStats, false);
+        MasterNotifyAndWait(semID, &sops, config, stats, true, &endSim, true, csvPath, direttoreID, msgIdDispenser, msgIdOperator, msgIdUser, msgIdNewUsers, shmID, shmIdStats, false);
     }
 
     // Fermiamo la simulazione

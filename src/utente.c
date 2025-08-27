@@ -41,7 +41,7 @@ int Randomizer(int value) {
     return rand() % value;
 }
 
-void SlaveNotifyAndWait(int semID, struct sembuf sops) {
+void SlaveNotifyAndWait(int semID, struct sembuf* sops) {
     // avviso il direttore che sono pronto
     ExecuteSemop(semID, sops, 0, -1);
     
@@ -85,7 +85,7 @@ void SendMessageToErogatore(int msgID, char* utenteID, int IndexServizioRichiest
 
     // TO DO: DA FARE PIU' DECENTEMENTE
     if (endDay) return;
-
+    
     if (msgsnd(msgID, &msg, sizeof(Messaggio) - sizeof(long), 0) < 0) {
         printf("[%s] Errore durante l'invio del messaggio all'erogatore.\n", utenteID);
     }
@@ -134,7 +134,7 @@ void ResetCounters(int* utenti_serviti, int* utenti_non_serviti_day, int* serviz
 
 int main(int argc, char *argv[]) {
 
-    struct sembuf sops;
+    struct sembuf sops = {0}; // Inizializza tutti i campi a 0
 
     char *utenteID = argv[0];
     int shmID = atoi(argv[1]);
@@ -174,7 +174,7 @@ int main(int argc, char *argv[]) {
 
     if (IsNormalUser) {
         printf("[%s] Sono pronto, avviso il direttore e aspetto il via.\n", utenteID);
-        SlaveNotifyAndWait(semID, sops);
+        SlaveNotifyAndWait(semID, &sops);
     }
 
     // Posso iniziare a lavorare
@@ -193,7 +193,7 @@ int main(int argc, char *argv[]) {
         int* request = NULL;
         ResetCounters(&utenti_serviti, &utenti_non_serviti_day, &servizi_non_erogati, &served, localCounters);
         
-        SlaveNotifyAndWait(semID, sops);
+        SlaveNotifyAndWait(semID, &sops);
 
         // reset flag
         endDay = 0;
@@ -280,7 +280,7 @@ int main(int argc, char *argv[]) {
         // while (!endDay) {
         //     pause();
         // }
-        ExecuteSemop(semID, sops, 5, -1);
+        ExecuteSemop(semID, &sops, 5, -1);
 
         // Aggiorna le statistiche
         UpdateStaticStatsUsers(semID, stats, utenteID, &utenti_serviti, &utenti_non_serviti_day, &time_total, &servizi_non_erogati);
@@ -293,7 +293,7 @@ int main(int argc, char *argv[]) {
 
         free(request);
 
-        SlaveNotifyAndWait(semID, sops);
+        SlaveNotifyAndWait(semID, &sops);
 
         if (endSimulation) {
             break;

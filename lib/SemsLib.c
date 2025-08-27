@@ -56,7 +56,7 @@ void semMessageInitialize(int semID, int NUM_OF_SERVICE, char* processName){
     }
 }
 
-void SemBarrierRestart(int semID, struct sembuf sops, int quantity0, int quantity1, char* processName) {
+void SemBarrierRestart(int semID, struct sembuf* sops, int quantity0, int quantity1, char* processName) {
     if (semctl(semID, 0, SETVAL, quantity0) < 0) {
         printf("[%s] Errore durante la semctl del semaforo dedicato alla barriera.\n", processName);
         exit(EXIT_FAILURE);
@@ -68,7 +68,7 @@ void SemBarrierRestart(int semID, struct sembuf sops, int quantity0, int quantit
     }
 }
 
-void SemRestart(int semID, struct sembuf sops, int quantity2, int quantity3, int quantity4, char* processName) {
+void SemRestart(int semID, struct sembuf* sops, int quantity2, int quantity3, int quantity4, char* processName) {
     if (semctl(semID, 2, SETVAL, quantity2) < 0) {
         printf("[%s] Errore durante la semctl del semaforo dedicato agli sportelli.\n", processName);
         exit(EXIT_FAILURE);
@@ -96,16 +96,17 @@ int SemGetVal(int semID, int semNum) {
     return semctl(semID, semNum, GETVAL);
 }
 
-int ExecuteSemop(int semID, struct sembuf sops, int semNum, int semOp) {
-    sops.sem_num = semNum;
-    sops.sem_op = semOp;
-    return semop(semID, &sops, 1);
+int ExecuteSemop(int semID, struct sembuf* sops, int semNum, int semOp) {
+    sops->sem_num = semNum;
+    sops->sem_op = semOp;
+    sops->sem_flg = 0;  // FONDAMENTALE???
+    return semop(semID, sops, 1);
 }
 
-int CaptureLock(int semID, struct sembuf sops, int semNum) {
+int CaptureLock(int semID, struct sembuf* sops, int semNum) {
     return ExecuteSemop(semID, sops, semNum, -1);
 }
 
-int ReleaseLock(int semID, struct sembuf sops, int semNum) {
+int ReleaseLock(int semID, struct sembuf* sops, int semNum) {
     return ExecuteSemop(semID, sops, semNum, 1);
 }

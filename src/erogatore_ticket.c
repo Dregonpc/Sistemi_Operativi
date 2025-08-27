@@ -28,7 +28,7 @@ static void signalHandler(int signo) {
     }
 }
 
-void SlaveNotifyAndWait(int semID, struct sembuf sops) {
+void SlaveNotifyAndWait(int semID, struct sembuf* sops) {
     // avviso il direttore che sono pronto
     ExecuteSemop(semID, sops, 0, -1);
     
@@ -58,6 +58,7 @@ void ReceiveAndSendMessage(int msgIdDispenser, int msgIdOperator, char *erogator
         }
         if (n < 0) {
             perror("msgrcv");
+            break;
         }
 
         msg.ticket_id = ticket_number++;
@@ -67,6 +68,7 @@ void ReceiveAndSendMessage(int msgIdDispenser, int msgIdOperator, char *erogator
 
         if (msgsnd(msgIdOperator, &msg, sizeof(Messaggio) - sizeof(long), 0) < 0) {
             perror("msgsnd");
+            break;
         }
 
         printf("[%s] Ticket %d inviato all'operatore.\n", erogatoreID, msg.ticket_id);
@@ -75,7 +77,7 @@ void ReceiveAndSendMessage(int msgIdDispenser, int msgIdOperator, char *erogator
 
 int main(int argc, char *argv[]) {
 
-    struct sembuf sops;
+    struct sembuf sops = {0}; // Inizializza tutti i campi a 0
 
     char *erogatoreID = argv[0];
     int semID = atoi(argv[1]);
@@ -101,17 +103,18 @@ int main(int argc, char *argv[]) {
     DailyConfig* config = (DailyConfig*)SharedMemoryAttachGeneral(shmID, erogatoreID);
 
     printf("[%s] Sono pronto, avviso il direttore e aspetto il via.\n", erogatoreID);
-    SlaveNotifyAndWait(semID, sops);
+    SlaveNotifyAndWait(semID, &sops);
     
     while (1) {
         // Posso iniziare a lavorare
         endDay = 0;
 
-        SlaveNotifyAndWait(semID, sops);
+        SlaveNotifyAndWait(semID, &sops);
         
         printf("[%s] Inizio giornata.\n", erogatoreID);
         
         // PROVA
+        sleep(0.1);
         msgIdDispenser = config->idDispenser;
         msgIdOperator = config->idOperator;
 
@@ -122,7 +125,7 @@ int main(int argc, char *argv[]) {
 
         // Siamo usciti dal while quindi la giornata è finita
         printf("[%s] Giorno terminato.\n", erogatoreID);
-        SlaveNotifyAndWait(semID, sops);
+        SlaveNotifyAndWait(semID, &sops);
 
         // riparte il loop per il prossimo giorno
 

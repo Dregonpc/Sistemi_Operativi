@@ -45,7 +45,7 @@ void semMessageInitialize(int semID, int numOfServices, char* processName);
  * @param quantity1 Valore iniziale del semaforo 1
  * @param processName Nome del processo che inizializza i semafori
  */
-void SemBarrierRestart(int semID, struct sembuf sops, int quantity0, int quantity1, char* processName);
+void SemBarrierRestart(int semID, struct sembuf* sops, int quantity0, int quantity1, char* processName);
 
 /**
  * @brief Inizializza i semafori per il restart
@@ -56,7 +56,7 @@ void SemBarrierRestart(int semID, struct sembuf sops, int quantity0, int quantit
  * @param quantity4 Valore iniziale del semaforo 4
  * @param processName Nome del processo che inizializza i semafori
  */
-void SemRestart(int semID, struct sembuf sops, int quantity2, int quantity3, int quantity4, char* processName);
+void SemRestart(int semID, struct sembuf* sops, int quantity2, int quantity3, int quantity4, char* processName);
 
 /**
  * @brief Rimuove il set di semafori
@@ -78,7 +78,7 @@ int SemGetVal(int semID, int semNum);
  * @param semNum Numero del semaforo
  * @param semOp Operazione da eseguire
  */
-int ExecuteSemop(int semID, struct sembuf sops, int semNum, int semOp);
+int ExecuteSemop(int semID, struct sembuf* sops, int semNum, int semOp);
 
 /**
  * @brief Acquisisce un lock su un semaforo
@@ -86,7 +86,7 @@ int ExecuteSemop(int semID, struct sembuf sops, int semNum, int semOp);
  * @param sops Struct per l'operazione da eseguire
  * @param semNum Numero del semaforo
  */
-int CaptureLock(int semID, struct sembuf sops, int semNum);
+int CaptureLock(int semID, struct sembuf* sops, int semNum);
 
 /**
  * @brief Rilascia un lock su un semaforo
@@ -94,6 +94,6 @@ int CaptureLock(int semID, struct sembuf sops, int semNum);
  * @param sops Struct per l'operazione da eseguire
  * @param semNum Numero del semaforo
  */
-int ReleaseLock(int semID, struct sembuf sops, int semNum);
+int ReleaseLock(int semID, struct sembuf* sops, int semNum);
 
 #endif // SEMSLIB_H

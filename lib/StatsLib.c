@@ -3,11 +3,12 @@
 // FUNCTION FOR DIRETTORE
 
 void StatsInitialize(Stats* stats, int semID) {
-    struct sembuf sops;
+    struct sembuf sops = {0}; 
 
     // acquisisco il lock
-    if (CaptureLock(semID, sops, 4) == -1) {
+    if (CaptureLock(semID, &sops, 4) == -1) {
         printf("[Direttore] Errore durante l'acquisizione del lock per le statistiche.\n");
+        return; // TO DO: DECIDERE SE RIPROVARE O LASCIAR STARE
     }
 
     // Inizializziamo le statistiche
@@ -60,17 +61,18 @@ void StatsInitialize(Stats* stats, int semID) {
     stats->termine_simulazione = "SIM_DURATION";
 
     // rilascio il lock
-    if (ReleaseLock(semID, sops, 4) == -1) {
+    if (ReleaseLock(semID, &sops, 4) == -1) {
         printf("[Direttore] Errore durante il rilascio del lock per le statistiche.\n");
     }
 }
 
 void ResetStatsDaily(Stats* stats, int semID) {
-    struct sembuf sops;
+    struct sembuf sops = {0};
 
     // acquisisco il lock
-    if (CaptureLock(semID, sops, 4) == -1) {
+    if (CaptureLock(semID, &sops, 4) == -1) {
         printf("[Direttore] Errore durante l'acquisizione del lock per le statistiche.\n");
+        return; // TO DO: DECIDERE SE RIPROVARE O LASCIAR STARE
     }
 
     stats->durata_simulazione++;
@@ -94,17 +96,18 @@ void ResetStatsDaily(Stats* stats, int semID) {
     }
 
     // rilascio il lock
-    if (ReleaseLock(semID, sops, 4) == -1) {
+    if (ReleaseLock(semID, &sops, 4) == -1) {
         printf("[Direttore] Errore durante il rilascio del lock per le statistiche.\n");
     }
 }
 
 void CalculateDailyStats(Stats* stats, int semID) {
-    struct sembuf sops;
+    struct sembuf sops = {0};
 
     // acquisisco il lock
-    if (CaptureLock(semID, sops, 4) == -1) {
+    if (CaptureLock(semID, &sops, 4) == -1) {
         printf("[Direttore] Errore durante l'acquisizione del lock per le statistiche.\n");
+        return; // TO DO: DECIDERE SE RIPROVARE O LASCIAR STARE
     }
 
     // Calcoliamo le statistiche giornalmente
@@ -118,17 +121,18 @@ void CalculateDailyStats(Stats* stats, int semID) {
     }
 
     // rilascio il lock
-    if (ReleaseLock(semID, sops, 4) == -1) {
+    if (ReleaseLock(semID, &sops, 4) == -1) {
         printf("[Direttore] Errore durante il rilascio del lock per le statistiche.\n");
     }
 }
 
 void CalculateFinalStats(Stats* stats, int semID) {
-    struct sembuf sops;
+    struct sembuf sops = {0};
 
     // acquisisco il lock
-    if (CaptureLock(semID, sops, 4) == -1) {
+    if (CaptureLock(semID, &sops, 4) == -1) {
         printf("[Direttore] Errore durante l'acquisizione del lock per le statistiche.\n");
+        return; // TO DO: DECIDERE SE RIPROVARE O LASCIAR STARE
     }
 
     // Calcoliamo le statistiche finali
@@ -148,7 +152,7 @@ void CalculateFinalStats(Stats* stats, int semID) {
     }
 
     // rilascio il lock
-    if (ReleaseLock(semID, sops, 4) == -1) {
+    if (ReleaseLock(semID, &sops, 4) == -1) {
         printf("[Direttore] Errore durante il rilascio del lock per le statistiche.\n");
     }
 }
@@ -285,10 +289,10 @@ void WriteFinalStatsCSV(const char *filename, Stats* stats) {
 // FUNCTION FOR OPERATORS
 
 void UpdateStatsOperators(int semID, Stats* stats, char *operatoreId, int IndexServizio, int* servizi_erogati, int* operatori_attivi, int* counter_pause, double* tempo_erogazione) {
-    struct sembuf sops;
+    struct sembuf sops = {0};
     
     // acquisisco il lock
-    if (CaptureLock(semID, sops, 4) == -1) {
+    if (CaptureLock(semID, &sops, 4) == -1) {
         printf("[%s] Errore durante l'acquisizione del lock per le statistiche.\n", operatoreId);
         return; // TO DO: DECIDERE SE RIPROVARE O LASCIAR STARE
     }
@@ -312,7 +316,7 @@ void UpdateStatsOperators(int semID, Stats* stats, char *operatoreId, int IndexS
     stats->operatori_disponibili_services[IndexServizio] += 1;
 
     // rilascio il lock
-    if (ReleaseLock(semID, sops, 4) == -1) {
+    if (ReleaseLock(semID, &sops, 4) == -1) {
         printf("[%s] Errore durante il rilascio del lock per le statistiche.\n", operatoreId);
     }
 }
@@ -320,11 +324,12 @@ void UpdateStatsOperators(int semID, Stats* stats, char *operatoreId, int IndexS
 // FUNCTION FOR USERS
 
 void UpdateStaticStatsUsers(int semID, Stats* stats, char *utenteId, int* utenti_serviti, int* utenti_non_serviti_day, long* time_total, int* servizi_non_erogati) {
-    struct sembuf sops;
+    struct sembuf sops = {0};
     
     // acquisisco il lock
-    if (CaptureLock(semID, sops, 4) == -1) {
+    if (CaptureLock(semID, &sops, 4) == -1) {
         printf("[%s] Errore durante l'acquisizione del lock per le statistiche.\n", utenteId);
+        return; // TO DO: DECIDERE SE RIPROVARE O LASCIAR STARE
     }
 
     printf("[%s] Aggiorno le statistiche...\n", utenteId);
@@ -341,17 +346,18 @@ void UpdateStaticStatsUsers(int semID, Stats* stats, char *utenteId, int* utenti
     stats->tempo_attesa_utenti_day += *time_total;
     
     // rilascio il lock
-    if (ReleaseLock(semID, sops, 4) == -1) {
+    if (ReleaseLock(semID, &sops, 4) == -1) {
         printf("[%s] Errore durante il rilascio del lock per le statistiche.\n", utenteId);
     }
 }
 
 void UpdateDynamicStatsUsers(int semID, Stats* stats, char *utenteId, int IndexServizioRichiesto,  int* utenti_serviti, int* utenti_non_serviti_day, long* time_total, int* servizi_non_erogati) {
-    struct sembuf sops;
+    struct sembuf sops = {0};
     
     // acquisisco il lock
-    if (CaptureLock(semID, sops, 4) == -1) {
+    if (CaptureLock(semID, &sops, 4) == -1) {
         printf("[%s] Errore durante l'acquisizione del lock per le statistiche.\n", utenteId);
+        return; // TO DO: DECIDERE SE RIPROVARE O LASCIAR STARE
     }
     
     stats->utenti_serviti_day_sim_services[IndexServizioRichiesto] += *utenti_serviti;
@@ -361,7 +367,7 @@ void UpdateDynamicStatsUsers(int semID, Stats* stats, char *utenteId, int IndexS
     stats->tempo_attesa_utenti_sim_services[IndexServizioRichiesto] += *time_total;
     
     // rilascio il lock
-    if (ReleaseLock(semID, sops, 4) == -1) {
+    if (ReleaseLock(semID, &sops, 4) == -1) {
         printf("[%s] Errore durante il rilascio del lock per le statistiche.\n", utenteId);
     }
 }
