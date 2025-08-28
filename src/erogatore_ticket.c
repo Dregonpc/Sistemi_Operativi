@@ -105,16 +105,18 @@ int main(int argc, char *argv[]) {
     printf("[%s] Sono pronto, avviso il direttore e aspetto il via.\n", erogatoreID);
     SlaveNotifyAndWait(semID, &sops);
     
-    while (1) {
+    while (!endSimulation) {
         // Posso iniziare a lavorare
         endDay = 0;
 
         SlaveNotifyAndWait(semID, &sops);
+        if (endSimulation) {
+            break;
+        }
         
         printf("[%s] Inizio giornata.\n", erogatoreID);
         
         // PROVA
-        sleep(0.1);
         msgIdDispenser = config->idDispenser;
         msgIdOperator = config->idOperator;
 

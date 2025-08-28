@@ -261,7 +261,7 @@ int main(int argc, char *argv[]) {
     int counter_pause = 0;
     double tempo_erogazione = 0;
 
-    while (1) {
+    while (!endSimulation) {
         ResetCounters(&servizi_erogati, &operatori_attivi, &counter_pause, &tempo_erogazione);
 
         // Posso iniziare a lavorare
@@ -282,13 +282,13 @@ int main(int argc, char *argv[]) {
             TakeUpPostOffice(config, semID, &sops, indexServizio, operatoreID, &operatori_attivi, &firstTryTakeUp);
 
             // TODO capire cosa fare: Devo avvisare solo se non ho già avvisato precedentemente nella funzione TakeUp
-            // if (firstTryTakeUp) {
-            //     // Mi sono configurato per il nuovo giorno, aspetto il via dal direttore per iniziare a lavorare
-            //     SlaveNotifyAndWait(semID, &sops);
-            // }
+            if (firstTryTakeUp) {
+                // Mi sono configurato per il nuovo giorno, aspetto il via dal direttore per iniziare a lavorare
+                SlaveNotifyAndWait(semID, &sops);
+            }
 
-            printf("[%s] Fine configurazione giorno, avviso il direttore\n", operatoreID);
-            SlaveNotifyAndWait(semID, &sops);
+            // printf("[%s] Fine configurazione giorno, avviso il direttore\n", operatoreID);
+            // SlaveNotifyAndWait(semID, &sops);
     
             if (!endDay) {
                 // LAVORO finché non finisce il giorno o vado in pausa

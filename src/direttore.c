@@ -245,6 +245,10 @@ void MasterNotifyAndWait(int semID, struct sembuf* sops, DailyConfig* config, St
         ExecuteSemop(semID, sops, 1, -1);
     }
     
+    struct timespec req;
+    req.tv_sec  = 0;
+    req.tv_nsec = 200000000;
+    nanosleep(&req, NULL);
     // Resettiamo il semaforo della barriera
     SemBarrierRestart(semID, sops, TOTAL_PROCESSES, 1, direttoreID);
 }

@@ -187,7 +187,7 @@ int main(int argc, char *argv[]) {
     int utenti_non_serviti_day = 0;
     int servizi_non_erogati = 0;
 
-    while (1) {
+    while (!endSimulation) {
         int n_request_rand = -1;
         long time_total = 0.0;
         int* request = NULL;
