@@ -206,9 +206,9 @@ void MasterNotifyAndWait(int semID, struct sembuf* sops, DailyConfig* config, St
         // Resettiamo il semaforo tra operatori e utenti
         SemRestart(semID, sops, NUM_SPORTELLI, 1, 1, direttoreID);
 
-        // SEMAFORO PER IL PAUSE. DA SISTEMARE
-        if (semctl(semID, 5, SETVAL, 0) < 0) {
-            printf("[%s] Errore durante la semctl del semaforo nuovo.\n", direttoreID);
+        // ✅ CORREZIONE: Inizializza sem 5 PRIMA che i processi possano accedervi
+        if (semctl(semID, 5, SETVAL, TOTAL_PROCESSES * 2) < 0) {
+            printf("[%s] Errore durante la semctl del semaforo di pausa.\n", direttoreID);
             exit(EXIT_FAILURE);
         }
 
@@ -219,15 +219,29 @@ void MasterNotifyAndWait(int semID, struct sembuf* sops, DailyConfig* config, St
         // messageQueueRemove(msgIdDispenser);
         // messageQueueRemove(msgIdOperator);
         // messageQueueRemove(msgIdUser);
-        key_t idDis= ftok("src/main.c", 5001);
+        // ✅ STEP 1: CREA le NUOVE code PRIMA di eliminare le vecchie
+        key_t idDis = ftok("src/main.c", 5001);
         key_t idOpe = ftok("src/main.c", 5002);
         key_t idUse = ftok("src/main.c", 5003);
-        msgIdDispenser = messageQueueCreate(idDis, 0666, direttoreID);
-        msgIdOperator = messageQueueCreate(idOpe, 0666, direttoreID);
-        msgIdUser = messageQueueCreate(idUse, 0666, direttoreID);
-        config->idDispenser = msgIdDispenser;
-        config->idOperator = msgIdOperator;
-        config->idUsers = msgIdUser;
+
+        int newMsgIdDispenser = messageQueueCreate(idDis, 0666, direttoreID);
+        int newMsgIdOperator = messageQueueCreate(idOpe, 0666, direttoreID);
+        int newMsgIdUser = messageQueueCreate(idUse, 0666, direttoreID);
+
+        // ✅ STEP 2: Aggiorna la config CON I NUOVI ID
+        config->idDispenser = newMsgIdDispenser;
+        config->idOperator = newMsgIdOperator;
+        config->idUsers = newMsgIdUser;
+
+        // ✅ STEP 3: SOLO ORA elimina le code vecchie (se esistevano)
+        if (msgIdDispenser > 0) messageQueueRemove(msgIdDispenser);
+        if (msgIdOperator > 0) messageQueueRemove(msgIdOperator);
+        if (msgIdUser > 0) messageQueueRemove(msgIdUser);
+
+        // ✅ STEP 4: Aggiorna le variabili locali
+        msgIdDispenser = newMsgIdDispenser;
+        msgIdOperator = newMsgIdOperator;
+        msgIdUser = newMsgIdUser;
     }
 
     if (CheckUsers) {
@@ -380,9 +394,9 @@ int main(int argc, char *argv[]) {
             exit(EXIT_FAILURE);
         }
         // PROVA
-        messageQueueRemove(config->idDispenser);
-        messageQueueRemove(config->idOperator);
-        messageQueueRemove(config->idUsers);
+        // messageQueueRemove(config->idDispenser);
+        // messageQueueRemove(config->idOperator);
+        // messageQueueRemove(config->idUsers);
         
         // Facciamo ripartire i figli per il nuovo giorno
         endSim = (giorni == SIM_DURATION);
