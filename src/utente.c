@@ -31,6 +31,7 @@ static void signalHandler(int signo) {
             break;
         case SIGTERM:
             endSimulation = 1;
+            endDay = 1;
             break;
         default:
             break;
@@ -42,9 +43,14 @@ int Randomizer(int value) {
 }
 
 void SlaveNotifyAndWait(int semID, struct sembuf* sops) {
+
+    if (endSimulation) return;
+
     // avviso il direttore che sono pronto
     ExecuteSemop(semID, sops, 0, -1);
     
+    if (endSimulation) return;
+
     // aspetto che arrivi a 0 (ovvero il direttore mi da il via)
     ExecuteSemop(semID, sops, 1, 0);
 }
@@ -88,6 +94,7 @@ void SendMessageToErogatore(int msgID, char* utenteID, int IndexServizioRichiest
     
     if (msgsnd(msgID, &msg, sizeof(Messaggio) - sizeof(long), 0) < 0) {
         printf("[%s] Errore durante l'invio del messaggio all'erogatore.\n", utenteID);
+        return; // TODO SBU?
     }
 
     printf("[%s] Ho richiesto un ticket per il servizio %d.\n", utenteID, IndexServizioRichiesto);
@@ -96,26 +103,55 @@ void SendMessageToErogatore(int msgID, char* utenteID, int IndexServizioRichiest
 bool ReceiveMessageFromOperator(int msgID, int myPID, char* utenteID, long* timeExecution) {
     Messaggio msg;
     ssize_t n;
+    int retry_count = 0;
+    const int MAX_RETRIES = 50; // 1/2 secondi di timeout
+
+    printf("[%s] In attesa di risposta dall'operatore (PID: %d)...\n", utenteID, myPID);
 
     do {
-        n = msgrcv(msgID, &msg, sizeof(Messaggio) - sizeof(long), myPID, 0);
-    } while(n < 0 && errno == EINTR && !endDay);
+        n = msgrcv(msgID, &msg, sizeof(Messaggio) - sizeof(long), myPID, IPC_NOWAIT);
+        
+        if (n >= 0) {
+            // ✅ MESSAGGIO RICEVUTO CON SUCCESSO
+            *timeExecution = msg.time_for_execution;
+            printf("[%s] ✅ Ricevuta risposta dall'operatore (ticket %d, tempo: %ld ns)\n", 
+                   utenteID, msg.ticket_id, *timeExecution);
+            return true;
+        }
+        
+        if (errno == ENOMSG) {
+            // Nessun messaggio disponibile, aspetta e riprova
+            struct timespec wait = {0, 10000000}; // 10ms
+            nanosleep(&wait, NULL);
+            retry_count++;
+            
+            if (retry_count >= MAX_RETRIES) {
+                printf("[%s] ⚠️ Timeout: nessuna risposta dall'operatore dopo 2 secondi\n", utenteID);
+                return false;
+            }
+            continue;
+        }
+        
+        if (errno == EINTR && !endDay) {
+            continue;
+        }
+        
+        if (errno == EIDRM) {
+            printf("[%s] La coda è stata cancellata\n", utenteID);
+            return false;
+        }
+        
+        // Altri errori
+        perror("msgrcv in ReceiveMessageFromOperator");
+        return false;
+        
+    } while (!endDay && retry_count < MAX_RETRIES);
 
     if (endDay) {
-        printf("[%s] Fine giornata prima di essere servito: rinuncio\n", utenteID);
-        return false;
+        printf("[%s] Fine giornata prima di essere servito\n", utenteID);
     }
-    else if (errno == EIDRM) {
-        printf("[%s] La coda è stata cancellata, interrompo ricezione.\n", utenteID);
-        return false;
-    }
-    if (n < 0) {
-        perror("msgrcv");
-    }
-
-    *timeExecution = msg.time_for_execution;
-    printf("[%s] Ricevuto ticket %d, servito!\n", utenteID, msg.ticket_id);
-    return true;
+    
+    return false;
 }
 
 void ResetCounters(int* utenti_serviti, int* utenti_non_serviti_day, int* servizi_non_erogati, bool* served, localStats stats[]) {
@@ -193,6 +229,10 @@ int main(int argc, char *argv[]) {
         int* request = NULL;
         ResetCounters(&utenti_serviti, &utenti_non_serviti_day, &servizi_non_erogati, &served, localCounters);
         
+        if (endSimulation) {
+            break;
+        }
+
         SlaveNotifyAndWait(semID, &sops);
 
         // reset flag
@@ -208,7 +248,7 @@ int main(int argc, char *argv[]) {
 
         if (ChoosePresence(P_SERV, utenteID)) {
             // scelgo quanti servizi richiedere
-            n_request_rand = Randomizer(N_REQUEST);
+            n_request_rand = Randomizer(N_REQUEST) + 1;
             printf("[%s] Ho deciso di richiedere %d servizi\n", utenteID, n_request_rand);
 
             request = malloc(n_request_rand * sizeof(int));
@@ -241,7 +281,12 @@ int main(int argc, char *argv[]) {
                     clock_gettime(CLOCK_MONOTONIC, &time_start);
 
                     // invio richiesta e aspetto
+                    if (endDay) // TODO SBU
+                        break;
                     SendMessageToErogatore(msgIdDispenser, utenteID, request[i], myPID);
+
+
+
                     served = ReceiveMessageFromOperator(msgIdUser, myPID, utenteID, &timeExecution);
 
                     clock_gettime(CLOCK_MONOTONIC, &time_end);

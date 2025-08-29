@@ -405,14 +405,26 @@ int main(int argc, char *argv[]) {
 
     // Fermiamo la simulazione
     printf("[Direttore] Simulazione finita, mando il segnale di terminazione a tutti i figli...\n");
-    // PROVA
+    // ✅ PRIMO: Invia SIGTERM a tutti i processi
+    kill(0, SIGTERM);
+
+    // ✅ SECONDO: Aspetta un momento per permettere ai processi di ricevere il segnale
+    struct timespec wait_term = {2, 0}; // 1 secondo
+    nanosleep(&wait_term, NULL);
+
+    kill(0, SIGTERM);
+    
+    nanosleep(&wait_term, NULL);
+
+    // ✅ QUARTO: Solo DOPO che tutti sono terminati, pulisci le risorse
+    printf("[Direttore] Tutti i processi sono terminati, avvio la pulizia.\n");
     messageQueueRemove(config->idDispenser);
     messageQueueRemove(config->idOperator);
     messageQueueRemove(config->idUsers);
-    kill(0, SIGTERM); // Fine simulazione
 
-    // aspettiamo che tutti i processi finiscano la loro esecuzione
+    // ✅ TERZO: Aspetta che tutti i processi terminino
     waitFinishAllSubProcess();
+
 
     printf("[Direttore] Tutti i processi sono terminati, avvio la pulizia.\n");
 

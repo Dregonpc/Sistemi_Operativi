@@ -22,6 +22,7 @@ static void signalHandler(int signo) {
             break;
         case SIGTERM:
             endSimulation = 1;
+            endDay = 1;
             break;
         default:
             break;

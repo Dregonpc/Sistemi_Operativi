@@ -23,6 +23,7 @@ static void signalHandler(int signo) {
             break;
         case SIGTERM:
             endSimulation = 1;
+            endDay = 1;
             break;
         default:
             break;
@@ -66,8 +67,8 @@ bool TakeUpPostOffice(DailyConfig* config, int semID, struct sembuf* sops, int i
     if (ExecuteSemop(semID, sops, 2, -1) == -1) { // Se il semaforo attualmente vale 0 mi metto in wait, altrimenti decremento
         if (errno == EINTR && endDay) {
             printf("[%s] Fine giornata durante attesa sportello.\n", operatoreId);
-            *firstTry = false;
-            SlaveNotifyAndWait(semID, sops);
+            // *firstTry = false;
+            // SlaveNotifyAndWait(semID, sops);
             return false;
         }
         printf("[%s] Errore durante l'attesa sportello.\n", operatoreId);
@@ -169,6 +170,7 @@ void ReceiveTicketAndExecute(int msgIdOperator, int msgIdUser, int IndexServizio
         }
         if (n < 0) {
             perror("msgrcv");
+            break;
         }
 
         msg.mtype--;
@@ -272,23 +274,35 @@ int main(int argc, char *argv[]) {
         msgIdOperator = config->idOperator;
         msgIdUser = config->idUsers;
 
+        if (endSimulation) {
+            break;
+        }
+
         // Controllo che il servizio di cui mi occupo è presente negli sportelli
         CheckService = CheckDailyService(config, indexServizio, operatoreID);
 
         bool firstTryTakeUp = true;
+
+        if (endSimulation) {
+            break;
+        }
 
         if (CheckService) {
             // Provo ad occupare uno sportello
             TakeUpPostOffice(config, semID, &sops, indexServizio, operatoreID, &operatori_attivi, &firstTryTakeUp);
 
             // TODO capire cosa fare: Devo avvisare solo se non ho già avvisato precedentemente nella funzione TakeUp
-            if (firstTryTakeUp) {
-                // Mi sono configurato per il nuovo giorno, aspetto il via dal direttore per iniziare a lavorare
-                SlaveNotifyAndWait(semID, &sops);
+            // if (firstTryTakeUp) {
+            //     // Mi sono configurato per il nuovo giorno, aspetto il via dal direttore per iniziare a lavorare
+            //     SlaveNotifyAndWait(semID, &sops);
+            // }
+
+            if (endSimulation) {
+                break;
             }
 
-            // printf("[%s] Fine configurazione giorno, avviso il direttore\n", operatoreID);
-            // SlaveNotifyAndWait(semID, &sops);
+            printf("[%s] Fine configurazione giorno, avviso il direttore\n", operatoreID);
+            SlaveNotifyAndWait(semID, &sops);
     
             if (!endDay) {
                 // LAVORO finché non finisce il giorno o vado in pausa
@@ -302,8 +316,16 @@ int main(int argc, char *argv[]) {
             }
         }
         else {
+
+            if (endSimulation) {
+                break;
+            }
             // Se non c'è il servizio che offro io, avviso lo stesso il direttore
             SlaveNotifyAndWait(semID, &sops);
+        }
+
+        if (endSimulation) {
+            break;
         }
 
         // Aspetto fine giornata se non già arrivata (per gli operatori che vanno in pausa)
