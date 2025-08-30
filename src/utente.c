@@ -109,12 +109,13 @@ bool ReceiveMessageFromOperator(int msgID, int myPID, char* utenteID, long* time
     printf("[%s] In attesa di risposta dall'operatore (PID: %d)...\n", utenteID, myPID);
 
     do {
-        n = msgrcv(msgID, &msg, sizeof(Messaggio) - sizeof(long), myPID, IPC_NOWAIT);
+        //n = msgrcv(msgID, &msg, sizeof(Messaggio) - sizeof(long), myPID, IPC_NOWAIT);
+        n = msgrcv(msgID, &msg, sizeof(Messaggio) - sizeof(long), myPID, 0);
         
         if (n >= 0) {
             // ✅ MESSAGGIO RICEVUTO CON SUCCESSO
             *timeExecution = msg.time_for_execution;
-            printf("[%s] ✅ Ricevuta risposta dall'operatore (ticket %d, tempo: %ld ns)\n", 
+            printf("[%s] Ricevuta risposta dall'operatore (ticket %d, tempo: %ld ns)\n", 
                    utenteID, msg.ticket_id, *timeExecution);
             return true;
         }
@@ -126,7 +127,7 @@ bool ReceiveMessageFromOperator(int msgID, int myPID, char* utenteID, long* time
             retry_count++;
             
             if (retry_count >= MAX_RETRIES) {
-                printf("[%s] ⚠️ Timeout: nessuna risposta dall'operatore dopo 2 secondi\n", utenteID);
+                printf("[%s] Timeout: nessuna risposta dall'operatore dopo 2 secondi\n", utenteID);
                 return false;
             }
             continue;

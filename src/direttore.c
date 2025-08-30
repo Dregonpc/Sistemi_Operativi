@@ -260,8 +260,8 @@ void MasterNotifyAndWait(int semID, struct sembuf* sops, DailyConfig* config, St
     }
     
     struct timespec req;
-    req.tv_sec  = 0;
-    req.tv_nsec = 200000000;
+    req.tv_sec = 0;
+    req.tv_nsec = 20000000; // 200000000 = 0.2 sec // 20000000 = 0.02 sec // ORA È 0.02
     nanosleep(&req, NULL);
     // Resettiamo il semaforo della barriera
     SemBarrierRestart(semID, sops, TOTAL_PROCESSES, 1, direttoreID);
@@ -409,7 +409,9 @@ int main(int argc, char *argv[]) {
     kill(0, SIGTERM);
 
     // ✅ SECONDO: Aspetta un momento per permettere ai processi di ricevere il segnale
-    struct timespec wait_term = {2, 0}; // 1 secondo
+    struct timespec wait_term;
+    wait_term.tv_sec = 0;
+    wait_term.tv_nsec = 20000000; // 0.02 secondi
     nanosleep(&wait_term, NULL);
 
     kill(0, SIGTERM);
@@ -417,16 +419,17 @@ int main(int argc, char *argv[]) {
     nanosleep(&wait_term, NULL);
 
     // ✅ QUARTO: Solo DOPO che tutti sono terminati, pulisci le risorse
-    printf("[Direttore] Tutti i processi sono terminati, avvio la pulizia.\n");
+    printf("[Direttore] Inizio a rimuovere le code.\n");
     messageQueueRemove(config->idDispenser);
     messageQueueRemove(config->idOperator);
     messageQueueRemove(config->idUsers);
 
     // ✅ TERZO: Aspetta che tutti i processi terminino
+    printf("[Direttore] Aspetto che tutti i processi terminino.\n");
     waitFinishAllSubProcess();
 
 
-    printf("[Direttore] Tutti i processi sono terminati, avvio la pulizia.\n");
+    printf("[Direttore] Tutti i processi sono terminati, finisco la pulizia.\n");
 
     CalculateFinalStats(stats, semID);
     PrintFinalStats(stats);
