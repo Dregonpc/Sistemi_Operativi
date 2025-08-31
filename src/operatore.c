@@ -231,9 +231,7 @@ int main(int argc, char *argv[]) {
     int indexServizio = atoi(argv[6]);
     int NOF_PAUSE = atoi(argv[7]);
     int SIMULATED_MINUTE = atoi(argv[8]);
-
     int pause_effettuate = 0;
-    bool alreadyNotifiedStart = false;
 
     printf("[%s] Avvio in corso. PID = %d\n", operatoreID, getpid());
 
@@ -318,10 +316,10 @@ int main(int argc, char *argv[]) {
             }
         }
         else {
-
             if (endSimulation) {
                 break;
             }
+            
             // Se non c'è il servizio che offro io, avviso lo stesso il direttore
             SlaveNotifyAndWait(semID, &sops);
         }
@@ -332,10 +330,7 @@ int main(int argc, char *argv[]) {
 
         // Aspetto fine giornata se non già arrivata (per gli operatori che vanno in pausa)
         if (!endDay || !CheckService) {
-            printf("[%s] Attendo SIGUSR2 (fine giornata)...\n", operatoreID);
-            // while (!endDay) {
-            //     pause();
-            // }
+            printf("[%s] Attendo fine giornata...\n", operatoreID);
             ExecuteSemop(semID, &sops, 5, -1);
         }
 

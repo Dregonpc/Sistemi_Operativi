@@ -113,13 +113,13 @@ bool ReceiveMessageFromOperator(int msgID, int myPID, char* utenteID, long* time
         n = msgrcv(msgID, &msg, sizeof(Messaggio) - sizeof(long), myPID, 0);
         
         if (n >= 0) {
-            // ✅ MESSAGGIO RICEVUTO CON SUCCESSO
+            // MESSAGGIO RICEVUTO CON SUCCESSO
             *timeExecution = msg.time_for_execution;
-            printf("[%s] Ricevuta risposta dall'operatore (ticket %d, tempo: %ld ns)\n", 
-                   utenteID, msg.ticket_id, *timeExecution);
+            printf("[%s] Ricevuta risposta dall'operatore (ticket %d, tempo: %ld ns)\n", utenteID, msg.ticket_id, *timeExecution);
             return true;
         }
         
+        // QUESTO IF NON DOVREBBE PIÙ SERVIRE VISTO CHE ABBIAMO TOLTO IL NO WAIT
         if (errno == ENOMSG) {
             // Nessun messaggio disponibile, aspetta e riprova
             struct timespec wait = {0, 10000000}; // 10ms
@@ -282,12 +282,9 @@ int main(int argc, char *argv[]) {
                     clock_gettime(CLOCK_MONOTONIC, &time_start);
 
                     // invio richiesta e aspetto
-                    if (endDay) // TODO SBU
-                        break;
+                    if (endDay) break; // TODO SBU
+                        
                     SendMessageToErogatore(msgIdDispenser, utenteID, request[i], myPID);
-
-
-
                     served = ReceiveMessageFromOperator(msgIdUser, myPID, utenteID, &timeExecution);
 
                     clock_gettime(CLOCK_MONOTONIC, &time_end);
@@ -320,12 +317,8 @@ int main(int argc, char *argv[]) {
             }
         }
 
-        // se servito o giornata finita, torno a casa
-        // poi aspetto fine giornata per i prossimi giorni
+        // se servito o giornata finita, torno a casa. Poi aspetto fine giornata per i prossimi giorni
         printf("[%s] %s, aspetto fine giornata.\n", utenteID, served ? "Servito" : "Non servito");
-        // while (!endDay) {
-        //     pause();
-        // }
         ExecuteSemop(semID, &sops, 5, -1);
 
         // Aggiorna le statistiche

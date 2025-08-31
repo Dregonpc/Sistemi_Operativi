@@ -6,7 +6,7 @@
 #include <semaphore.h>
 #include <sys/sem.h>
 
-#define NUM_OF_SEM 5
+#define NUM_OF_SEM 6
 
 /**
  * @brief Crea una collezione di semaforo
@@ -25,9 +25,10 @@ int semCreate(int flag, int numOfSem, char* processName);
  * @param quantity2 Valore iniziale del semaforo 2
  * @param quantity3 Valore iniziale del semaforo 3
  * @param quantity4 Valore iniziale del semaforo 4
+ * @param quantity5 Valore iniziale del semaforo 5
  * @param processName Nome del processo che inizializza i semafori
  */
-void semInizialize(int semID, int quantity0, int quantity1, int quantity2, int quantity3, int quantity4, char* processName);
+void semInizialize(int semID, int quantity0, int quantity1, int quantity2, int quantity3, int quantity4, int quantity5, char* processName);
 
 /**
  * @brief Inizializza i semafori per la gestione delle code di messaggi
@@ -54,9 +55,19 @@ void SemBarrierRestart(int semID, struct sembuf* sops, int quantity0, int quanti
  * @param quantity2 Valore iniziale del semaforo 2
  * @param quantity3 Valore iniziale del semaforo 3
  * @param quantity4 Valore iniziale del semaforo 4
+ * @param quantity5 Valore iniziale del semaforo 5
  * @param processName Nome del processo che inizializza i semafori
  */
-void SemRestart(int semID, struct sembuf* sops, int quantity2, int quantity3, int quantity4, char* processName);
+void SemRestart(int semID, struct sembuf* sops, int quantity2, int quantity3, int quantity4, int quantity5, char* processName);
+
+/**
+ * @brief Sveglia i figli che stanno aspettando sul semaforo numero 5
+ * @param semID ID del semaforo
+ * @param sops Operazione da eseguire sui semafori
+ * @param value Valore che indica quanto deve essere incrementato il semaforo
+ * @param processName Nome del processo che inizializza i semafori
+ */
+void SemWakeUpProcesses(int semID, struct sembuf* sops, int value, char* processName);
 
 /**
  * @brief Rimuove il set di semafori

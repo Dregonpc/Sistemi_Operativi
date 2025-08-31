@@ -30,8 +30,13 @@ static void signalHandler(int signo) {
 }
 
 void SlaveNotifyAndWait(int semID, struct sembuf* sops) {
+
+    if (endSimulation) return;
+
     // avviso il direttore che sono pronto
     ExecuteSemop(semID, sops, 0, -1);
+
+    if (endSimulation) return;
     
     // aspetto che arrivi a 0 (ovvero il direttore mi da il via)
     ExecuteSemop(semID, sops, 1, 0);

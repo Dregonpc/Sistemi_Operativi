@@ -72,6 +72,17 @@ void ConfigurePostOffices(DailyConfig* config, Stats* stats) {
     }
 }
 
+void RemoveDailyQueue(int msgIdDispenser, int msgIdOperator, int msgIdUser) {
+    if (msgIdDispenser > 0) 
+        messageQueueRemove(msgIdDispenser);
+
+    if (msgIdOperator > 0) 
+        messageQueueRemove(msgIdOperator);
+
+    if (msgIdUser > 0)
+        messageQueueRemove(msgIdUser);
+}
+
 void CreateProcess(const char *path, char *const argv[]) {
     pid_t pid = fork();
 
@@ -204,22 +215,11 @@ void MasterNotifyAndWait(int semID, struct sembuf* sops, DailyConfig* config, St
         }
 
         // Resettiamo il semaforo tra operatori e utenti
-        SemRestart(semID, sops, NUM_SPORTELLI, 1, 1, direttoreID);
+        SemRestart(semID, sops, NUM_SPORTELLI, 1, 1, 0, direttoreID);
 
-        // ✅ CORREZIONE: Inizializza sem 5 PRIMA che i processi possano accedervi
-        if (semctl(semID, 5, SETVAL, TOTAL_PROCESSES * 2) < 0) {
-            printf("[%s] Errore durante la semctl del semaforo di pausa.\n", direttoreID);
-            exit(EXIT_FAILURE);
-        }
+        // #REGION Fare una funzione?
 
-        // Puliamo le code di messaggi per il nuovo giorno
-        // cleanMsgQueue(msgIdDispenser);
-        // cleanMsgQueue(msgIdOperator);
-        // cleanMsgQueue(msgIdUser);
-        // messageQueueRemove(msgIdDispenser);
-        // messageQueueRemove(msgIdOperator);
-        // messageQueueRemove(msgIdUser);
-        // ✅ STEP 1: CREA le NUOVE code PRIMA di eliminare le vecchie
+        // Crea le nuove code prima di eliminare le vecchie
         key_t idDis = ftok("src/main.c", 5001);
         key_t idOpe = ftok("src/main.c", 5002);
         key_t idUse = ftok("src/main.c", 5003);
@@ -228,20 +228,20 @@ void MasterNotifyAndWait(int semID, struct sembuf* sops, DailyConfig* config, St
         int newMsgIdOperator = messageQueueCreate(idOpe, 0666, direttoreID);
         int newMsgIdUser = messageQueueCreate(idUse, 0666, direttoreID);
 
-        // ✅ STEP 2: Aggiorna la config CON I NUOVI ID
+        // Aggiorna la memoria condivisa con i nuovi id
         config->idDispenser = newMsgIdDispenser;
         config->idOperator = newMsgIdOperator;
         config->idUsers = newMsgIdUser;
 
-        // ✅ STEP 3: SOLO ORA elimina le code vecchie (se esistevano)
-        if (msgIdDispenser > 0) messageQueueRemove(msgIdDispenser);
-        if (msgIdOperator > 0) messageQueueRemove(msgIdOperator);
-        if (msgIdUser > 0) messageQueueRemove(msgIdUser);
+        // Elimina le code vecchie
+        RemoveDailyQueue(msgIdDispenser, msgIdOperator, msgIdUser);
 
-        // ✅ STEP 4: Aggiorna le variabili locali
+        // Aggiorna le variabili locali (serve davvero? non sono puntatori)
         msgIdDispenser = newMsgIdDispenser;
         msgIdOperator = newMsgIdOperator;
         msgIdUser = newMsgIdUser;
+
+        // #ENDREGION Fare una funzione?
     }
 
     if (CheckUsers) {
@@ -275,14 +275,10 @@ void waitFinishAllSubProcess() {
     }
 }
 
-void Clean(int msgIdDispenser, int msgIdOperator, int msgIdUser, int msgIdNewUser, int semID, int semMessageQueueID, int shmID, DailyConfig* config, int shmIdStat, Stats* stats) {
-    // messageQueueRemove(msgIdDispenser);
-    // messageQueueRemove(msgIdOperator);
-    // messageQueueRemove(msgIdUser);
+void Clean(int msgIdNewUser, int semID, int shmID, DailyConfig* config, int shmIdStat, Stats* stats) {
     messageQueueRemove(msgIdNewUser);
 
     semCleanUp(semID);
-    semCleanUp(semMessageQueueID);
     SharedMemoryCleanConfig(shmID, config);
     SharedMemoryCleanStats(shmIdStat, stats);
 }
@@ -294,6 +290,9 @@ int main(int argc, char *argv[]) {
 
     char* direttoreID = "Direttore";
     char* csvPath = "Stats.csv";
+    int msgIdDispenser = 0;
+    int msgIdOperator = 0;
+    int msgIdUser = 0;
 
     // Inizializza il generatore di numeri casuali
     srand(time(NULL) + getpid());
@@ -323,33 +322,11 @@ int main(int argc, char *argv[]) {
     Stats* stats = (Stats*)SharedMemoryAttachGeneral(shmIdStats, direttoreID);
     
     // creiamo il semaforo e inizializziamolo
-    int semID = semCreate(0666, NUM_OF_SEM + 1, direttoreID);
-    semInizialize(semID, TOTAL_PROCESSES, 1, NUM_SPORTELLI, 1, 1, direttoreID);
-
-    // SEMAFORO PER IL PAUSE. DA SISTEMARE
-    if (semctl(semID, 5, SETVAL, 0) < 0) {
-        printf("[%s] Errore durante la semctl del semaforo nuovo.\n", direttoreID);
-        exit(EXIT_FAILURE);
-    }
-
-    int semMessageQueueID = semCreate(0666, NUM_SERVIZI, direttoreID);
-    semMessageInitialize(semMessageQueueID, NUM_SERVIZI, direttoreID);
+    int semID = semCreate(0666, NUM_OF_SEM, direttoreID);
+    semInizialize(semID, TOTAL_PROCESSES, 1, NUM_SPORTELLI, 1, 1, 0, direttoreID);
     
     // inizializziamo le statistiche
     StatsInitialize(stats, semID);
-
-    // creiamo le tre code per i messaggi per la comunicazione tra utente-erogatore e erogatore-operatore
-    // Coda utente --> erogatore
-    //int msgIdDispenser = messageQueueCreate(IPC_PRIVATE, 0666, direttoreID);
-    int msgIdDispenser = 0;
-
-    // Coda erogatore --> operatore
-    //int msgIdOperator = messageQueueCreate(IPC_PRIVATE, 0666, direttoreID);
-    int msgIdOperator = 0;
-
-    // Coda operatore --> utente
-    //int msgIdUser = messageQueueCreate(IPC_PRIVATE, 0666, direttoreID);
-    int msgIdUser = 0;
 
     // Coda per inserire nuovi utenti durante la simulazione
     int msgIdNewUsers = messageQueueCreate(PUBLIC_KEY, 0666, direttoreID);
@@ -388,15 +365,8 @@ int main(int argc, char *argv[]) {
         printf("[Direttore] Avviso i figli che è terminato il giorno %d...\n", giorni);
         kill(0, SIGUSR2); // Fine giornata
 
-        // SEMAFORO PER IL PAUSE. DA SISTEMARE
-        if (semctl(semID, 5, SETVAL, TOTAL_PROCESSES * 2) < 0) {
-            printf("[%s] Errore durante la semctl del semaforo nuovo.\n", direttoreID);
-            exit(EXIT_FAILURE);
-        }
-        // PROVA
-        // messageQueueRemove(config->idDispenser);
-        // messageQueueRemove(config->idOperator);
-        // messageQueueRemove(config->idUsers);
+        // Svegliamo i figli che stanno aspettando il fine giornata
+        SemWakeUpProcesses(semID, &sops, TOTAL_PROCESSES * 2, direttoreID);
         
         // Facciamo ripartire i figli per il nuovo giorno
         endSim = (giorni == SIM_DURATION);
@@ -405,29 +375,27 @@ int main(int argc, char *argv[]) {
 
     // Fermiamo la simulazione
     printf("[Direttore] Simulazione finita, mando il segnale di terminazione a tutti i figli...\n");
-    // ✅ PRIMO: Invia SIGTERM a tutti i processi
-    kill(0, SIGTERM);
-
-    // ✅ SECONDO: Aspetta un momento per permettere ai processi di ricevere il segnale
     struct timespec wait_term;
     wait_term.tv_sec = 0;
     wait_term.tv_nsec = 20000000; // 0.02 secondi
-    nanosleep(&wait_term, NULL);
 
-    // Nel 80% dei casi termina, ma per sicurezza sarebbe meglio lasciare il doppio segnale (con il doppio segnale finisce nel 100% dei casi)
+    // Invia SIGTERM a tutti i processi
     kill(0, SIGTERM);
+
+    // Aspetta un momento per permettere ai processi di ricevere il segnale
     nanosleep(&wait_term, NULL);
 
-    // ✅ QUARTO: Solo DOPO che tutti sono terminati, pulisci le risorse
-    printf("[Direttore] Inizio a rimuovere le code.\n");
-    messageQueueRemove(config->idDispenser);
-    messageQueueRemove(config->idOperator);
-    messageQueueRemove(config->idUsers);
+    // Avendo fatto un campo minato in tutte le SlaveNotifyAndWait, sembrerebbe funzionare senza doppio segnale
+    // kill(0, SIGTERM);
+    // nanosleep(&wait_term, NULL);
 
-    // ✅ TERZO: Aspetta che tutti i processi terminino
+    // Rimuoviamo le code
+    printf("[Direttore] Inizio a rimuovere le code.\n");
+    RemoveDailyQueue(config->idDispenser, config->idOperator, config->idUsers);
+
+    // Aspetta che tutti i processi terminino
     printf("[Direttore] Aspetto che tutti i processi terminino.\n");
     waitFinishAllSubProcess();
-
 
     printf("[Direttore] Tutti i processi sono terminati, finisco la pulizia.\n");
 
@@ -436,7 +404,7 @@ int main(int argc, char *argv[]) {
     WriteFinalStatsCSV(csvPath, stats);
     
     // Pulizia
-    Clean(msgIdDispenser, msgIdOperator, msgIdUser, msgIdNewUsers, semID, semMessageQueueID, shmID, config, shmIdStats, stats);
+    Clean(msgIdNewUsers, semID, shmID, config, shmIdStats, stats);
 
     printf("[Direttore] Fine della simulazione.\n");
 

@@ -10,7 +10,7 @@ int semCreate(int flag, int numOfSem, char* processName) {
     return semID;
 }
 
-void semInizialize(int semID, int quantity0, int quantity1, int quantity2, int quantity3, int quantity4, char* processName) {
+void semInizialize(int semID, int quantity0, int quantity1, int quantity2, int quantity3, int quantity4, int quantity5, char* processName) {
     // semNum = 0 : semaforo per gestire la barriera di partenza dei processi
     // all'inizio, contiene il numero di tutti i processi, quando arriverà a zero la simulazione partirà
     if (semctl(semID, 0, SETVAL, quantity0) < 0) {
@@ -44,7 +44,14 @@ void semInizialize(int semID, int quantity0, int quantity1, int quantity2, int q
     if (semctl(semID, 4, SETVAL, quantity4) < 0) {
         printf("[%s] Errore durante la semctl del semaforo per il lock delle statistiche.\n", processName);
         exit(EXIT_FAILURE);
-    }   
+    }
+
+    // semNum = 5 : semaforo su cui far attendere la fine giornata ai figli
+    // vale sempre 0, quando il direttore vuole svegliare i figli lo aumenta
+    if (semctl(semID, 5, SETVAL, quantity5) < 0) {
+        printf("[%s] Errore durante la semctl del semaforo per l'attesa di fine giornata.\n", processName);
+        exit(EXIT_FAILURE);
+    }
 }
 
 void semMessageInitialize(int semID, int NUM_OF_SERVICE, char* processName){
@@ -68,7 +75,7 @@ void SemBarrierRestart(int semID, struct sembuf* sops, int quantity0, int quanti
     }
 }
 
-void SemRestart(int semID, struct sembuf* sops, int quantity2, int quantity3, int quantity4, char* processName) {
+void SemRestart(int semID, struct sembuf* sops, int quantity2, int quantity3, int quantity4, int quantity5, char* processName) {
     if (semctl(semID, 2, SETVAL, quantity2) < 0) {
         printf("[%s] Errore durante la semctl del semaforo dedicato agli sportelli.\n", processName);
         exit(EXIT_FAILURE);
@@ -81,6 +88,18 @@ void SemRestart(int semID, struct sembuf* sops, int quantity2, int quantity3, in
 
     if (semctl(semID, 4, SETVAL, quantity4) < 0) {
         printf("[%s] Errore durante la semctl del semaforo per il lock delle statistiche.\n", processName);
+        exit(EXIT_FAILURE);
+    }
+
+    if (semctl(semID, 5, SETVAL, quantity5) < 0) {
+        printf("[%s] Errore durante la semctl del semaforo per l'attesa di fine giornata.\n", processName);
+        exit(EXIT_FAILURE);
+    }
+}
+
+void SemWakeUpProcesses(int semID, struct sembuf* sops, int value, char* processName) {
+    if (semctl(semID, 5, SETVAL, value) < 0) {
+        printf("[%s] Errore durante la semctl del semaforo per l'attesa di fine giornata.\n", processName);
         exit(EXIT_FAILURE);
     }
 }
