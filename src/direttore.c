@@ -414,8 +414,8 @@ int main(int argc, char *argv[]) {
     wait_term.tv_nsec = 20000000; // 0.02 secondi
     nanosleep(&wait_term, NULL);
 
+    // Nel 80% dei casi termina, ma per sicurezza sarebbe meglio lasciare il doppio segnale (con il doppio segnale finisce nel 100% dei casi)
     kill(0, SIGTERM);
-    
     nanosleep(&wait_term, NULL);
 
     // ✅ QUARTO: Solo DOPO che tutti sono terminati, pulisci le risorse

@@ -65,6 +65,7 @@ bool TakeUpPostOffice(DailyConfig* config, int semID, struct sembuf* sops, int i
     int checkSportelli = SemGetVal(semID, 2);
     if (checkSportelli == 0) {
         *firstTry = false;
+        printf("[%s] Non ci sono sportelli liberi, attendo...\n", operatoreId);
         SlaveNotifyAndWait(semID, sops);
     }
 
@@ -72,8 +73,6 @@ bool TakeUpPostOffice(DailyConfig* config, int semID, struct sembuf* sops, int i
     if (ExecuteSemop(semID, sops, 2, -1) == -1) { // Se il semaforo attualmente vale 0 mi metto in wait, altrimenti decremento
         if (errno == EINTR && endDay) {
             printf("[%s] Fine giornata durante attesa sportello.\n", operatoreId);
-            // *firstTry = false;
-            // SlaveNotifyAndWait(semID, sops);
             return false;
         }
         printf("[%s] Errore durante l'attesa sportello.\n", operatoreId);
@@ -296,18 +295,16 @@ int main(int argc, char *argv[]) {
             // Provo ad occupare uno sportello
             TakeUpPostOffice(config, semID, &sops, indexServizio, operatoreID, &operatori_attivi, &firstTryTakeUp);
 
-            // TODO capire cosa fare: Devo avvisare solo se non ho già avvisato precedentemente nella funzione TakeUp
-            // if (firstTryTakeUp) {
-            //     // Mi sono configurato per il nuovo giorno, aspetto il via dal direttore per iniziare a lavorare
-            //     SlaveNotifyAndWait(semID, &sops);
-            // }
-
             if (endSimulation) {
                 break;
             }
 
-            printf("[%s] Fine configurazione giorno, avviso il direttore\n", operatoreID);
-            SlaveNotifyAndWait(semID, &sops);
+            // Devo avvisare solo se non ho già avvisato precedentemente nella funzione TakeUp
+            if (firstTryTakeUp) {
+                printf("[%s] Fine configurazione giorno, avviso il direttore\n", operatoreID);
+                // Mi sono configurato per il nuovo giorno, aspetto il via dal direttore per iniziare a lavorare
+                SlaveNotifyAndWait(semID, &sops);
+            }
     
             if (!endDay) {
                 // LAVORO finché non finisce il giorno o vado in pausa
