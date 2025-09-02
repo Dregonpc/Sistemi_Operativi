@@ -25,17 +25,15 @@ int P_SERV_MIN; // Probabilità per l'utente
 int P_SERV_MAX; // Probabilità per l'utente
 int SIM_DURATION; // Durata della simulazione in giorni
 int EXPLODE_THRESHOLD;  // max numero di utenti a fine giornata che non sono stati serviti --> se supera la soglia termina la simulazione
-
-#define MINUTES_FOR_DAY 480 // 480 minuti = 8 ore
-#define SIMULATED_MINUTE 4000000 // 4 milioni di nanosecondi = 4ms
-// 4ms * 480 = 1,92 secondi
+int MINUTES_FOR_DAY; // 480 minuti = 8 ore
+int SIMULATED_MINUTE; // 4000000 di nanosecondi = 4ms
 
 // Handler per tutti i segnali
 static void signalHandler(int signo) {
     // Do nothing
 }
 
-void readConfig(char *numOfWorkers, char *numOfUsers, char *numSportelli, char *nofPause, char *nRequest, char *pServMin, char *pServMax, char *simDuration, char *explodeThreshold) {
+void readConfig(char *numOfWorkers, char *numOfUsers, char *numSportelli, char *nofPause, char *nRequest, char *pServMin, char *pServMax, char *simDuration, char *explodeThreshold, char *minutesForDay, char *simulatedMinute) {
     NUM_OF_WORKERS = atoi(numOfWorkers);
     NUM_OF_USERS = atoi(numOfUsers);
     NUM_SPORTELLI = atoi(numSportelli);
@@ -45,13 +43,14 @@ void readConfig(char *numOfWorkers, char *numOfUsers, char *numSportelli, char *
     P_SERV_MAX = atoi(pServMax);
     SIM_DURATION = atoi(simDuration);
     EXPLODE_THRESHOLD = atoi(explodeThreshold);
+    MINUTES_FOR_DAY = atoi(minutesForDay);
+    SIMULATED_MINUTE = atoi(simulatedMinute);
     TOTAL_PROCESSES = 1 + NUM_OF_WORKERS + NUM_OF_USERS;
     TOTAL_PROCESSES_DIR = 1 + TOTAL_PROCESSES;
 }
 
 int RandomizeService() {
     return rand() % NUM_SERVIZI;
-    // return 1; // Per testare il servizio 1
 }
 
 int CalculateTimeDayUser() {
@@ -70,17 +69,6 @@ void ConfigurePostOffices(DailyConfig* config, Stats* stats) {
 
         printf("[Direttore] Sportello %d è stato creato con il servizio %d.\n", config->sportelli[i].idSportello, config->sportelli[i].indexServizioOfferto);
     }
-}
-
-void RemoveDailyQueue(int msgIdDispenser, int msgIdOperator, int msgIdUser) {
-    if (msgIdDispenser > 0) 
-        messageQueueRemove(msgIdDispenser);
-
-    if (msgIdOperator > 0) 
-        messageQueueRemove(msgIdOperator);
-
-    if (msgIdUser > 0)
-        messageQueueRemove(msgIdUser);
 }
 
 void CreateProcess(const char *path, char *const argv[]) {
@@ -138,7 +126,7 @@ void createAllSubProcess(int shmID, int shmIdStats, int semID, int msgIdDispense
     sprintf(nof_pause_str, "%d", NOF_PAUSE);
 
     // Creiamo l'erogatore per i ticket
-    char *erogatore_ticket_args[] = {"Erogatore_ticket", semID_str, msgIdDispenser_str, msgIdOperator_str, shmID_str, NULL};
+    char *erogatore_ticket_args[] = {"Erogatore_ticket", semID_str, msgIdDispenser_str, msgIdOperator_str, NULL};
     CreateProcess("./bin/erogatore_ticket", erogatore_ticket_args);
 
     // Creiamo tutti gli operatori
@@ -217,31 +205,10 @@ void MasterNotifyAndWait(int semID, struct sembuf* sops, DailyConfig* config, St
         // Resettiamo il semaforo tra operatori e utenti
         SemRestart(semID, sops, NUM_SPORTELLI, 1, 1, 0, direttoreID);
 
-        // #REGION Fare una funzione?
-
-        // Crea le nuove code prima di eliminare le vecchie
-        key_t idDis = ftok("src/main.c", 5001);
-        key_t idOpe = ftok("src/main.c", 5002);
-        key_t idUse = ftok("src/main.c", 5003);
-
-        int newMsgIdDispenser = messageQueueCreate(idDis, 0666, direttoreID);
-        int newMsgIdOperator = messageQueueCreate(idOpe, 0666, direttoreID);
-        int newMsgIdUser = messageQueueCreate(idUse, 0666, direttoreID);
-
-        // Aggiorna la memoria condivisa con i nuovi id
-        config->idDispenser = newMsgIdDispenser;
-        config->idOperator = newMsgIdOperator;
-        config->idUsers = newMsgIdUser;
-
-        // Elimina le code vecchie
-        RemoveDailyQueue(msgIdDispenser, msgIdOperator, msgIdUser);
-
-        // Aggiorna le variabili locali (serve davvero? non sono puntatori)
-        msgIdDispenser = newMsgIdDispenser;
-        msgIdOperator = newMsgIdOperator;
-        msgIdUser = newMsgIdUser;
-
-        // #ENDREGION Fare una funzione?
+        // Puliamo le code
+        cleanMsgQueue(msgIdDispenser);
+        cleanMsgQueue(msgIdOperator);
+        cleanMsgQueue(msgIdUser);
     }
 
     if (CheckUsers) {
@@ -259,12 +226,23 @@ void MasterNotifyAndWait(int semID, struct sembuf* sops, DailyConfig* config, St
         ExecuteSemop(semID, sops, 1, -1);
     }
     
-    struct timespec req;
-    req.tv_sec = 0;
-    req.tv_nsec = 20000000; // 200000000 = 0.2 sec // 20000000 = 0.02 sec // ORA È 0.02
-    nanosleep(&req, NULL);
+    SleepNanoseconds(20000000); // 20000000 = 0.02 sec
+    
     // Resettiamo il semaforo della barriera
     SemBarrierRestart(semID, sops, TOTAL_PROCESSES, 1, direttoreID);
+}
+
+void SimulateDay() {
+    struct timespec req, rem;
+    req.tv_sec  = 0;
+    req.tv_nsec = SIMULATED_MINUTE;
+    for (int minuti = 0; minuti < MINUTES_FOR_DAY; minuti++) {
+        rem = req;
+        // la syscall nanosleep può essere interrotta da un segnale (EINTR)
+        while (nanosleep(&rem, &rem) == -1 && errno == EINTR) {
+            // rimane in rem il tempo residuo da dormire
+        }
+    }
 }
 
 // Aspettiamo tutti i processi finiscano di lavorare
@@ -275,7 +253,10 @@ void waitFinishAllSubProcess() {
     }
 }
 
-void Clean(int msgIdNewUser, int semID, int shmID, DailyConfig* config, int shmIdStat, Stats* stats) {
+void Clean(int msgIdDispenser, int msgIdOperator, int msgIdUser, int msgIdNewUser, int semID, int shmID, DailyConfig* config, int shmIdStat, Stats* stats) {
+    messageQueueRemove(msgIdDispenser);
+    messageQueueRemove(msgIdOperator);
+    messageQueueRemove(msgIdUser);
     messageQueueRemove(msgIdNewUser);
 
     semCleanUp(semID);
@@ -286,13 +267,11 @@ void Clean(int msgIdNewUser, int semID, int shmID, DailyConfig* config, int shmI
 int main(int argc, char *argv[]) {
     struct sembuf sops = {0}; // Inizializza tutti i campi a 0
 
-    readConfig(argv[1], argv[2], argv[3], argv[4], argv[5], argv[6], argv[7], argv[8], argv[9]);
+    readConfig(argv[1], argv[2], argv[3], argv[4], argv[5], argv[6], argv[7], argv[8], argv[9], argv[10], argv[11]);
 
     char* direttoreID = "Direttore";
     char* csvPath = "Stats.csv";
-    int msgIdDispenser = 0;
-    int msgIdOperator = 0;
-    int msgIdUser = 0;
+    bool endSim = false;
 
     // Inizializza il generatore di numeri casuali
     srand(time(NULL) + getpid());
@@ -328,14 +307,20 @@ int main(int argc, char *argv[]) {
     // inizializziamo le statistiche
     StatsInitialize(stats, semID);
 
+    // Creiamo le code
+    key_t keyDispenser = ftok("src/main.c", 5001);
+    key_t keyOperator = ftok("src/main.c", 5002);
+    key_t keyUser = ftok("src/main.c", 5003);
+    int msgIdDispenser = messageQueueCreate(keyDispenser, 0666, direttoreID);
+    int msgIdOperator = messageQueueCreate(keyOperator, 0666, direttoreID);
+    int msgIdUser = messageQueueCreate(keyUser, 0666, direttoreID);
+
     // Coda per inserire nuovi utenti durante la simulazione
     int msgIdNewUsers = messageQueueCreate(PUBLIC_KEY, 0666, direttoreID);
 
     // creiamo tutti i figli
     createAllSubProcess(shmID, shmIdStats, semID, msgIdDispenser, msgIdOperator, msgIdUser);
 
-    bool endSim = false;
-    
     // aspettiamo che tutti i figli siano pronti e diamogli il via
     MasterNotifyAndWait(semID, &sops, config, stats, true, &endSim, false, csvPath, direttoreID, msgIdDispenser, msgIdOperator, msgIdUser, msgIdNewUsers, shmID, shmIdStats, false);
 
@@ -350,17 +335,8 @@ int main(int argc, char *argv[]) {
         MasterNotifyAndWait(semID, &sops, config, stats, false, &endSim, false, csvPath, direttoreID, msgIdDispenser, msgIdOperator, msgIdUser, msgIdNewUsers, shmID, shmIdStats, true);
 
         // simulo il passare dei minuti
-        printf("[Direttore] Giorno %d in corso (480 minuti)...\n", giorni);
-        struct timespec req, rem;
-        req.tv_sec  = 0;
-        req.tv_nsec = SIMULATED_MINUTE;
-        for (int minuti = 0; minuti < MINUTES_FOR_DAY; minuti++) {
-            rem = req;
-            // la syscall nanosleep può essere interrotta da un segnale (EINTR)
-            while (nanosleep(&rem, &rem) == -1 && errno == EINTR) {
-                // rimane in rem il tempo residuo da dormire
-            }
-        }
+        printf("[Direttore] Giorno %d in corso (%d minuti)...\n", giorni, MINUTES_FOR_DAY);
+        SimulateDay();
 
         printf("[Direttore] Avviso i figli che è terminato il giorno %d...\n", giorni);
         kill(0, SIGUSR2); // Fine giornata
@@ -375,23 +351,14 @@ int main(int argc, char *argv[]) {
 
     // Fermiamo la simulazione
     printf("[Direttore] Simulazione finita, mando il segnale di terminazione a tutti i figli...\n");
-    struct timespec wait_term;
-    wait_term.tv_sec = 0;
-    wait_term.tv_nsec = 20000000; // 0.02 secondi
-
-    // Invia SIGTERM a tutti i processi
-    kill(0, SIGTERM);
-
+    kill(0, SIGTERM); // Invia SIGTERM a tutti i processi
+    
     // Aspetta un momento per permettere ai processi di ricevere il segnale
-    nanosleep(&wait_term, NULL);
+    // SleepNanoseconds(20000000); // 20000000 = 0.02 sec // SEMBREREBBE FUNZIONARE ANCHE SENZA
 
     // Avendo fatto un campo minato in tutte le SlaveNotifyAndWait, sembrerebbe funzionare senza doppio segnale
     // kill(0, SIGTERM);
-    // nanosleep(&wait_term, NULL);
-
-    // Rimuoviamo le code
-    printf("[Direttore] Inizio a rimuovere le code.\n");
-    RemoveDailyQueue(config->idDispenser, config->idOperator, config->idUsers);
+    // SleepNanoseconds(20000000);
 
     // Aspetta che tutti i processi terminino
     printf("[Direttore] Aspetto che tutti i processi terminino.\n");
@@ -404,7 +371,7 @@ int main(int argc, char *argv[]) {
     WriteFinalStatsCSV(csvPath, stats);
     
     // Pulizia
-    Clean(msgIdNewUsers, semID, shmID, config, shmIdStats, stats);
+    Clean(msgIdDispenser, msgIdOperator, msgIdUser, msgIdNewUsers, semID, shmID, config, shmIdStats, stats);
 
     printf("[Direttore] Fine della simulazione.\n");
 

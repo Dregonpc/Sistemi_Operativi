@@ -89,12 +89,11 @@ void SendMessageToErogatore(int msgID, char* utenteID, int IndexServizioRichiest
     msg.user_id = myPID;
     snprintf(msg.text, MAX_TEXT, "%s", utenteID);
 
-    // TO DO: DA FARE PIU' DECENTEMENTE
     if (endDay) return;
     
     if (msgsnd(msgID, &msg, sizeof(Messaggio) - sizeof(long), 0) < 0) {
         printf("[%s] Errore durante l'invio del messaggio all'erogatore.\n", utenteID);
-        return; // TODO SBU?
+        return;
     }
 
     printf("[%s] Ho richiesto un ticket per il servizio %d.\n", utenteID, IndexServizioRichiesto);
@@ -122,8 +121,7 @@ bool ReceiveMessageFromOperator(int msgID, int myPID, char* utenteID, long* time
         // QUESTO IF NON DOVREBBE PIÙ SERVIRE VISTO CHE ABBIAMO TOLTO IL NO WAIT
         if (errno == ENOMSG) {
             // Nessun messaggio disponibile, aspetta e riprova
-            struct timespec wait = {0, 10000000}; // 10ms
-            nanosleep(&wait, NULL);
+            SleepNanoseconds(10000000); // 10ms
             retry_count++;
             
             if (retry_count >= MAX_RETRIES) {
@@ -236,12 +234,8 @@ int main(int argc, char *argv[]) {
 
         SlaveNotifyAndWait(semID, &sops);
 
-        // reset flag
+        // reset local variables
         endDay = 0;
-
-        // PROVA
-        msgIdDispenser = config->idDispenser;
-        msgIdUser = config->idUsers;
 
         // Calcoliamo la probabilità per decidere se presentarsi all'ufficio postale oppure no
         int userProbability = ((P_SERV_MAX - P_SERV_MIN + 1) + P_SERV_MIN);
@@ -270,10 +264,7 @@ int main(int argc, char *argv[]) {
                     // Stabiliamo un orario in cui presentarci
                     int timeToGo = Randomizer(timeDay);
                     printf("[%s] Ho deciso di presentarmi tra %d nanosecondi.\n", utenteID, timeToGo);
-                    struct timespec req;
-                    req.tv_sec  = 0;
-                    req.tv_nsec = timeToGo;
-                    nanosleep(&req, NULL);
+                    SleepNanoseconds(timeToGo);
 
                     long timeExecution = 0.0;
                     

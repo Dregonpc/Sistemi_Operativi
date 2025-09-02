@@ -129,3 +129,10 @@ int CaptureLock(int semID, struct sembuf* sops, int semNum) {
 int ReleaseLock(int semID, struct sembuf* sops, int semNum) {
     return ExecuteSemop(semID, sops, semNum, 1);
 }
+
+void SleepNanoseconds(long time) {
+    struct timespec req;
+    req.tv_sec = 0;
+    req.tv_nsec = time;
+    nanosleep(&req, NULL);
+}

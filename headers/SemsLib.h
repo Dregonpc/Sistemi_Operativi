@@ -5,6 +5,7 @@
 #include <stdlib.h>
 #include <semaphore.h>
 #include <sys/sem.h>
+#include <time.h>
 
 #define NUM_OF_SEM 6
 
@@ -106,5 +107,11 @@ int CaptureLock(int semID, struct sembuf* sops, int semNum);
  * @param semNum Numero del semaforo
  */
 int ReleaseLock(int semID, struct sembuf* sops, int semNum);
+
+/**
+ * @brief Dorme per x nanosecondi
+ * @param time nanosecondi di durata
+ */
+void SleepNanoseconds(long time);
 
 #endif // SEMSLIB_H

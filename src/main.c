@@ -31,6 +31,8 @@ int P_SERV_MIN = 0;
 int P_SERV_MAX = 0;
 int SIM_DURATION = 0;
 int EXPLODE_THRESHOLD = 0;
+int MINUTES_FOR_DAY = 0;
+int SIMULATED_MINUTE = 0;
 
 void read_config(char *filename) {
     FILE *f = fopen(filename, "r");
@@ -70,6 +72,10 @@ void read_config(char *filename) {
             SIM_DURATION = atoi(value);
         } else if (strcmp(key, "EXPLODE_THRESHOLD") == 0) {
             EXPLODE_THRESHOLD = atoi(value);
+        } else if (strcmp(key, "MINUTES_FOR_DAY") == 0) {
+            MINUTES_FOR_DAY = atoi(value);
+        } else if (strcmp(key, "SIMULATED_MINUTE") == 0) {
+            SIMULATED_MINUTE = atoi(value);
         } else {
             printf("Chiave non riconosciuta: %s\n", key);
         }
@@ -121,6 +127,12 @@ int main(int argc, char *argv[]) {
     char str_explode_threshold[15];
     sprintf(str_explode_threshold, "%d", EXPLODE_THRESHOLD);
 
+    char str_minutes_for_day[15];
+    sprintf(str_minutes_for_day, "%d", MINUTES_FOR_DAY);
+
+    char str_simulated_minute[15];
+    sprintf(str_simulated_minute, "%d", SIMULATED_MINUTE);
+
     printf("[Main] Numero di operatori: %d\n", NUM_OF_WORKERS);
     printf("[Main] Numero di utenti: %d\n", NUM_OF_USERS);
     printf("[Main] Numero degli sportelli: %d\n", NUM_SPORTELLI);
@@ -130,9 +142,11 @@ int main(int argc, char *argv[]) {
     printf("[Main] Tempo di servizio massimo: %d\n", P_SERV_MAX);
     printf("[Main] Durata della simulazione: %d\n", SIM_DURATION);
     printf("[Main] Soglia di esplosione: %d\n", EXPLODE_THRESHOLD);
+    printf("[Main] Minuti in un giorno: %d\n", MINUTES_FOR_DAY);
+    printf("[Main] Minuto simulato: %d\n", SIMULATED_MINUTE);
         
     // Passa i parametri al direttore
-    char* direttore_args[] = {"Direttore", str_num_of_workers, str_num_of_users, str_num_sportelli, str_nof_pause, str_n_request, str_p_serv_min, str_p_serv_max, str_sim_duration, str_explode_threshold, NULL};
+    char* direttore_args[] = {"Direttore", str_num_of_workers, str_num_of_users, str_num_sportelli, str_nof_pause, str_n_request, str_p_serv_min, str_p_serv_max, str_sim_duration, str_explode_threshold, str_minutes_for_day, str_simulated_minute, NULL};
 
     execve("./bin/direttore", direttore_args, NULL);
 

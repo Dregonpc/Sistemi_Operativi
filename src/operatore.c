@@ -182,17 +182,13 @@ void ReceiveTicketAndExecute(int msgIdOperator, int msgIdUser, int IndexServizio
         printf("[%s] Servo il ticket %d per l'utente '%s' (servizio %ld).\n", operatoreID, msg.ticket_id, msg.text, msg.mtype);
 
         // Eseguo il servizio
-        int tempo = CalculateTimeExecution(IndexServizio, simulated_minute);
-        struct timespec req;
-        req.tv_sec  = 0;
-        req.tv_nsec = tempo;
-        nanosleep(&req, NULL);
-
-        *tempo_erogazione = tempo;
+        int executionTime = CalculateTimeExecution(IndexServizio, simulated_minute);
+        SleepNanoseconds(executionTime);
+        *tempo_erogazione = executionTime;
 
         // Manda risposta all'utente usando il suo PID come "destinatario"
         msg.mtype = msg.user_id;
-        msg.time_for_execution = tempo;
+        msg.time_for_execution = executionTime;
         if (msgsnd(msgIdUser, &msg, sizeof(Messaggio) - sizeof(long), 0) < 0) {
             perror("msgsnd");
         }
@@ -200,7 +196,7 @@ void ReceiveTicketAndExecute(int msgIdOperator, int msgIdUser, int IndexServizio
         // Aumentiamo i contatori
         (*servizi_erogati)++;
 
-        printf("[%s] Ho finito di servire %ld. Ci ho impiegato %d nanosecondi.\n", operatoreID, msg.mtype, tempo);
+        printf("[%s] Ho finito di servire %ld. Ci ho impiegato %d nanosecondi.\n", operatoreID, msg.mtype, executionTime);
 
         if ((*pause_effettuate) < NOF_PAUSE && breakCondition(*servizi_erogati)) {
             (*pause_effettuate)++;
@@ -271,10 +267,6 @@ int main(int argc, char *argv[]) {
         // Posso iniziare a lavorare
         printf("[%s] Inizio giornata.\n", operatoreID);
         endDay = 0;
-
-        // PROVA
-        msgIdOperator = config->idOperator;
-        msgIdUser = config->idUsers;
 
         if (endSimulation) {
             break;

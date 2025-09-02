@@ -8,7 +8,6 @@
 #include <sys/msg.h>
 #include "../headers/messaggi.h"
 #include "../headers/SemsLib.h"
-#include "../headers/SharedMemory.h"
 
 // flag globali gestite dai signal handler
 static volatile sig_atomic_t endDay = 0;
@@ -89,7 +88,6 @@ int main(int argc, char *argv[]) {
     int semID = atoi(argv[1]);
     int msgIdDispenser = atoi(argv[2]);
     int msgIdOperator = atoi(argv[3]);
-    int shmID = atoi(argv[4]);
     printf("[%s] Avvio in corso. PID = %d\n", erogatoreID, getpid());
 
     // Installa i signal handler
@@ -105,44 +103,33 @@ int main(int argc, char *argv[]) {
     sa_term.sa_flags = 0;
     sigaction(SIGTERM, &sa_term, NULL);
 
-    // colleghiamoci alla memoria condivisa
-    DailyConfig* config = (DailyConfig*)SharedMemoryAttachGeneral(shmID, erogatoreID);
-
     printf("[%s] Sono pronto, avviso il direttore e aspetto il via.\n", erogatoreID);
     SlaveNotifyAndWait(semID, &sops);
     
     while (!endSimulation) {
-        // Posso iniziare a lavorare
-        endDay = 0;
-
         SlaveNotifyAndWait(semID, &sops);
+        
         if (endSimulation) {
             break;
         }
         
+        // Posso iniziare a lavorare
         printf("[%s] Inizio giornata.\n", erogatoreID);
-        
-        // PROVA
-        msgIdDispenser = config->idDispenser;
-        msgIdOperator = config->idOperator;
+        endDay = 0;
 
         // Mi metto in ricezione
         ReceiveAndSendMessage(msgIdDispenser, msgIdOperator, erogatoreID, semID, sops);
-
-        // Scrivo statistiche
 
         // Siamo usciti dal while quindi la giornata è finita
         printf("[%s] Giorno terminato.\n", erogatoreID);
         SlaveNotifyAndWait(semID, &sops);
 
-        // riparte il loop per il prossimo giorno
-
         if (endSimulation) {
             break;
         }
+        
+        // riparte il loop per il prossimo giorno
     }
-
-    SharedMmemoryDetach(config, erogatoreID);
 
     return EXIT_SUCCESS;
 }
