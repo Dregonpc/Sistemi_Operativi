@@ -58,11 +58,15 @@ void SlaveNotifyAndWait(int semID, struct sembuf* sops) {
 bool ChoosePresence(int p_serv, char* utenteId) {
     // Probabilità del 70% che l'utente si presenti
     if (p_serv > 3) {
-        printf("[%s] Ho deciso di presentarmi.\n", utenteId);
+        #ifdef DEBUG
+            printf("[%s] Ho deciso di presentarmi.\n", utenteId);
+        #endif
         return true;
     }
     else {
-        printf("[%s] Ho deciso di NON presentarmi.\n", utenteId);
+        #ifdef DEBUG
+            printf("[%s] Ho deciso di NON presentarmi.\n", utenteId);
+        #endif
         return false;
     }
 }
@@ -71,12 +75,16 @@ bool CheckPresenceRequiredService(DailyConfig* config, int IndexServizioRichiest
     int N = config->num_sportelli;
     for (int i = 0; i < N; i++) {
         if (!config->sportelli[i].disponibile && config->sportelli[i].indexServizioOfferto == IndexServizioRichiesto) { // Se lo sportello non è disponibile significa che qualche operatore l'ha occupato, si potrebbe sostituire con config->sportelli[i].idOperatore != ""
-            printf("[%s] Ho trovato un operatore che può svolgere la mia richiesta (%d)\n", utenteID, IndexServizioRichiesto);
+            #ifdef DEBUG
+                printf("[%s] Ho trovato un operatore che può svolgere la mia richiesta (%d)\n", utenteID, IndexServizioRichiesto);
+            #endif
             return true;
         }
     }
     
-    printf("[%s] Non ho trovato un operatore che può svolgere la mia richiesta (%d)...\n", utenteID, IndexServizioRichiesto);
+    #ifdef DEBUG
+        printf("[%s] Non ho trovato un operatore che può svolgere la mia richiesta (%d)...\n", utenteID, IndexServizioRichiesto);
+    #endif
     return false;
 }
 
@@ -92,40 +100,49 @@ void SendMessageToErogatore(int msgID, char* utenteID, int IndexServizioRichiest
     if (endDay) return;
     
     if (msgsnd(msgID, &msg, sizeof(Messaggio) - sizeof(long), 0) < 0) {
-        printf("[%s] Errore durante l'invio del messaggio all'erogatore.\n", utenteID);
+        #ifdef DEBUG
+            printf("[%s] Errore durante l'invio del messaggio all'erogatore.\n", utenteID);
+        #endif
         return;
     }
 
-    printf("[%s] Ho richiesto un ticket per il servizio %d.\n", utenteID, IndexServizioRichiesto);
+    #ifdef DEBUG
+        printf("[%s] Ho richiesto un ticket per il servizio %d.\n", utenteID, IndexServizioRichiesto);
+    #endif
 }
 
 bool ReceiveMessageFromOperator(int msgID, int myPID, char* utenteID, long* timeExecution) {
     Messaggio msg;
     ssize_t n;
     int retry_count = 0;
-    const int MAX_RETRIES = 50; // 1/2 secondi di timeout
+    const int MAX_RETRIES = 50;
 
-    printf("[%s] In attesa di risposta dall'operatore (PID: %d)...\n", utenteID, myPID);
+    #ifdef DEBUG
+        printf("[%s] In attesa di risposta dall'operatore (PID: %d)...\n", utenteID, myPID);
+    #endif
 
     do {
-        //n = msgrcv(msgID, &msg, sizeof(Messaggio) - sizeof(long), myPID, IPC_NOWAIT);
-        n = msgrcv(msgID, &msg, sizeof(Messaggio) - sizeof(long), myPID, 0);
+        n = msgrcv(msgID, &msg, sizeof(Messaggio) - sizeof(long), myPID, IPC_NOWAIT);
+        //n = msgrcv(msgID, &msg, sizeof(Messaggio) - sizeof(long), myPID, 0);
         
         if (n >= 0) {
             // MESSAGGIO RICEVUTO CON SUCCESSO
             *timeExecution = msg.time_for_execution;
-            printf("[%s] Ricevuta risposta dall'operatore (ticket %d, tempo: %ld ns)\n", utenteID, msg.ticket_id, *timeExecution);
+            #ifdef DEBUG
+                printf("[%s] Ricevuta risposta dall'operatore (ticket %d, tempo: %ld ns)\n", utenteID, msg.ticket_id, *timeExecution);
+            #endif
             return true;
         }
         
-        // QUESTO IF NON DOVREBBE PIÙ SERVIRE VISTO CHE ABBIAMO TOLTO IL NO WAIT
         if (errno == ENOMSG) {
             // Nessun messaggio disponibile, aspetta e riprova
             SleepNanoseconds(10000000); // 10ms
             retry_count++;
             
             if (retry_count >= MAX_RETRIES) {
-                printf("[%s] Timeout: nessuna risposta dall'operatore dopo 2 secondi\n", utenteID);
+                #ifdef DEBUG
+                    printf("[%s] Timeout: nessuna risposta dall'operatore dopo 2 secondi\n", utenteID);
+                #endif
                 return false;
             }
             continue;
@@ -136,18 +153,24 @@ bool ReceiveMessageFromOperator(int msgID, int myPID, char* utenteID, long* time
         }
         
         if (errno == EIDRM) {
-            printf("[%s] La coda è stata cancellata\n", utenteID);
+            #ifdef DEBUG
+                printf("[%s] La coda è stata cancellata\n", utenteID);
+            #endif
             return false;
         }
         
         // Altri errori
-        perror("msgrcv in ReceiveMessageFromOperator");
+        #ifdef DEBUG
+            perror("msgrcv in ReceiveMessageFromOperator");
+        #endif
         return false;
         
     } while (!endDay && retry_count < MAX_RETRIES);
 
     if (endDay) {
-        printf("[%s] Fine giornata prima di essere servito\n", utenteID);
+        #ifdef DEBUG
+            printf("[%s] Fine giornata prima di essere servito\n", utenteID);
+        #endif
     }
     
     return false;
@@ -208,12 +231,16 @@ int main(int argc, char *argv[]) {
     Stats* stats = (Stats*)SharedMemoryAttachGeneral(shmIdStats, utenteID);
 
     if (IsNormalUser) {
-        printf("[%s] Sono pronto, avviso il direttore e aspetto il via.\n", utenteID);
+        #ifdef DEBUG
+            printf("[%s] Sono pronto, avviso il direttore e aspetto il via.\n", utenteID);
+        #endif
         SlaveNotifyAndWait(semID, &sops);
     }
 
     // Posso iniziare a lavorare
-    printf("[%s] Inizio a lavorare.\n", utenteID);
+    #ifdef DEBUG
+        printf("[%s] Inizio a lavorare.\n", utenteID);
+    #endif
 
     srand(time(NULL) + getpid());
 
@@ -244,11 +271,15 @@ int main(int argc, char *argv[]) {
         if (ChoosePresence(P_SERV, utenteID)) {
             // scelgo quanti servizi richiedere
             n_request_rand = Randomizer(N_REQUEST) + 1;
-            printf("[%s] Ho deciso di richiedere %d servizi\n", utenteID, n_request_rand);
+            #ifdef DEBUG
+                printf("[%s] Ho deciso di richiedere %d servizi\n", utenteID, n_request_rand);
+            #endif
 
             request = malloc(n_request_rand * sizeof(int));
             if (!request) {
-                printf("[%s] Errore durante la malloc\n", utenteID);
+                #ifdef DEBUG
+                    printf("[%s] Errore durante la malloc\n", utenteID);
+                #endif
             }
 
             for (int i = 0; i < n_request_rand; i++) {
@@ -263,7 +294,9 @@ int main(int argc, char *argv[]) {
                 if (CheckPresenceRequiredService(config, request[i], utenteID) && !endDay) {
                     // Stabiliamo un orario in cui presentarci
                     int timeToGo = Randomizer(timeDay);
-                    printf("[%s] Ho deciso di presentarmi tra %d nanosecondi.\n", utenteID, timeToGo);
+                    #ifdef DEBUG
+                        printf("[%s] Ho deciso di presentarmi tra %d nanosecondi.\n", utenteID, timeToGo);
+                    #endif
                     SleepNanoseconds(timeToGo);
 
                     long timeExecution = 0.0;
@@ -273,7 +306,7 @@ int main(int argc, char *argv[]) {
                     clock_gettime(CLOCK_MONOTONIC, &time_start);
 
                     // invio richiesta e aspetto
-                    if (endDay) break; // TODO SBU
+                    if (endDay) break; // TODO
                         
                     SendMessageToErogatore(msgIdDispenser, utenteID, request[i], myPID);
                     served = ReceiveMessageFromOperator(msgIdUser, myPID, utenteID, &timeExecution);
@@ -309,7 +342,9 @@ int main(int argc, char *argv[]) {
         }
 
         // se servito o giornata finita, torno a casa. Poi aspetto fine giornata per i prossimi giorni
-        printf("[%s] %s, aspetto fine giornata.\n", utenteID, served ? "Servito" : "Non servito");
+        #ifdef DEBUG
+            printf("[%s] %s, aspetto fine giornata.\n", utenteID, served ? "Servito" : "Non servito");
+        #endif
         ExecuteSemop(semID, &sops, 5, -1);
 
         // Aggiorna le statistiche
@@ -319,7 +354,9 @@ int main(int argc, char *argv[]) {
         }
 
         // loop riparte per il giorno successivo
-        printf("[%s] Fine giornata, ci vediamo domani!\n", utenteID);
+        #ifdef DEBUG
+            printf("[%s] Fine giornata, ci vediamo domani!\n", utenteID);
+        #endif
 
         free(request);
 

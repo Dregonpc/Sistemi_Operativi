@@ -158,7 +158,7 @@ void CalculateFinalStats(Stats* stats, int semID) {
 }
 
 void PrintDailyStats(Stats* stats) {
-    printf("[Direttore] STATISTICHE GIORNALIERE:\n");
+    printf("[Direttore] STATISTICHE GIORNO: %d\n", stats->durata_simulazione);
     printf("Utenti serviti giornalmente: %d\n", stats->utenti_serviti_tot_day);
     printf("Utenti NON serviti giornalmente: %d\n", stats->utenti_non_serviti_tot_day);
     printf("Servizi erogati giornalmente: %d\n", stats->servizi_erogati_tot_day);
@@ -297,7 +297,9 @@ void UpdateStatsOperators(int semID, Stats* stats, char *operatoreId, int IndexS
         return; // TO DO: DECIDERE SE RIPROVARE O LASCIAR STARE
     }
 
-    printf("[%s] Aggiorno le statistiche...\n", operatoreId);
+    #ifdef DEBUG
+        printf("[%s] Aggiorno le statistiche...\n", operatoreId);
+    #endif
 
     // Scrivo statistiche
     stats->servizi_erogati_tot_sim += *servizi_erogati;
@@ -332,7 +334,9 @@ void UpdateStaticStatsUsers(int semID, Stats* stats, char *utenteId, int* utenti
         return; // TO DO: DECIDERE SE RIPROVARE O LASCIAR STARE
     }
 
-    printf("[%s] Aggiorno le statistiche...\n", utenteId);
+    #ifdef DEBUG
+        printf("[%s] Aggiorno le statistiche...\n", utenteId);
+    #endif
     
     // Scrivo statistiche
     stats->utenti_serviti_tot_day += *utenti_serviti;

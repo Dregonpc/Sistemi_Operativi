@@ -34,12 +34,16 @@ bool CheckDailyService(DailyConfig* config, int indexServizioOperatore, char* op
     int N = config->num_sportelli;
     for (int i = 0; i < N; i++) {
         if (config->sportelli[i].indexServizioOfferto == indexServizioOperatore) {
-            printf("[%s] Ho controllato gli sportelli è c'è il servizio che offro io (%d).\n", operatoreId, indexServizioOperatore);
+            #ifdef DEBUG
+                printf("[%s] Ho controllato gli sportelli è c'è il servizio che offro io (%d).\n", operatoreId, indexServizioOperatore);
+            #endif
             return true;
         }
     }
 
-    printf("[%s] Ho controllato gli sportelli è NON c'è il servizio che offro io (%d)... Attendo la fine giornata.\n", operatoreId, indexServizioOperatore);
+    #ifdef DEBUG
+        printf("[%s] Ho controllato gli sportelli è NON c'è il servizio che offro io (%d)... Attendo la fine giornata.\n", operatoreId, indexServizioOperatore);
+    #endif
     return false;
 }
 
@@ -65,17 +69,24 @@ bool TakeUpPostOffice(DailyConfig* config, int semID, struct sembuf* sops, int i
     int checkSportelli = SemGetVal(semID, 2);
     if (checkSportelli == 0) {
         *firstTry = false;
-        printf("[%s] Non ci sono sportelli liberi, attendo...\n", operatoreId);
+        #ifdef DEBUG
+            printf("[%s] Non ci sono sportelli liberi, attendo...\n", operatoreId);
+        #endif
         SlaveNotifyAndWait(semID, sops);
     }
 
     // Aspetta che ci sia almeno uno sportello libero
     if (ExecuteSemop(semID, sops, 2, -1) == -1) { // Se il semaforo attualmente vale 0 mi metto in wait, altrimenti decremento
         if (errno == EINTR && endDay) {
-            printf("[%s] Fine giornata durante attesa sportello.\n", operatoreId);
+            #ifdef DEBUG
+                printf("[%s] Fine giornata durante attesa sportello.\n", operatoreId);
+            #endif
             return false;
         }
-        printf("[%s] Errore durante l'attesa sportello.\n", operatoreId);
+
+        #ifdef DEBUG
+            printf("[%s] Errore durante l'attesa sportello.\n", operatoreId);
+        #endif
         return false;
     }
     
@@ -84,7 +95,9 @@ bool TakeUpPostOffice(DailyConfig* config, int semID, struct sembuf* sops, int i
     if (!endDay) {
         // acquisisco il lock per l'accesso coordinato agli sportelli
         if (CaptureLock(semID, sops, 3) == -1) {
-            printf("[%s] Errore durante l'acquisizione del lock per gli sportelli.\n", operatoreId);
+            #ifdef DEBUG
+                printf("[%s] Errore durante l'acquisizione del lock per gli sportelli.\n", operatoreId);
+            #endif
         }
 
         int N = config->num_sportelli;
@@ -96,7 +109,9 @@ bool TakeUpPostOffice(DailyConfig* config, int semID, struct sembuf* sops, int i
 
                 (*operatori_attivi)++;
                 
-                printf("[%s] Sono stato assegnato allo sportello %d per il servizio %d.\n", operatoreId, config->sportelli[i].idSportello, indexServizioOperatore);
+                #ifdef DEBUG
+                    printf("[%s] Sono stato assegnato allo sportello %d per il servizio %d.\n", operatoreId, config->sportelli[i].idSportello, indexServizioOperatore);
+                #endif
                 check = true;
                 break;
             }
@@ -104,7 +119,9 @@ bool TakeUpPostOffice(DailyConfig* config, int semID, struct sembuf* sops, int i
 
         // rilascio il lock
         if (ReleaseLock(semID, sops, 3) == -1) {
-            printf("[%s] Errore durante il rilascio del lock per gli sportelli.\n", operatoreId);
+            #ifdef DEBUG
+                printf("[%s] Errore durante il rilascio del lock per gli sportelli.\n", operatoreId);
+            #endif
         }
     }
 
@@ -114,7 +131,9 @@ bool TakeUpPostOffice(DailyConfig* config, int semID, struct sembuf* sops, int i
 void releasePostOffice(DailyConfig* config, int semID, struct sembuf* sops, char* operatoreId) {
     // acquisisco il lock per l'accesso coordinato agli sportelli
     if (CaptureLock(semID, sops, 3) == -1) {
-        printf("[%s] Errore durante l'acquisizione del lock per gli sportelli.\n", operatoreId);
+        #ifdef DEBUG
+            printf("[%s] Errore durante l'acquisizione del lock per gli sportelli.\n", operatoreId);
+        #endif
     }
 
     int N = config->num_sportelli;
@@ -126,17 +145,23 @@ void releasePostOffice(DailyConfig* config, int semID, struct sembuf* sops, char
 
             // Avvisiamo i colleghi che ho rilasciato lo sportello
             if (ExecuteSemop(semID, sops, 2, 1) == -1) {
-                printf("[%s] Errore durante il rilascio di uno sportello.\n", operatoreId);
+                #ifdef DEBUG
+                    printf("[%s] Errore durante il rilascio di uno sportello.\n", operatoreId);
+                #endif
             }
-            printf("[%s] Ho rilasciato lo sportello e mandato la notifica ai miei colleghi.\n", operatoreId);
 
+            #ifdef DEBUG
+                printf("[%s] Ho rilasciato lo sportello e mandato la notifica ai miei colleghi.\n", operatoreId);
+            #endif
             break;
         }
     }
 
     // rilascio il lock
     if (ReleaseLock(semID, sops, 3) == -1) {
-        printf("[%s] Errore durante il rilascio del lock per gli sportelli.\n", operatoreId);
+        #ifdef DEBUG
+            printf("[%s] Errore durante il rilascio del lock per gli sportelli.\n", operatoreId);
+        #endif
     }
 }
 
@@ -165,21 +190,29 @@ void ReceiveTicketAndExecute(int msgIdOperator, int msgIdUser, int IndexServizio
         } while (n < 0 && errno == EINTR && !endDay);
 
         if (endDay) {
-            printf("[%s] Fine giornata rilevata, interrompo ricezione.\n", operatoreID);
+            #ifdef DEBUG
+                printf("[%s] Fine giornata rilevata, interrompo ricezione.\n", operatoreID);
+            #endif
             break;
         }
         else if (errno == EIDRM) {
-            printf("[%s] La coda è stata cancellata, interrompo ricezione.\n", operatoreID);
+            #ifdef DEBUG
+                printf("[%s] La coda è stata cancellata, interrompo ricezione.\n", operatoreID);
+            #endif
             break;
         }
         if (n < 0) {
-            perror("msgrcv");
+            #ifdef DEBUG
+                perror("msgrcv");
+            #endif
             break;
         }
 
         msg.mtype--;
 
-        printf("[%s] Servo il ticket %d per l'utente '%s' (servizio %ld).\n", operatoreID, msg.ticket_id, msg.text, msg.mtype);
+        #ifdef DEBUG
+            printf("[%s] Servo il ticket %d per l'utente '%s' (servizio %ld).\n", operatoreID, msg.ticket_id, msg.text, msg.mtype);
+        #endif
 
         // Eseguo il servizio
         int executionTime = CalculateTimeExecution(IndexServizio, simulated_minute);
@@ -190,18 +223,24 @@ void ReceiveTicketAndExecute(int msgIdOperator, int msgIdUser, int IndexServizio
         msg.mtype = msg.user_id;
         msg.time_for_execution = executionTime;
         if (msgsnd(msgIdUser, &msg, sizeof(Messaggio) - sizeof(long), 0) < 0) {
-            perror("msgsnd");
+            #ifdef DEBUG
+                perror("msgsnd");
+            #endif
         }
 
         // Aumentiamo i contatori
         (*servizi_erogati)++;
 
-        printf("[%s] Ho finito di servire %ld. Ci ho impiegato %d nanosecondi.\n", operatoreID, msg.mtype, executionTime);
+        #ifdef DEBUG
+            printf("[%s] Ho finito di servire %ld. Ci ho impiegato %d nanosecondi.\n", operatoreID, msg.mtype, executionTime);
+        #endif
 
         if ((*pause_effettuate) < NOF_PAUSE && breakCondition(*servizi_erogati)) {
             (*pause_effettuate)++;
             (*counter_pause)++;
-            printf("[%s] Posso andare in pausa, termino la mia giornata.\n", operatoreID);
+            #ifdef DEBUG
+                printf("[%s] Posso andare in pausa, termino la mia giornata.\n", operatoreID);
+            #endif
             break;
         }
     }
@@ -249,7 +288,9 @@ int main(int argc, char *argv[]) {
     Stats* stats = (Stats*)SharedMemoryAttachGeneral(shmIdStats, operatoreID);
 
     // barrier iniziale
-    printf("[%s] Ready, aspetto il via.\n", operatoreID);
+    #ifdef DEBUG
+        printf("[%s] Ready, aspetto il via.\n", operatoreID);
+    #endif
     SlaveNotifyAndWait(semID, &sops);
 
     srand(time(NULL) + getpid());
@@ -265,7 +306,9 @@ int main(int argc, char *argv[]) {
         ResetCounters(&servizi_erogati, &operatori_attivi, &counter_pause, &tempo_erogazione);
 
         // Posso iniziare a lavorare
-        printf("[%s] Inizio giornata.\n", operatoreID);
+        #ifdef DEBUG
+            printf("[%s] Inizio giornata.\n", operatoreID);
+        #endif
         endDay = 0;
 
         if (endSimulation) {
@@ -291,14 +334,18 @@ int main(int argc, char *argv[]) {
 
             // Devo avvisare solo se non ho già avvisato precedentemente nella funzione TakeUp
             if (firstTryTakeUp) {
-                printf("[%s] Fine configurazione giorno, avviso il direttore\n", operatoreID);
+                #ifdef DEBUG
+                    printf("[%s] Fine configurazione giorno, avviso il direttore\n", operatoreID);
+                #endif
                 // Mi sono configurato per il nuovo giorno, aspetto il via dal direttore per iniziare a lavorare
                 SlaveNotifyAndWait(semID, &sops);
             }
     
             if (!endDay) {
                 // LAVORO finché non finisce il giorno o vado in pausa
-                printf("[%s] Inizio turno (servizio %d)\n", operatoreID, indexServizio);
+                #ifdef DEBUG
+                    printf("[%s] Inizio turno (servizio %d)\n", operatoreID, indexServizio);
+                #endif
         
                 // Mi metto a ricevere i ticket e ad eseguirli
                 ReceiveTicketAndExecute(msgIdOperator, msgIdUser, indexServizio, operatoreID, NOF_PAUSE, &pause_effettuate, SIMULATED_MINUTE, &servizi_erogati, &counter_pause, &tempo_erogazione);
@@ -322,7 +369,9 @@ int main(int argc, char *argv[]) {
 
         // Aspetto fine giornata se non già arrivata (per gli operatori che vanno in pausa)
         if (!endDay || !CheckService) {
-            printf("[%s] Attendo fine giornata...\n", operatoreID);
+            #ifdef DEBUG
+                printf("[%s] Attendo fine giornata...\n", operatoreID);
+            #endif
             ExecuteSemop(semID, &sops, 5, -1);
         }
 
@@ -330,7 +379,9 @@ int main(int argc, char *argv[]) {
         UpdateStatsOperators(semID, stats, operatoreID, indexServizio, &servizi_erogati, &operatori_attivi, &counter_pause, &tempo_erogazione);
         
         // loop riparte per il giorno successivo
-        printf("[%s] Fine giornata elaborata.\n", operatoreID);
+        #ifdef DEBUG
+            printf("[%s] Fine giornata elaborata.\n", operatoreID);
+        #endif
 
         SlaveNotifyAndWait(semID, &sops);
 

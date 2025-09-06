@@ -54,29 +54,41 @@ void ReceiveAndSendMessage(int msgIdDispenser, int msgIdOperator, char *erogator
         } while (n < 0 && errno == EINTR && !endDay);
 
         if (endDay) {
-            printf("[%s] Fine giornata rilevata, interrompo ricezione.\n", erogatoreID);
+            #ifdef DEBUG
+                printf("[%s] Fine giornata rilevata, interrompo ricezione.\n", erogatoreID);
+            #endif
             break;
         }
         else if (errno == EIDRM) {
-            printf("[%s] La coda è stata cancellata, interrompo ricezione.\n", erogatoreID);
+            #ifdef DEBUG
+                printf("[%s] La coda è stata cancellata, interrompo ricezione.\n", erogatoreID);
+            #endif
             break;
         }
         if (n < 0) {
-            perror("msgrcv");
+            #ifdef DEBUG
+                perror("msgrcv");
+            #endif
             break;
         }
 
         msg.ticket_id = ticket_number++;
 
         long realService = msg.mtype - 1;
-        printf("[%s] Ticket %d assegnato all'utente '%s' per il servizio %ld.\n", erogatoreID, msg.ticket_id, msg.text, realService);
+        #ifdef DEBUG
+            printf("[%s] Ticket %d assegnato all'utente '%s' per il servizio %ld.\n", erogatoreID, msg.ticket_id, msg.text, realService);
+        #endif
 
         if (msgsnd(msgIdOperator, &msg, sizeof(Messaggio) - sizeof(long), 0) < 0) {
-            perror("msgsnd");
+            #ifdef DEBUG
+                perror("msgsnd");
+            #endif
             break;
         }
 
-        printf("[%s] Ticket %d inviato all'operatore.\n", erogatoreID, msg.ticket_id);
+        #ifdef DEBUG
+            printf("[%s] Ticket %d inviato all'operatore.\n", erogatoreID, msg.ticket_id);
+        #endif
     }
 }
 
@@ -103,7 +115,9 @@ int main(int argc, char *argv[]) {
     sa_term.sa_flags = 0;
     sigaction(SIGTERM, &sa_term, NULL);
 
-    printf("[%s] Sono pronto, avviso il direttore e aspetto il via.\n", erogatoreID);
+    #ifdef DEBUG
+        printf("[%s] Sono pronto, avviso il direttore e aspetto il via.\n", erogatoreID);
+    #endif
     SlaveNotifyAndWait(semID, &sops);
     
     while (!endSimulation) {
@@ -114,14 +128,18 @@ int main(int argc, char *argv[]) {
         }
         
         // Posso iniziare a lavorare
-        printf("[%s] Inizio giornata.\n", erogatoreID);
+        #ifdef DEBUG
+            printf("[%s] Inizio giornata.\n", erogatoreID);
+        #endif
         endDay = 0;
 
         // Mi metto in ricezione
         ReceiveAndSendMessage(msgIdDispenser, msgIdOperator, erogatoreID, semID, sops);
 
         // Siamo usciti dal while quindi la giornata è finita
-        printf("[%s] Giorno terminato.\n", erogatoreID);
+        #ifdef DEBUG
+            printf("[%s] Giorno terminato.\n", erogatoreID);
+        #endif
         SlaveNotifyAndWait(semID, &sops);
 
         if (endSimulation) {

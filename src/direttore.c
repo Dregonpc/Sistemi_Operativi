@@ -67,7 +67,9 @@ void ConfigurePostOffices(DailyConfig* config, Stats* stats) {
         // Inserisco dati dello sportello nella stats
         stats->sportelli_esistenti_services[config->sportelli[i].indexServizioOfferto] += 1;
 
-        printf("[Direttore] Sportello %d è stato creato con il servizio %d.\n", config->sportelli[i].idSportello, config->sportelli[i].indexServizioOfferto);
+        #ifdef DEBUG
+            printf("[Direttore] Sportello %d è stato creato con il servizio %d.\n", config->sportelli[i].idSportello, config->sportelli[i].indexServizioOfferto);
+        #endif
     }
 }
 
@@ -167,7 +169,9 @@ void CheckNewUsers(int msgIdNewUsers, int shmID, int shmIdStats, int semID, int 
         // Facciamo skippare il primo SlaveNotifyAndWait in modo da fargli iniziare subito la giornata e metterli in pari con tutti gli altri
         CreateUsers(shmID, shmIdStats, semID, msgIdDispenser, msgIdUser, counter_new_users, oldUser, 0);
 
-        printf("[Direttore] Ho creato %d nuovi utenti.\n", counter_new_users);
+        #ifdef DEBUG
+            printf("[Direttore] Ho creato %d nuovi utenti.\n", counter_new_users);
+        #endif
 
         // Mettiamo in wait il direttore in modo da aspettare tutti i nuovi utenti
         ExecuteSemop(semID, &sops, 0, 0);
@@ -178,7 +182,9 @@ void CheckNewUsers(int msgIdNewUsers, int shmID, int shmIdStats, int semID, int 
 bool CheckThreshold(Stats* stats) {
     if (stats->servizi_non_erogati_tot_day > EXPLODE_THRESHOLD) {
         stats->termine_simulazione = "EXPLODE_THRESHOLD";
-        printf("[Direttore] Il numero di utenti in attesa a fine giornata è maggiore della soglia prevista, termino la simulazione.\n");
+        #ifdef DEBUG
+            printf("[Direttore] Il numero di utenti in attesa a fine giornata è maggiore della soglia prevista, termino la simulazione.\n");
+        #endif
         return true;
     }
 
@@ -326,7 +332,9 @@ int main(int argc, char *argv[]) {
 
     // Scorriamo i giorni e avvisiamo ogni volta i figli quando finisce un giorno
     for (int giorni = 1; giorni <= SIM_DURATION && !endSim; giorni++) {
-        printf("[Direttore] Inizio del giorno %d...\n", giorni);
+        #ifdef DEBUG
+            printf("[Direttore] Inizio del giorno %d...\n", giorni);
+        #endif
 
         // La simulazione continua, resettiamo le statistiche daily
         ResetStatsDaily(stats, semID);
@@ -335,10 +343,14 @@ int main(int argc, char *argv[]) {
         MasterNotifyAndWait(semID, &sops, config, stats, false, &endSim, false, csvPath, direttoreID, msgIdDispenser, msgIdOperator, msgIdUser, msgIdNewUsers, shmID, shmIdStats, true);
 
         // simulo il passare dei minuti
-        printf("[Direttore] Giorno %d in corso (%d minuti)...\n", giorni, MINUTES_FOR_DAY);
+        #ifdef DEBUG
+            printf("[Direttore] Giorno %d in corso (%d minuti)...\n", giorni, MINUTES_FOR_DAY);
+        #endif
         SimulateDay();
 
-        printf("[Direttore] Avviso i figli che è terminato il giorno %d...\n", giorni);
+        #ifdef DEBUG
+            printf("[Direttore] Avviso i figli che è terminato il giorno %d...\n", giorni);
+        #endif
         kill(0, SIGUSR2); // Fine giornata
 
         // Svegliamo i figli che stanno aspettando il fine giornata
@@ -350,7 +362,9 @@ int main(int argc, char *argv[]) {
     }
 
     // Fermiamo la simulazione
-    printf("[Direttore] Simulazione finita, mando il segnale di terminazione a tutti i figli...\n");
+    #ifdef DEBUG
+        printf("[Direttore] Simulazione finita, mando il segnale di terminazione a tutti i figli...\n");
+    #endif
     kill(0, SIGTERM); // Invia SIGTERM a tutti i processi
     
     // Aspetta un momento per permettere ai processi di ricevere il segnale
@@ -361,10 +375,14 @@ int main(int argc, char *argv[]) {
     // SleepNanoseconds(20000000);
 
     // Aspetta che tutti i processi terminino
-    printf("[Direttore] Aspetto che tutti i processi terminino.\n");
+    #ifdef DEBUG
+        printf("[Direttore] Aspetto che tutti i processi terminino.\n");
+    #endif
     waitFinishAllSubProcess();
 
-    printf("[Direttore] Tutti i processi sono terminati, finisco la pulizia.\n");
+    #ifdef DEBUG
+        printf("[Direttore] Tutti i processi sono terminati, finisco la pulizia.\n");
+    #endif
 
     CalculateFinalStats(stats, semID);
     PrintFinalStats(stats);

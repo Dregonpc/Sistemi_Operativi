@@ -1,5 +1,6 @@
 CC = gcc
 CFLAGS = -Wvla -Wextra -Werror -D_GNU_SOURCE
+DEBUGFLAGS = -DDEBUG
 
 # Directories
 SRC := src
@@ -8,11 +9,19 @@ BLD := build
 LIB := lib
 HDR := headers
 
-$(shell mkdir -p $(BIN) $(BLD))
+#$(shell mkdir -p $(BIN) $(BLD))
 
 default: all
 
-all: $(BIN)/main $(BIN)/direttore $(BIN)/erogatore_ticket $(BIN)/operatore $(BIN)/utente $(BIN)/addUsers
+all: dirs $(BIN)/main $(BIN)/direttore $(BIN)/erogatore_ticket $(BIN)/operatore $(BIN)/utente $(BIN)/addUsers
+
+#create directories
+dirs:
+	mkdir -p $(BIN) $(BLD)
+
+# for debugging with printf
+debug: CFLAGS += $(DEBUGFLAGS)
+debug: clean all
 
 # main
 $(BIN)/main: $(BLD)/main.o
