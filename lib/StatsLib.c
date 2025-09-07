@@ -158,22 +158,32 @@ void CalculateFinalStats(Stats* stats, int semID) {
 }
 
 void PrintDailyStats(Stats* stats) {
-    printf("[Direttore] STATISTICHE GIORNO: %d\n", stats->durata_simulazione);
-    printf("Utenti serviti giornalmente: %d\n", stats->utenti_serviti_tot_day);
-    printf("Utenti NON serviti giornalmente: %d\n", stats->utenti_non_serviti_tot_day);
-    printf("Servizi erogati giornalmente: %d\n", stats->servizi_erogati_tot_day);
-    printf("Servizi non erogati giornalmente: %d\n", stats->servizi_non_erogati_tot_day);
-    printf("Operatori attivi giornalmente: %d\n", stats->operatori_attivi_day);
-    printf("Pause effettuate giornalmente: %d\n", stats->pause_effettuate_tot_day);
-    printf("Tempo medio di attesa degli utenti giornalmente: %.0f nanosecondi\n", stats->tempo_attesa_utenti_day);
-    printf("Tempo medio di erogazione dei servizi giornalmente: %.0f nanosecondi\n", stats->tempo_erogazione_servizi_day);
+    printf("\n");
+    printf("+=============================================+\n");
+    printf("|     [Direttore] STATISTICHE GIORNALIERE     |\n");
+    printf("+=============================================+\n");
 
-    printf("   | Tempo_attesa_day | tempo_erogazione_day | rapporto_operatori_sportelli |\n");
+    printf(" Giorno simulazione: %d\n", stats->durata_simulazione);
+    printf("-----------------------------------------------\n");
+    printf(" • Utenti serviti:              %d\n", stats->utenti_serviti_tot_day);
+    printf(" • Utenti NON serviti:          %d\n", stats->utenti_non_serviti_tot_day);
+    printf(" • Servizi erogati:             %d\n", stats->servizi_erogati_tot_day);
+    printf(" • Servizi non erogati:         %d\n", stats->servizi_non_erogati_tot_day);
+    printf(" • Operatori attivi:            %d\n", stats->operatori_attivi_day);
+    printf(" • Pause effettuate:            %d\n", stats->pause_effettuate_tot_day);
+    printf(" • Tempo medio attesa utenti:   %.0f ns\n", stats->tempo_attesa_utenti_day);
+    printf(" • Tempo medio erog. servizi:   %.0f ns\n", stats->tempo_erogazione_servizi_day);
+
+    printf("\n Tabella per servizio:\n");
+    printf("+----+--------------------+----------------------+-----------------------------+\n");
+    printf("| ID | Tempo attesa (ns)  | Tempo erog. (ns)     | Rapporto op./sportelli      |\n");
+    printf("+----+--------------------+----------------------+-----------------------------+\n");
     for (int i = 0; i < NUM_SERVIZI; i++) {
-        printf("%1d: | %16.0f | %20.0f | %28.4f |\n", i, stats->tempo_attesa_utenti_day_services[i], stats->tempo_erogazione_servizi_day_services[i], stats->rapporto_operatori_sportelli_services[i]);
+        printf("| %2d | %18.0f | %20.0f | %27.4f |\n", i, stats->tempo_attesa_utenti_day_services[i], stats->tempo_erogazione_servizi_day_services[i], stats->rapporto_operatori_sportelli_services[i]);
     }
+    printf("+----+--------------------+----------------------+-----------------------------+\n");
 
-    // Resettiamo qui questi valori perchè li valorizziamo prima di iniziare il nuovo giorno, quindi non possiamo metterli nella funzione reset
+    // Reset
     for (int i = 0; i < NUM_SERVIZI; i++) {
         stats->operatori_disponibili_services[i] = 0;
         stats->sportelli_esistenti_services[i] = 0;
@@ -182,38 +192,55 @@ void PrintDailyStats(Stats* stats) {
 }
 
 void PrintFinalStats(Stats* stats) {
-    printf("[Direttore] STATISTICHE FINALI:\n");
-    printf("Motivo termine simulazione: %s\n", stats->termine_simulazione);
-    printf("Utenti serviti totali: %d\n", stats->utenti_serviti_tot_sim);
-    printf("Utenti NON serviti totali: %d\n", stats->utenti_non_serviti_tot_sim);
-    printf("Servizi erogati totali: %d\n", stats->servizi_erogati_tot_sim);
-    printf("Servizi non erogati totali: %d\n", stats->servizi_non_erogati_tot_sim);
-    printf("Operatori attivi totali: %d\n", stats->operatori_attivi_sim);
-    printf("Pause effettuate totali: %d\n", stats->pause_effettuate_tot_sim);
-    printf("Durata della simulazione: %d giorni\n", stats->durata_simulazione);
-    printf("Numero di utenti serviti in media al giorno: %.4lf\n", stats->utenti_serviti_avg);
-    printf("Numero di servizi erogati in media al giorno: %.4lf\n", stats->servizi_erogati_avg);
-    printf("Numero di servizi NON erogati in media al giorno: %.4lf\n", stats->servizi_non_erogati_avg);
-    printf("Numero medio di pause effettuate al giorno: %.4lf\n", stats->pause_effettuate_avg);
-    printf("Tempo medio di attesa degli utenti: %.0f nanosecondi\n", stats->tempo_attesa_utenti_sim);
-    printf("Tempo medio di erogazione dei servizi: %.0f nanosecondi\n", stats->tempo_erogazione_servizi_sim);
+    printf("\n");
+    printf("+=============================================+\n");
+    printf("|        [Direttore] STATISTICHE FINALI       |\n");
+    printf("+=============================================+\n");
 
-    printf("   | utenti serv. | serv. erogati | serv. non erogati |\n");
-    for (int i = 0; i < NUM_SERVIZI; i++) {
-        printf("%1d: | %12.0d | %13.0d | %17.0d |\n", i, stats->utenti_serviti_tot_sim_services[i], stats->servizi_erogati_tot_sim_services[i], stats->servizi_non_erogati_tot_sim_services[i]);
-    }
+    printf(" Motivo termine simulazione: %s\n", stats->termine_simulazione);
+    printf("-----------------------------------------------\n");
+    printf(" • Utenti serviti totali:           %d\n", stats->utenti_serviti_tot_sim);
+    printf(" • Utenti NON serviti totali:       %d\n", stats->utenti_non_serviti_tot_sim);
+    printf(" • Servizi erogati totali:          %d\n", stats->servizi_erogati_tot_sim);
+    printf(" • Servizi non erogati totali:      %d\n", stats->servizi_non_erogati_tot_sim);
+    printf(" • Operatori attivi totali:         %d\n", stats->operatori_attivi_sim);
+    printf(" • Pause effettuate totali:         %d\n", stats->pause_effettuate_tot_sim);
+    printf(" • Durata simulazione:              %d giorni\n", stats->durata_simulazione);
+    printf(" • Utenti serviti medi/giorno:      %.4lf\n", stats->utenti_serviti_avg);
+    printf(" • Servizi erogati medi/giorno:     %.4lf\n", stats->servizi_erogati_avg);
+    printf(" • Servizi NON erogati medi/giorno: %.4lf\n", stats->servizi_non_erogati_avg);
+    printf(" • Pause medie/giorno:              %.4lf\n", stats->pause_effettuate_avg);
+    printf(" • Tempo medio attesa utenti:       %.0f ns\n", stats->tempo_attesa_utenti_sim);
+    printf(" • Tempo medio erog. servizi:       %.0f ns\n", stats->tempo_erogazione_servizi_sim);
 
-    printf("   | utenti serv. avg | serv. erogati avg | serv. non erogati avg |\n");
+    printf("\n Tabella totali per servizio:\n");
+    printf("+----+---------------+----------------+--------------------+\n");
+    printf("| ID | Utenti serv.  | Servizi erog.  | Servizi non erog.  |\n");
+    printf("+----+---------------+----------------+--------------------+\n");
     for (int i = 0; i < NUM_SERVIZI; i++) {
-        printf("%1d: | %16.4f | %17.4f | %21.4f |\n", i, stats->utenti_serviti_avg_services[i], stats->servizi_erogati_avg_services[i], stats->servizi_non_erogati_avg_services[i]);
+        printf("| %2d | %13d | %14d | %18d |\n", i, stats->utenti_serviti_tot_sim_services[i], stats->servizi_erogati_tot_sim_services[i], stats->servizi_non_erogati_tot_sim_services[i]);
     }
+    printf("+----+---------------+----------------+--------------------+\n");
 
-    printf("   | tempo utenti | tempo servizi |\n");
+    printf("\n Tabella medie per servizio:\n");
+    printf("+----+--------------------+----------------------+-----------------------------+\n");
+    printf("| ID | Utenti serv. avg   | Servizi erog. avg    | Servizi non erog. avg       |\n");
+    printf("+----+--------------------+----------------------+-----------------------------+\n");
     for (int i = 0; i < NUM_SERVIZI; i++) {
-        printf("%1d: | %12.0f | %13.0f |\n", i, stats->tempo_attesa_utenti_sim_services[i], stats->tempo_erogazione_servizi_sim_services[i]);
+        printf("| %2d | %18.4f | %20.4f | %27.4f |\n", i, stats->utenti_serviti_avg_services[i], stats->servizi_erogati_avg_services[i], stats->servizi_non_erogati_avg_services[i]);
     }
+    printf("+----+--------------------+----------------------+-----------------------------+\n");
+
+    printf("\n Tempi per servizio:\n");
+    printf("+----+----------------+----------------+\n");
+    printf("| ID | Tempo utenti   | Tempo servizi  |\n");
+    printf("+----+----------------+----------------+\n");
+    for (int i = 0; i < NUM_SERVIZI; i++) {
+        printf("| %2d | %14.0f | %14.0f |\n", i, stats->tempo_attesa_utenti_sim_services[i], stats->tempo_erogazione_servizi_sim_services[i]);
+    }
+    printf("+----+----------------+----------------+\n");
 }
-
+/*
 void WriteDailyStatsCSV(const char *filename, Stats* stats) {
     FILE *f = fopen(filename, "a");
     if (!f) {
@@ -281,6 +308,155 @@ void WriteFinalStatsCSV(const char *filename, Stats* stats) {
     fprintf(f, "service_index;tempo_attesa_utenti_sim_ns;tempo_erogazione_servizi_sim_ns\n");
     for (int i = 0; i < NUM_SERVIZI; i++) {
         fprintf(f, "%d,%.0f,%.0f\n", i, stats->tempo_attesa_utenti_sim_services[i], stats->tempo_erogazione_servizi_sim_services[i]);
+    }
+
+    fclose(f);
+}
+*/
+/*
+void WriteDailyStatsCSV(const char *filename, Stats* stats) {
+    FILE *f = fopen(filename, "a");
+    if (!f) {
+        perror("fopen");
+        return;
+    }
+
+    // Dati aggregati del giorno
+    fprintf(f, "tipo;giorno;chiave;valore\n");
+    fprintf(f, "daily;%d;utenti_serviti_tot_day;%d\n", stats->durata_simulazione, stats->utenti_serviti_tot_day);
+    fprintf(f, "daily;%d;utenti_non_serviti_tot_day;%d\n", stats->durata_simulazione, stats->utenti_non_serviti_tot_day);
+    fprintf(f, "daily;%d;servizi_erogati_tot_day;%d\n", stats->durata_simulazione, stats->servizi_erogati_tot_day);
+    fprintf(f, "daily;%d;servizi_non_erogati_tot_day;%d\n", stats->durata_simulazione, stats->servizi_non_erogati_tot_day);
+    fprintf(f, "daily;%d;operatori_attivi_day;%d\n", stats->durata_simulazione, stats->operatori_attivi_day);
+    fprintf(f, "daily;%d;pause_effettuate_tot_day;%d\n", stats->durata_simulazione, stats->pause_effettuate_tot_day);
+    fprintf(f, "daily;%d;tempo_attesa_utenti_day_ns;%.0f\n", stats->durata_simulazione, stats->tempo_attesa_utenti_day);
+    fprintf(f, "daily;%d;tempo_erogazione_servizi_day_ns;%.0f\n", stats->durata_simulazione, stats->tempo_erogazione_servizi_day);
+
+    // Tabelle per servizi
+    fprintf(f, "\ntipo;giorno;service_index;tempo_attesa_utenti_day_ns;tempo_erogazione_servizi_day_ns;rapporto_operatori_sportelli\n");
+    for (int i = 0; i < NUM_SERVIZI; i++) {
+        fprintf(f, "daily;%d;%d;%.0f;%.0f;%.4f\n", stats->durata_simulazione, i, stats->tempo_attesa_utenti_day_services[i], stats->tempo_erogazione_servizi_day_services[i], stats->rapporto_operatori_sportelli_services[i]);
+    }
+
+    fprintf(f, "\n");
+    fclose(f);
+}
+
+void WriteFinalStatsCSV(const char *filename, Stats* stats) {
+    FILE *f = fopen(filename, "a");
+    if (!f) {
+        perror("fopen");
+        return;
+    }
+
+    // Dati aggregati finali
+    fprintf(f, "tipo;giorno;chiave;valore\n");
+    fprintf(f, "final;-;motivo_termine_simulazione;%s\n", stats->termine_simulazione);
+    fprintf(f, "final;-;utenti_serviti_tot_sim;%d\n", stats->utenti_serviti_tot_sim);
+    fprintf(f, "final;-;utenti_non_serviti_tot_sim;%d\n", stats->utenti_non_serviti_tot_sim);
+    fprintf(f, "final;-;servizi_erogati_tot_sim;%d\n", stats->servizi_erogati_tot_sim);
+    fprintf(f, "final;-;servizi_non_erogati_tot_sim;%d\n", stats->servizi_non_erogati_tot_sim);
+    fprintf(f, "final;-;operatori_attivi_sim;%d\n", stats->operatori_attivi_sim);
+    fprintf(f, "final;-;pause_effettuate_tot_sim;%d\n", stats->pause_effettuate_tot_sim);
+    fprintf(f, "final;-;durata_simulazione;%d\n", stats->durata_simulazione);
+    fprintf(f, "final;-;utenti_serviti_avg;%.4f\n", stats->utenti_serviti_avg);
+    fprintf(f, "final;-;servizi_erogati_avg;%.4f\n", stats->servizi_erogati_avg);
+    fprintf(f, "final;-;servizi_non_erogati_avg;%.4f\n", stats->servizi_non_erogati_avg);
+    fprintf(f, "final;-;pause_effettuate_avg;%.4f\n", stats->pause_effettuate_avg);
+    fprintf(f, "final;-;tempo_attesa_utenti_sim_ns;%.0f\n", stats->tempo_attesa_utenti_sim);
+    fprintf(f, "final;-;tempo_erogazione_servizi_sim_ns;%.0f\n", stats->tempo_erogazione_servizi_sim);
+
+    // Tabelle per servizi
+    fprintf(f, "\ntipo;giorno;service_index;utenti_serviti_tot;servizi_erogati_tot;servizi_non_erogati_tot\n");
+    for (int i = 0; i < NUM_SERVIZI; i++) {
+        fprintf(f, "final;-;%d;%d;%d;%d\n", i, stats->utenti_serviti_tot_sim_services[i], stats->servizi_erogati_tot_sim_services[i], stats->servizi_non_erogati_tot_sim_services[i]);
+    }
+
+    fprintf(f, "\ntipo;giorno;service_index;utenti_serviti_avg;servizi_erogati_avg;servizi_non_erogati_avg\n");
+    for (int i = 0; i < NUM_SERVIZI; i++) {
+        fprintf(f, "final;-;%d;%.4f;%.4f;%.4f\n", i, stats->utenti_serviti_avg_services[i], stats->servizi_erogati_avg_services[i], stats->servizi_non_erogati_avg_services[i]);
+    }
+
+    fprintf(f, "\ntipo;giorno;service_index;tempo_attesa_utenti_sim_ns;tempo_erogazione_servizi_sim_ns\n");
+    for (int i = 0; i < NUM_SERVIZI; i++) {
+        fprintf(f, "final;-;%d;%.0f;%.0f\n", i, stats->tempo_attesa_utenti_sim_services[i], stats->tempo_erogazione_servizi_sim_services[i]);
+    }
+
+    fprintf(f, "\n");
+    fclose(f);
+}
+*/
+
+void WriteDailyStatsCSV(const char *filename, Stats* stats) {
+    FILE *f = fopen(filename, "a+");
+    if (!f) {
+        perror("fopen");
+        return;
+    }
+
+    // Scrivo header solo se file vuoto
+    fseek(f, 0, SEEK_END);
+    if (ftell(f) == 0) {
+        fprintf(f, "tipo;giorno;chiave;valore;service_index;utenti_serviti;utenti_non_serviti;servizi_erogati;servizi_non_erogati;operatori_attivi;pause_effettuate;tempo_attesa;tempo_erog;rapporto\n");
+    }
+
+    int g = stats->durata_simulazione;
+
+    // Dati aggregati giornalieri
+    fprintf(f, "daily;%d;utenti_serviti_tot_day;%d;;;;;;;;;;;\n", g, stats->utenti_serviti_tot_day);
+    fprintf(f, "daily;%d;utenti_non_serviti_tot_day;%d;;;;;;;;;;;\n", g, stats->utenti_non_serviti_tot_day);
+    fprintf(f, "daily;%d;servizi_erogati_tot_day;%d;;;;;;;;;;;\n", g, stats->servizi_erogati_tot_day);
+    fprintf(f, "daily;%d;servizi_non_erogati_tot_day;%d;;;;;;;;;;;\n", g, stats->servizi_non_erogati_tot_day);
+    fprintf(f, "daily;%d;operatori_attivi_day;%d;;;;;;;;;;;\n", g, stats->operatori_attivi_day);
+    fprintf(f, "daily;%d;pause_effettuate_tot_day;%d;;;;;;;;;;;\n", g, stats->pause_effettuate_tot_day);
+    fprintf(f, "daily;%d;tempo_attesa_utenti_day_ns;%.0f;;;;;;;;;;;\n", g, stats->tempo_attesa_utenti_day);
+    fprintf(f, "daily;%d;tempo_erogazione_servizi_day_ns;%.0f;;;;;;;;;;;\n", g, stats->tempo_erogazione_servizi_day);
+
+    // Dati per servizi (giornalieri)
+    for (int i = 0; i < NUM_SERVIZI; i++) {
+        fprintf(f, "daily;%d;;;%d;;;;;;;;;%.0f;%.0f;%.4f\n", g, i, stats->tempo_attesa_utenti_day_services[i], stats->tempo_erogazione_servizi_day_services[i], stats->rapporto_operatori_sportelli_services[i]);
+    }
+
+    fclose(f);
+}
+
+void WriteFinalStatsCSV(const char *filename, Stats* stats) {
+    FILE *f = fopen(filename, "a+");
+    if (!f) {
+        perror("fopen");
+        return;
+    }
+
+    // Scrivo header solo se file vuoto
+    fseek(f, 0, SEEK_END);
+    if (ftell(f) == 0) {
+        fprintf(f, "tipo;giorno;chiave;valore;service_index;utenti_serviti;utenti_non_serviti;servizi_erogati;servizi_non_erogati;operatori_attivi;pause_effettuate;tempo_attesa;tempo_erog;rapporto\n");
+    }
+
+    // Dati aggregati finali
+    fprintf(f, "final;-;motivo_termine_simulazione;%s;;;;;;;;;;;\n", stats->termine_simulazione);
+    fprintf(f, "final;-;utenti_serviti_tot_sim;%d;;;;;;;;;;;\n", stats->utenti_serviti_tot_sim);
+    fprintf(f, "final;-;utenti_non_serviti_tot_sim;%d;;;;;;;;;;;\n", stats->utenti_non_serviti_tot_sim);
+    fprintf(f, "final;-;servizi_erogati_tot_sim;%d;;;;;;;;;;;\n", stats->servizi_erogati_tot_sim);
+    fprintf(f, "final;-;servizi_non_erogati_tot_sim;%d;;;;;;;;;;;\n", stats->servizi_non_erogati_tot_sim);
+    fprintf(f, "final;-;operatori_attivi_sim;%d;;;;;;;;;;;\n", stats->operatori_attivi_sim);
+    fprintf(f, "final;-;pause_effettuate_tot_sim;%d;;;;;;;;;;;\n", stats->pause_effettuate_tot_sim);
+    fprintf(f, "final;-;durata_simulazione;%d;;;;;;;;;;;\n", stats->durata_simulazione);
+    fprintf(f, "final;-;utenti_serviti_avg;%.4f;;;;;;;;;;;\n", stats->utenti_serviti_avg);
+    fprintf(f, "final;-;servizi_erogati_avg;%.4f;;;;;;;;;;;\n", stats->servizi_erogati_avg);
+    fprintf(f, "final;-;servizi_non_erogati_avg;%.4f;;;;;;;;;;;\n", stats->servizi_non_erogati_avg);
+    fprintf(f, "final;-;pause_effettuate_avg;%.4f;;;;;;;;;;;\n", stats->pause_effettuate_avg);
+    fprintf(f, "final;-;tempo_attesa_utenti_sim_ns;%.0f;;;;;;;;;;;\n", stats->tempo_attesa_utenti_sim);
+    fprintf(f, "final;-;tempo_erogazione_servizi_sim_ns;%.0f;;;;;;;;;;;\n", stats->tempo_erogazione_servizi_sim);
+
+    // Dati per servizi (finali)
+    for (int i = 0; i < NUM_SERVIZI; i++) {
+        fprintf(f, "final;-;;;%d;%d;;;%d;%d;;%.0f;%.0f;\n", i, stats->utenti_serviti_tot_sim_services[i], stats->servizi_erogati_tot_sim_services[i], stats->servizi_non_erogati_tot_sim_services[i], stats->tempo_attesa_utenti_sim_services[i], stats->tempo_erogazione_servizi_sim_services[i]);
+    }
+
+    // Dati medi per servizi (finali)
+    for (int i = 0; i < NUM_SERVIZI; i++) {
+        fprintf(f, "final;-;;;%d;%.4f;;%.4f;%.4f;;;\n", i, stats->utenti_serviti_avg_services[i], stats->servizi_erogati_avg_services[i], stats->servizi_non_erogati_avg_services[i]);
     }
 
     fclose(f);
