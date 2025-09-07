@@ -268,7 +268,9 @@ int main(int argc, char *argv[]) {
     int SIMULATED_MINUTE = atoi(argv[8]);
     int pause_effettuate = 0;
 
-    printf("[%s] Avvio in corso. PID = %d\n", operatoreID, getpid());
+    #ifdef DEBUG
+        printf("[%s] Avvio in corso. PID = %d\n", operatoreID, getpid());
+    #endif
 
     // Installa i signal handler
     struct sigaction sa_end = {0};

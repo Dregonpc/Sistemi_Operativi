@@ -100,7 +100,10 @@ int main(int argc, char *argv[]) {
     int semID = atoi(argv[1]);
     int msgIdDispenser = atoi(argv[2]);
     int msgIdOperator = atoi(argv[3]);
-    printf("[%s] Avvio in corso. PID = %d\n", erogatoreID, getpid());
+
+    #ifdef DEBUG
+        printf("[%s] Avvio in corso. PID = %d\n", erogatoreID, getpid());
+    #endif
 
     // Installa i signal handler
     struct sigaction sa_end = {0};

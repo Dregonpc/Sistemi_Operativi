@@ -211,7 +211,9 @@ int main(int argc, char *argv[]) {
 
     localStats localCounters[NUM_SERVIZI];
 
-    printf("[%s] Avvio in corso. PID = %d\n", utenteID, myPID);
+    #ifdef DEBUG
+        printf("[%s] Avvio in corso. PID = %d\n", utenteID, myPID);
+    #endif
 
     // Installa i signal handler
     struct sigaction sa_end = {0};

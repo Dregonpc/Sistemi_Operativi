@@ -400,21 +400,21 @@ void WriteDailyStatsCSV(const char *filename, Stats* stats) {
         fprintf(f, "tipo;giorno;chiave;valore;service_index;utenti_serviti;utenti_non_serviti;servizi_erogati;servizi_non_erogati;operatori_attivi;pause_effettuate;tempo_attesa;tempo_erog;rapporto\n");
     }
 
-    int g = stats->durata_simulazione;
+    int day = stats->durata_simulazione;
 
     // Dati aggregati giornalieri
-    fprintf(f, "daily;%d;utenti_serviti_tot_day;%d;;;;;;;;;;;\n", g, stats->utenti_serviti_tot_day);
-    fprintf(f, "daily;%d;utenti_non_serviti_tot_day;%d;;;;;;;;;;;\n", g, stats->utenti_non_serviti_tot_day);
-    fprintf(f, "daily;%d;servizi_erogati_tot_day;%d;;;;;;;;;;;\n", g, stats->servizi_erogati_tot_day);
-    fprintf(f, "daily;%d;servizi_non_erogati_tot_day;%d;;;;;;;;;;;\n", g, stats->servizi_non_erogati_tot_day);
-    fprintf(f, "daily;%d;operatori_attivi_day;%d;;;;;;;;;;;\n", g, stats->operatori_attivi_day);
-    fprintf(f, "daily;%d;pause_effettuate_tot_day;%d;;;;;;;;;;;\n", g, stats->pause_effettuate_tot_day);
-    fprintf(f, "daily;%d;tempo_attesa_utenti_day_ns;%.0f;;;;;;;;;;;\n", g, stats->tempo_attesa_utenti_day);
-    fprintf(f, "daily;%d;tempo_erogazione_servizi_day_ns;%.0f;;;;;;;;;;;\n", g, stats->tempo_erogazione_servizi_day);
+    fprintf(f, "daily;%d;utenti_serviti_tot_day;%d;;;;;;;;;;;\n", day, stats->utenti_serviti_tot_day);
+    fprintf(f, "daily;%d;utenti_non_serviti_tot_day;%d;;;;;;;;;;;\n", day, stats->utenti_non_serviti_tot_day);
+    fprintf(f, "daily;%d;servizi_erogati_tot_day;%d;;;;;;;;;;;\n", day, stats->servizi_erogati_tot_day);
+    fprintf(f, "daily;%d;servizi_non_erogati_tot_day;%d;;;;;;;;;;;\n", day, stats->servizi_non_erogati_tot_day);
+    fprintf(f, "daily;%d;operatori_attivi_day;%d;;;;;;;;;;;\n", day, stats->operatori_attivi_day);
+    fprintf(f, "daily;%d;pause_effettuate_tot_day;%d;;;;;;;;;;;\n", day, stats->pause_effettuate_tot_day);
+    fprintf(f, "daily;%d;tempo_attesa_utenti_day_ns;%.0f;;;;;;;;;;;\n", day, stats->tempo_attesa_utenti_day);
+    fprintf(f, "daily;%d;tempo_erogazione_servizi_day_ns;%.0f;;;;;;;;;;;\n", day, stats->tempo_erogazione_servizi_day);
 
     // Dati per servizi (giornalieri)
     for (int i = 0; i < NUM_SERVIZI; i++) {
-        fprintf(f, "daily;%d;;;%d;;;;;;;;;%.0f;%.0f;%.4f\n", g, i, stats->tempo_attesa_utenti_day_services[i], stats->tempo_erogazione_servizi_day_services[i], stats->rapporto_operatori_sportelli_services[i]);
+        fprintf(f, "daily;%d;;;%d;;;;;;;;;%.0f;%.0f;%.4f\n", day, i, stats->tempo_attesa_utenti_day_services[i], stats->tempo_erogazione_servizi_day_services[i], stats->rapporto_operatori_sportelli_services[i]);
     }
 
     fclose(f);
