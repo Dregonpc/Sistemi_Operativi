@@ -61,71 +61,66 @@ void SlaveNotifyAndWait(int semID, struct sembuf* sops) {
 }
 
 bool TakeUpPostOffice(DailyConfig* config, int semID, struct sembuf* sops, int indexServizioOperatore, char* operatoreId, int* operatori_attivi, bool* firstTry) {
-    if (endDay) {
+    bool taken = false;
+    // CHECK SIM
+    if (endDay || endSimulation) {
         return false;
     }
 
-    // Se gli sportelli sono già finiti, avviso gli altri che possono partire e poi mi metto in wait
+    //PROVA DI OCCUPAZIONE
+    // num sportelli liberi
     int checkSportelli = SemGetVal(semID, 2);
-    if (checkSportelli == 0) {
-        *firstTry = false;
-        #ifdef DEBUG
-            printf("[%s] Non ci sono sportelli liberi, attendo...\n", operatoreId);
-        #endif
-        SlaveNotifyAndWait(semID, sops);
-    }
-
-    // Aspetta che ci sia almeno uno sportello libero
-    if (ExecuteSemop(semID, sops, 2, -1) == -1) { // Se il semaforo attualmente vale 0 mi metto in wait, altrimenti decremento
-        if (errno == EINTR && endDay) {
-            #ifdef DEBUG
-                printf("[%s] Fine giornata durante attesa sportello.\n", operatoreId);
-            #endif
-            return false;
-        }
-
-        #ifdef DEBUG
-            printf("[%s] Errore durante l'attesa sportello.\n", operatoreId);
-        #endif
-        return false;
-    }
-    
-    bool check = false;
-    
-    if (!endDay) {
+    // se ci sono sportelli provo se no non occupo
+    if (checkSportelli != 0) {
+        if (!endDay) {
         // acquisisco il lock per l'accesso coordinato agli sportelli
-        if (CaptureLock(semID, sops, 3) == -1) {
-            #ifdef DEBUG
-                printf("[%s] Errore durante l'acquisizione del lock per gli sportelli.\n", operatoreId);
-            #endif
-        }
-
-        int N = config->num_sportelli;
-    
-        for (int i = 0; i < N; i++) {
-            if (config->sportelli[i].disponibile && config->sportelli[i].indexServizioOfferto == indexServizioOperatore) {
-                config->sportelli[i].idOperatore = operatoreId;
-                config->sportelli[i].disponibile = 0;
-
-                (*operatori_attivi)++;
-                
+            if (CaptureLock(semID, sops, 3) == -1) {
                 #ifdef DEBUG
-                    printf("[%s] Sono stato assegnato allo sportello %d per il servizio %d.\n", operatoreId, config->sportelli[i].idSportello, indexServizioOperatore);
+                    printf("[%s] Errore durante l'acquisizione del lock per gli sportelli.\n", operatoreId);
                 #endif
-                check = true;
-                break;
+            }
+
+            int N = config->num_sportelli;
+        
+            for (int i = 0; i < N; i++) {
+                if (config->sportelli[i].disponibile && config->sportelli[i].indexServizioOfferto == indexServizioOperatore) {
+                    config->sportelli[i].idOperatore = operatoreId;
+                    config->sportelli[i].disponibile = 0;
+
+                    taken = true;
+                    (*operatori_attivi)++;
+
+                    //segnalamo che uno sportello è stato occupato
+                    if (ExecuteSemop(semID, sops, 2, -1) == -1) {
+                        #ifndef DEBUG
+                            printf("[%s] Errore nella segnalazione dell'occupazione di uno sportello", operatoreId);
+                        #endif
+                    }
+                    
+                    
+                    #ifdef DEBUG
+                        printf("[%s] Sono stato assegnato allo sportello %d per il servizio %d.\n", operatoreId, config->sportelli[i].idSportello, indexServizioOperatore);
+                    #endif
+                    checkSportelli = true;
+                    break;
+                }
+            }
+
+            // rilascio il lock
+            if (ReleaseLock(semID, sops, 3) == -1) {
+                #ifdef DEBUG
+                    printf("[%s] Errore durante il rilascio del lock per gli sportelli.\n", operatoreId);
+                #endif
             }
         }
-
-        // rilascio il lock
-        if (ReleaseLock(semID, sops, 3) == -1) {
-            #ifdef DEBUG
-                printf("[%s] Errore durante il rilascio del lock per gli sportelli.\n", operatoreId);
-            #endif
-        }
     }
 
-    return check;
+    // FIST TRY UPDATE
+    if (*firstTry) {
+        *firstTry = false;
+    }
+    
+    return taken;
 }
 
 void releasePostOffice(DailyConfig* config, int semID, struct sembuf* sops, char* operatoreId) {
@@ -328,32 +323,58 @@ int main(int argc, char *argv[]) {
 
         if (CheckService) {
             // Provo ad occupare uno sportello
-            TakeUpPostOffice(config, semID, &sops, indexServizio, operatoreID, &operatori_attivi, &firstTryTakeUp);
+            bool active = TakeUpPostOffice(config, semID, &sops, indexServizio, operatoreID, &operatori_attivi, &firstTryTakeUp);
 
             if (endSimulation) {
                 break;
             }
 
-            // Devo avvisare solo se non ho già avvisato precedentemente nella funzione TakeUp
-            if (firstTryTakeUp) {
-                #ifdef DEBUG
-                    printf("[%s] Fine configurazione giorno, avviso il direttore\n", operatoreID);
-                #endif
-                // Mi sono configurato per il nuovo giorno, aspetto il via dal direttore per iniziare a lavorare
-                SlaveNotifyAndWait(semID, &sops);
+            //tutti avvisano il direttore di essere setuppati
+            SlaveNotifyAndWait(semID, &sops);
+
+            // se sono in uno sportello, se no si mettono in attesa che si liberi uno sportello
+            if (active) {
+                // lavorano
+                if (!endDay) {
+                    // LAVORO finché non finisce il giorno o vado in pausa
+                    #ifdef DEBUG
+                        printf("[%s] Inizio turno (servizio %d)\n", operatoreID, indexServizio);
+                    #endif
+            
+                    // Mi metto a ricevere i ticket e ad eseguirli
+                    ReceiveTicketAndExecute(msgIdOperator, msgIdUser, indexServizio, operatoreID, NOF_PAUSE, &pause_effettuate, SIMULATED_MINUTE, &servizi_erogati, &counter_pause, &tempo_erogazione);
+            
+                    // rilascio lo sportello
+                    releasePostOffice(config, semID, &sops, operatoreID);
+                }
             }
-    
-            if (!endDay) {
-                // LAVORO finché non finisce il giorno o vado in pausa
-                #ifdef DEBUG
-                    printf("[%s] Inizio turno (servizio %d)\n", operatoreID, indexServizio);
-                #endif
-        
-                // Mi metto a ricevere i ticket e ad eseguirli
-                ReceiveTicketAndExecute(msgIdOperator, msgIdUser, indexServizio, operatoreID, NOF_PAUSE, &pause_effettuate, SIMULATED_MINUTE, &servizi_erogati, &counter_pause, &tempo_erogazione);
-        
-                // rilascio lo sportello
-                releasePostOffice(config, semID, &sops, operatoreID);
+            else{
+                // attesa di uno sportello
+                while (!active && !endDay && !endSimulation) {
+                    // Attendo la liberazione di uno sportello
+                    ExecuteSemop(semID, &sops, 2, -1);
+                    if (endDay || endSimulation) break;
+                    active = TakeUpPostOffice(config, semID, &sops, indexServizio, operatoreID, &operatori_attivi, &firstTryTakeUp);
+
+                    if (active) {
+                        if (!endDay) {
+                            // LAVORO finché non finisce il giorno o vado in pausa
+                            #ifdef DEBUG
+                                printf("[%s] Inizio turno (servizio %d)\n", operatoreID, indexServizio);
+                            #endif
+                    
+                            // Mi metto a ricevere i ticket e ad eseguirli
+                            ReceiveTicketAndExecute(msgIdOperator, msgIdUser, indexServizio, operatoreID, NOF_PAUSE, &pause_effettuate, SIMULATED_MINUTE, &servizi_erogati, &counter_pause, &tempo_erogazione);
+                    
+                            // rilascio lo sportello
+                            releasePostOffice(config, semID, &sops, operatoreID);
+                        }
+                    } else {
+                        if (endDay || endSimulation) break;
+                        continue;
+                    }
+                    
+                }
             }
         }
         else {
