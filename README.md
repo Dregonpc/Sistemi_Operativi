@@ -79,7 +79,7 @@ La simulazione temporale usa due costanti configurabili:
 - Durata di un minuto simulato (in nanosecondi).
 - Numero di minuti di una giornata.
 
-Il tempo è simulato tramite chiamate `nanosleep`, una per ogni minuto, per dare realismo all’emulazione del passare del tempo.
+Il tempo è simulato tramite una chiamata `nanosleep`, con la durata effettiva della giornata lavorativa.
 Inoltre grazie al file di configurazione è possibile variare i parametri :
 - Numero degli operatori
 - Numero degli utenti giornalieri
