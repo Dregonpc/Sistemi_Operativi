@@ -238,17 +238,14 @@ void MasterNotifyAndWait(int semID, struct sembuf* sops, DailyConfig* config, St
     SemBarrierRestart(semID, sops, TOTAL_PROCESSES, 1, direttoreID);
 }
 
-void SimulateDay() {
-    struct timespec req, rem;
-    req.tv_sec  = 0;
-    req.tv_nsec = SIMULATED_MINUTE;
-    for (int minuti = 0; minuti < MINUTES_FOR_DAY; minuti++) {
-        rem = req;
-        // la syscall nanosleep può essere interrotta da un segnale (EINTR)
-        while (nanosleep(&rem, &rem) == -1 && errno == EINTR) {
-            // rimane in rem il tempo residuo da dormire
-        }
-    }
+void SimulateDay() {  
+    struct timespec req;
+    long long total_nanoseconds = (long long)SIMULATED_MINUTE * MINUTES_FOR_DAY;
+    
+    req.tv_sec  = total_nanoseconds / 1000000000;
+    req.tv_nsec = total_nanoseconds % 1000000000;
+    
+    nanosleep(&req, NULL);
 }
 
 // Aspettiamo tutti i processi finiscano di lavorare
