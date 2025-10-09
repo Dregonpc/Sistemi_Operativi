@@ -11,12 +11,12 @@ int messageQueueCreate(int key, int flag, char* processName) {
 }
 
 void cleanMsgQueue(int msgId) {
-    Messaggio msg;
+    Message msg;
     ssize_t n;
 
     // Leggi finché ci sono messaggi; IPC_NOWAIT fa tornare subito ENOMSG se è vuota
     while (1) {
-        n = msgrcv(msgId, &msg, sizeof(Messaggio) - sizeof(long), 0, IPC_NOWAIT);
+        n = msgrcv(msgId, &msg, sizeof(Message) - sizeof(long), 0, IPC_NOWAIT);
         if (n >= 0) {
             // messaggio buttato via
             continue;

@@ -89,7 +89,7 @@ bool CheckPresenceRequiredService(DailyConfig* config, int IndexServizioRichiest
 }
 
 void SendMessageToErogatore(int msgID, char* utenteID, int IndexServizioRichiesto, int myPID) {
-    Messaggio msg;
+    Message msg;
 
     // Dobbiamo incrementarlo di 1 perchè il tipo del messaggio deve essere > 0, e quindi non potremmo passare il servizio 0.
     msg.mtype = IndexServizioRichiesto + 1;
@@ -99,7 +99,7 @@ void SendMessageToErogatore(int msgID, char* utenteID, int IndexServizioRichiest
 
     if (endDay) return;
     
-    if (msgsnd(msgID, &msg, sizeof(Messaggio) - sizeof(long), 0) < 0) {
+    if (msgsnd(msgID, &msg, sizeof(Message) - sizeof(long), 0) < 0) {
         #ifdef DEBUG
             printf("[%s] Errore durante l'invio del messaggio all'erogatore.\n", utenteID);
         #endif
@@ -112,7 +112,7 @@ void SendMessageToErogatore(int msgID, char* utenteID, int IndexServizioRichiest
 }
 
 bool ReceiveMessageFromOperator(int msgID, int myPID, char* utenteID, long* timeExecution) {
-    Messaggio msg;
+    Message msg;
     ssize_t n;
     int retry_count = 0;
     const int MAX_RETRIES = 50;
@@ -122,8 +122,8 @@ bool ReceiveMessageFromOperator(int msgID, int myPID, char* utenteID, long* time
     #endif
 
     do {
-        n = msgrcv(msgID, &msg, sizeof(Messaggio) - sizeof(long), myPID, IPC_NOWAIT);
-        //n = msgrcv(msgID, &msg, sizeof(Messaggio) - sizeof(long), myPID, 0);
+        n = msgrcv(msgID, &msg, sizeof(Message) - sizeof(long), myPID, IPC_NOWAIT);
+        //n = msgrcv(msgID, &msg, sizeof(Message) - sizeof(long), myPID, 0);
         
         if (n >= 0) {
             // MESSAGGIO RICEVUTO CON SUCCESSO
@@ -182,7 +182,7 @@ void ResetCounters(int* utenti_serviti, int* utenti_non_serviti_day, int* serviz
     *servizi_non_erogati = 0;
     *served = false;
 
-    for(int i = 0; i < NUM_SERVIZI; i++) {
+    for(int i = 0; i < NUM_SERVICES; i++) {
         stats[i].utenti_serviti = 0;
         stats[i].utenti_non_serviti = 0;
         stats[i].servizi_non_erogati = 0;
@@ -209,7 +209,7 @@ int main(int argc, char *argv[]) {
     int myPID = getpid();
     bool served = false;
 
-    localStats localCounters[NUM_SERVIZI];
+    localStats localCounters[NUM_SERVICES];
 
     #ifdef DEBUG
         printf("[%s] Avvio in corso. PID = %d\n", utenteID, myPID);
@@ -286,7 +286,7 @@ int main(int argc, char *argv[]) {
 
             for (int i = 0; i < n_request_rand; i++) {
                 // scelgo il servizio
-                request[i] = Randomizer(NUM_SERVIZI);
+                request[i] = Randomizer(NUM_SERVICES);
             }
 
             for (int i = 0; i < n_request_rand && !endDay; i++) {
@@ -307,9 +307,9 @@ int main(int argc, char *argv[]) {
                     struct timespec time_start, time_end;
                     clock_gettime(CLOCK_MONOTONIC, &time_start);
 
+                    if (endDay) break;
+                    
                     // invio richiesta e aspetto
-                    if (endDay) break; // TODO
-                        
                     SendMessageToErogatore(msgIdDispenser, utenteID, request[i], myPID);
                     served = ReceiveMessageFromOperator(msgIdUser, myPID, utenteID, &timeExecution);
 
@@ -351,7 +351,7 @@ int main(int argc, char *argv[]) {
 
         // Aggiorna le statistiche
         UpdateStaticStatsUsers(semID, stats, utenteID, &utenti_serviti, &utenti_non_serviti_day, &time_total, &servizi_non_erogati);
-        for (int i = 0; i < NUM_SERVIZI; i++) {
+        for (int i = 0; i < NUM_SERVICES; i++) {
             UpdateDynamicStatsUsers(semID, stats, utenteID, i, &localCounters[i].utenti_serviti, &localCounters[i].utenti_non_serviti, &localCounters[i].time_total, &localCounters[i].servizi_non_erogati);
         }
 

@@ -1,14 +1,14 @@
 #ifndef SERVIZI_H
 #define SERVIZI_H
 
-#define NUM_SERVIZI 6
+#define NUM_SERVICES 6
 
 typedef struct {
-    char nome[50];
-    int durata; // in minuti
-} Servizio;
+    char name[50];
+    int time; // in minuti
+} Service;
 
 // Elenco dei servizi disponibili
-extern Servizio servizi[NUM_SERVIZI];
+extern Service services[NUM_SERVICES];
 
 #endif

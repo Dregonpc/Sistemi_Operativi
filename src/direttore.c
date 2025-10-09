@@ -50,7 +50,7 @@ void readConfig(char *numOfWorkers, char *numOfUsers, char *numSportelli, char *
 }
 
 int RandomizeService() {
-    return rand() % NUM_SERVIZI;
+    return rand() % NUM_SERVICES;
 }
 
 int CalculateTimeDayUser() {
@@ -328,7 +328,7 @@ int main(int argc, char *argv[]) {
     MasterNotifyAndWait(semID, &sops, config, stats, true, &endSim, false, csvPath, direttoreID, msgIdDispenser, msgIdOperator, msgIdUser, msgIdNewUsers, shmID, shmIdStats, false);
 
     // Scorriamo i giorni e avvisiamo ogni volta i figli quando finisce un giorno
-    for (int giorni = 1; giorni <= SIM_DURATION && !endSim; giorni++) {
+    for (int day = 1; day <= SIM_DURATION && !endSim; day++) {
         #ifdef DEBUG
             printf("[Direttore] Inizio del giorno %d...\n", giorni);
         #endif
@@ -354,7 +354,7 @@ int main(int argc, char *argv[]) {
         SemWakeUpProcesses(semID, &sops, TOTAL_PROCESSES * 2, direttoreID);
         
         // Facciamo ripartire i figli per il nuovo giorno
-        endSim = (giorni == SIM_DURATION);
+        endSim = (day == SIM_DURATION);
         MasterNotifyAndWait(semID, &sops, config, stats, true, &endSim, true, csvPath, direttoreID, msgIdDispenser, msgIdOperator, msgIdUser, msgIdNewUsers, shmID, shmIdStats, false);
     }
 
@@ -363,13 +363,6 @@ int main(int argc, char *argv[]) {
         printf("[Direttore] Simulazione finita, mando il segnale di terminazione a tutti i figli...\n");
     #endif
     kill(0, SIGTERM); // Invia SIGTERM a tutti i processi
-    
-    // Aspetta un momento per permettere ai processi di ricevere il segnale
-    // SleepNanoseconds(20000000); // 20000000 = 0.02 sec // SEMBREREBBE FUNZIONARE ANCHE SENZA
-
-    // Avendo fatto un campo minato in tutte le SlaveNotifyAndWait, sembrerebbe funzionare senza doppio segnale
-    // kill(0, SIGTERM);
-    // SleepNanoseconds(20000000);
 
     // Aspetta che tutti i processi terminino
     #ifdef DEBUG

@@ -10,7 +10,7 @@ typedef struct {
     int user_id; // PID dell'utente che ha richiesto il messaggio
     char text[MAX_TEXT];
     long time_for_execution; // Tempo che l'operatore impiega per eseguire il servizio richiesto dall'utente
-} Messaggio;
+} Message;
 
 typedef struct {
     long mtype; // Deve essere > 0

@@ -45,12 +45,12 @@ void ReceiveAndSendMessage(int msgIdDispenser, int msgIdOperator, char *erogator
     int ticket_number = 1;
 
     while (!endDay) {
-        Messaggio msg;
+        Message msg;
         ssize_t n;
 
         // ricevo finché non ottengo un messaggio valido o endDay
         do {
-            n = msgrcv(msgIdDispenser, &msg, sizeof(Messaggio) - sizeof(long), 0, 0);
+            n = msgrcv(msgIdDispenser, &msg, sizeof(Message) - sizeof(long), 0, 0);
         } while (n < 0 && errno == EINTR && !endDay);
 
         if (endDay) {
@@ -79,7 +79,7 @@ void ReceiveAndSendMessage(int msgIdDispenser, int msgIdOperator, char *erogator
             printf("[%s] Ticket %d assegnato all'utente '%s' per il servizio %ld.\n", erogatoreID, msg.ticket_id, msg.text, realService);
         #endif
 
-        if (msgsnd(msgIdOperator, &msg, sizeof(Messaggio) - sizeof(long), 0) < 0) {
+        if (msgsnd(msgIdOperator, &msg, sizeof(Message) - sizeof(long), 0) < 0) {
             #ifdef DEBUG
                 perror("msgsnd");
             #endif

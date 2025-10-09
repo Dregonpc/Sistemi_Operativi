@@ -1,7 +1,7 @@
 #include "../headers/servizi.h"
 
 // Elenco dei servizi disponibili
-Servizio servizi[NUM_SERVIZI] = {
+Service services[NUM_SERVICES] = {
     {"Invio e ritiro pacchi", 10},
     {"Invio e ritiro lettere e raccomandate", 8},
     {"Prelievi e versamenti Bancoposta", 6},

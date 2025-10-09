@@ -42,23 +42,23 @@ typedef struct {
     double tempo_erogazione_servizi_day; // Tempo medio di erogazione dei servizi nella giornata
 
     // Contatori divisi per servizi
-    int utenti_serviti_day_sim_services[NUM_SERVIZI]; 
-    int utenti_serviti_tot_sim_services[NUM_SERVIZI]; 
-    int servizi_erogati_day_sim_services[NUM_SERVIZI]; 
-    int servizi_erogati_tot_sim_services[NUM_SERVIZI]; 
-    int servizi_non_erogati_tot_sim_services[NUM_SERVIZI]; 
-    double utenti_serviti_avg_services[NUM_SERVIZI]; 
-    double servizi_erogati_avg_services[NUM_SERVIZI]; 
-    double servizi_non_erogati_avg_services[NUM_SERVIZI]; 
-    double tempo_attesa_utenti_sim_services[NUM_SERVIZI]; 
-    double tempo_attesa_utenti_day_services[NUM_SERVIZI];
-    double tempo_erogazione_servizi_sim_services[NUM_SERVIZI]; 
-    double tempo_erogazione_servizi_day_services[NUM_SERVIZI];
+    int utenti_serviti_day_sim_services[NUM_SERVICES]; 
+    int utenti_serviti_tot_sim_services[NUM_SERVICES]; 
+    int servizi_erogati_day_sim_services[NUM_SERVICES]; 
+    int servizi_erogati_tot_sim_services[NUM_SERVICES]; 
+    int servizi_non_erogati_tot_sim_services[NUM_SERVICES]; 
+    double utenti_serviti_avg_services[NUM_SERVICES]; 
+    double servizi_erogati_avg_services[NUM_SERVICES]; 
+    double servizi_non_erogati_avg_services[NUM_SERVICES]; 
+    double tempo_attesa_utenti_sim_services[NUM_SERVICES]; 
+    double tempo_attesa_utenti_day_services[NUM_SERVICES];
+    double tempo_erogazione_servizi_sim_services[NUM_SERVICES]; 
+    double tempo_erogazione_servizi_day_services[NUM_SERVICES];
 
     // Rapporto tra operatori disponibili e sportelli esistenti, per ogni servizio e per ogni giornata
-    int operatori_disponibili_services[NUM_SERVIZI];
-    int sportelli_esistenti_services[NUM_SERVIZI];
-    double rapporto_operatori_sportelli_services[NUM_SERVIZI]; // Operatori servizio / Sportelli servizio
+    int operatori_disponibili_services[NUM_SERVICES];
+    int sportelli_esistenti_services[NUM_SERVICES];
+    double rapporto_operatori_sportelli_services[NUM_SERVICES]; // Operatori servizio / Sportelli servizio
 
     char* termine_simulazione;
 } Stats;
