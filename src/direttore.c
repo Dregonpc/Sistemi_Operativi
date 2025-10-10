@@ -330,7 +330,7 @@ int main(int argc, char *argv[]) {
     // Scorriamo i giorni e avvisiamo ogni volta i figli quando finisce un giorno
     for (int day = 1; day <= SIM_DURATION && !endSim; day++) {
         #ifdef DEBUG
-            printf("[Direttore] Inizio del giorno %d...\n", giorni);
+            printf("[Direttore] Inizio del giorno %d...\n", day);
         #endif
 
         // La simulazione continua, resettiamo le statistiche daily
@@ -341,12 +341,12 @@ int main(int argc, char *argv[]) {
 
         // simulo il passare dei minuti
         #ifdef DEBUG
-            printf("[Direttore] Giorno %d in corso (%d minuti)...\n", giorni, MINUTES_FOR_DAY);
+            printf("[Direttore] Giorno %d in corso (%d minuti)...\n", day, MINUTES_FOR_DAY);
         #endif
         SimulateDay();
 
         #ifdef DEBUG
-            printf("[Direttore] Avviso i figli che è terminato il giorno %d...\n", giorni);
+            printf("[Direttore] Avviso i figli che è terminato il giorno %d...\n", day);
         #endif
         kill(0, SIGUSR2); // Fine giornata
 
