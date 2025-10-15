@@ -23,8 +23,8 @@ typedef struct {
     int servizi_erogati_tot_day; // Numero di servizi erogati giornalmente nella simulazione
     int servizi_non_erogati_tot_sim; // Numero di servizi non erogati totali nella simuazione (comprende utenti non serviti anche se avevano richiesto il servizio)
     int servizi_non_erogati_tot_day; // Numero di servizi non erogati totali nella giornata (comprende utenti non serviti anche se avevano richiesto il servizio)
-    int operatori_attivi_day; // Numero di operatori attivi durante la giornata //? TO FIX
-    int operatori_attivi_sim; // Numero di operatori attivi durante la simulazione //? TO FIX
+    int operatori_attivi_day; // Numero di operatori attivi durante la giornata 
+    int operatori_attivi_sim; // Numero di operatori attivi durante la simulazione
     int pause_effettuate_tot_sim; // Numero totale di pause effettuate durante la simulazione
     int pause_effettuate_tot_day; // Numero totale di pause effettuate giornalmente durante la simulazione
     int durata_simulazione; // Numero di giorni che dura la simulazione (viene incrementato ogni inizio giornata dal direttore)

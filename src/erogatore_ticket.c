@@ -9,7 +9,6 @@
 #include "../headers/messaggi.h"
 #include "../headers/SemsLib.h"
 
-// flag globali gestite dai signal handler
 static volatile sig_atomic_t endDay = 0;
 static volatile sig_atomic_t endSimulation = 0;
 

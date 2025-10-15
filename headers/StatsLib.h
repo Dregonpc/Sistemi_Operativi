@@ -60,7 +60,6 @@ void WriteDailyStatsCSV(const char *filename, Stats* stats);
  */
 void WriteFinalStatsCSV(const char *filename, Stats* stats);
 
-//? Creare una struttura per passare un solo puntatore per le stats?
 /**
  * @brief Aggiorna le statistiche da parte gli operatori
  * @param semID Identificativo del semaforo per il lock
@@ -74,7 +73,6 @@ void WriteFinalStatsCSV(const char *filename, Stats* stats);
  */
 void UpdateStatsOperators(int semID, Stats* stats, char *operatoreId, int IndexServizio, int* servizi_erogati, int* operatori_attivi, int* counter_pause, double* tempo_erogazione);
 
-//? Creare una struttura per passare un solo puntatore per le stats?
 /**
  * @brief Aggiorna le statistiche da parte degli utenti
  * @param semID Identificativo del semaforo per il lock
@@ -87,7 +85,6 @@ void UpdateStatsOperators(int semID, Stats* stats, char *operatoreId, int IndexS
  */
 void UpdateStaticStatsUsers(int semID, Stats* stats, char *utenteId, int* utenti_serviti, int* utenti_non_serviti_day, long* time_total, int* servizi_non_erogati);
 
-//? Creare una struttura per passare un solo puntatore per le stats?
 /**
  * @brief Aggiorna le statistiche da parte degli utenti
  * @param semID Identificativo del semaforo per il lock

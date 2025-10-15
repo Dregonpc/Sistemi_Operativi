@@ -74,7 +74,8 @@ bool ChoosePresence(int p_serv, char* utenteId) {
 bool CheckPresenceRequiredService(DailyConfig* config, int IndexServizioRichiesto, char* utenteID) {
     int N = config->num_sportelli;
     for (int i = 0; i < N; i++) {
-        if (!config->sportelli[i].disponibile && config->sportelli[i].indexServizioOfferto == IndexServizioRichiesto) { // Se lo sportello non è disponibile significa che qualche operatore l'ha occupato, si potrebbe sostituire con config->sportelli[i].idOperatore != ""
+        if (!config->sportelli[i].disponibile && config->sportelli[i].indexServizioOfferto == IndexServizioRichiesto) { 
+            // Se lo sportello non è disponibile significa che qualche operatore l'ha occupato
             #ifdef DEBUG
                 printf("[%s] Ho trovato un operatore che può svolgere la mia richiesta (%d)\n", utenteID, IndexServizioRichiesto);
             #endif
@@ -354,7 +355,6 @@ int main(int argc, char *argv[]) {
             UpdateDynamicStatsUsers(semID, stats, utenteID, i, &localCounters[i].utenti_serviti, &localCounters[i].utenti_non_serviti, &localCounters[i].time_total, &localCounters[i].servizi_non_erogati);
         }
 
-        // loop riparte per il giorno successivo
         #ifdef DEBUG
             printf("[%s] Fine giornata, ci vediamo domani!\n", utenteID);
         #endif

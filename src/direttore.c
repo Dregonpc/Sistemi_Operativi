@@ -26,7 +26,7 @@ int P_SERV_MAX; // Probabilità per l'utente
 int SIM_DURATION; // Durata della simulazione in giorni
 int EXPLODE_THRESHOLD;  // max numero di utenti a fine giornata che non sono stati serviti --> se supera la soglia termina la simulazione
 int MINUTES_FOR_DAY; // 480 minuti = 8 ore
-int SIMULATED_MINUTE; // 4000000 di nanosecondi = 4ms
+int SIMULATED_MINUTE; // 400000 di nanosecondi = 0.4ms
 
 // Handler per tutti i segnali
 static void signalHandler(int signo) {

@@ -25,6 +25,8 @@ I principali obiettivi sono:
 Diagramma di flusso per visualizzare la gestione delle giornate tramite le barriere.
 Nella nostra interpretazione, gli operatori occupano gli sportelli prima dell'inizio della giornata: abbiamo immaginato che, come nella realtà, arrivino qualche minuto prima dell'apertura, così da essere pronti per l'inizio della giornata (motivo per il quale abbiamo introdotto la barriera sia a inzio che a fine giornata).
 
+Inoltre è possibile aggiungere dopo aver avviato la simulazione nuovi utenti che verranno effettivamente creati nel frangente tra una giornata e un'altra, con un massimo di 20 utenti per volta.
+
 ---
 
 ### Semafori
