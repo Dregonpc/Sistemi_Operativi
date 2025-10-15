@@ -320,15 +320,14 @@ int main(int argc, char *argv[]) {
                         sec--;
                         nsec += (long)1000000000;
                     }
-
-                    // Sottraiammo al tempo totale il tempo che ci ha messo l'operatore per servirmi per trovare il tempo di attesa in coda
-                    localCounters[request[i]].time_total = nsec - timeExecution;
-                    time_total += localCounters[request[i]].time_total;
                     
                     // Se siamo qui e served è false, significa che abbiamo richiesto un servizio ma l'operatore non l'ha erogato
                     if (!served) {
                         servizi_non_erogati++;
                         localCounters[request[i]].servizi_non_erogati++;
+                    } else {
+                        localCounters[request[i]].time_total = nsec - timeExecution;
+                        time_total += localCounters[request[i]].time_total;
                     }
                 }
 
